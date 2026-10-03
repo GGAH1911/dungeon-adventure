@@ -133,3 +133,11 @@ function addMaterial(id, n) {
     showMessage(`새 마법이 열렸어요! ${ENCHANTS[def.enchant].name} (대장장이)`, 3, true);
   }
 }
+
+// 게임을 켤 때 저장은 main.js 에서 먼저 읽혀요. 그 뒤에 읽히는 파일들(안내·기록·연출·직업 등)도
+// 저장에 새 칸(기본값)을 채울 수 있게, 모든 파일이 읽힌 뒤 한 번 더 알려줘요.
+window.addEventListener("load", () => {
+  if (typeof game === "undefined" || !game.profile) return;
+  hookRun("profileLoaded", game.profile);
+  if (game.player && typeof refreshGear === "function") refreshGear();
+});
