@@ -33,8 +33,12 @@ function coopOn() { return !!(game.profile && coopPr().on); }
 function coopActive() { return coopOn() && game.players && game.players.length > 1; }
 function coopFriend() { return game.players && game.players[1]; }
 
+// 한 태블릿 둘이 하기는 쓰지 않아요 (화면이 좁아서). 메뉴에서 숨기고, 둘이 하는 엔진(game.players 등)은
+// 나중에 같은 Wi-Fi 네트워크 둘이 하기에서 다시 써요.
+const COOP_LOCAL_MENU = false;
 hookOn("profileLoaded", (pr) => {
   pr.coop = pr.coop || { on: false, color: 0 };
+  if (!COOP_LOCAL_MENU) pr.coop.on = false;
   if (pr.coop.color === undefined) pr.coop.color = 0;
 }, 50);
 
@@ -61,7 +65,7 @@ function coopToggle() {
 }
 
 hookOn("menuItems", (items) => {
-  if (game.scene !== "lobby") return;
+  if (!COOP_LOCAL_MENU || game.scene !== "lobby") return;
   const pr = game.profile; coopPr();
   items.push({ label: pr.coop.on ? "둘이 하기: 켜짐 (끄기)" : "둘이 하기: 꺼짐 (켜기)", act: coopToggle });
   if (pr.coop.on) items.push({ label: `친구 옷 색: ${COOP_COLORS[pr.coop.color].name} (바꾸기)`, act: () => { pr.coop.color = (pr.coop.color + 1) % COOP_COLORS.length; saveProfile(); } });
