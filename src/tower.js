@@ -57,11 +57,12 @@ function buildArenaFloor(f) {
   if (pattern === 3) { pillar(8, 8); pillar(13, 13); pillar(8, 13, 1); pillar(13, 8, 1); }
   finishWalls(makeRandom(f * 97 + 3));
   world.rooms = [{ x: 3, y: 3, w: N - 6, h: N - 6, cx: c, cy: c }];
-  world.start = { x: c + 3.5, y: c + 3.5 };
+  // 시작 자리는 기둥과 겹치지 않는 곳으로 (앞쪽 가운데)
+  world.start = findFreeSpot(c + 2.5, c + 2.5, 1.0) || findFreeSpot(c + 2.5, c + 2.5, 0.35) || { x: c, y: c };
   world.explored = null;
   world.mini = null;
   // 계단은 뒤쪽 벽 앞에 (처음엔 닫혀 있어요)
-  stairs = { x: c - 4.5, y: c - 4.5, open: false, glow: 0 };
+  stairs = { x: c - 6, y: c - 6, open: false, glow: 0 };
   chests = [];
 }
 
@@ -93,6 +94,8 @@ function spawnWave() {
   if (bossType) {
     const m = createMonster(bossType, world.W / 2 - 1.5, world.H / 2 - 1.5, L + 2);
     makeBoss(m);
+    const free = findFreeSpot(m.x, m.y, m.r);
+    if (free) { m.x = free.x; m.y = free.y; }
     monsters.push(m);
     sfx.boss();
     showMessage(`보스 등장! ${m.name}`, 2.5, false, "#ff7070");

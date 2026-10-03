@@ -47,7 +47,8 @@ function resetEffects() {
 }
 
 function placePlayer() {
-  game.player = createPlayer(world.start.x, world.start.y);
+  const spot = findFreeSpot(world.start.x, world.start.y, 0.35) || world.start;
+  game.player = createPlayer(spot.x, spot.y);
   camera.x = game.player.x;
   camera.y = game.player.y;
 }

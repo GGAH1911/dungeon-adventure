@@ -163,12 +163,33 @@ function hitsWall(x, y, r) {
 
 // 벽에 막히면 미끄러지듯 움직이기
 function moveEntity(e, dx, dy) {
+  // 혹시 벽 안에 끼어 있으면 그냥 움직이게 해서 빠져나오게 해요 (갇힘 방지)
+  if (hitsWall(e.x, e.y, e.r)) {
+    const free = findFreeSpot(e.x, e.y, e.r, 1.5);
+    if (free) { e.x = free.x; e.y = free.y; }
+    else { e.x += dx; e.y += dy; }
+    return;
+  }
   // 너무 빠르면 나눠서 움직여요 (벽 뚫기 방지)
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.2));
   for (let i = 0; i < steps; i++) {
     if (!hitsWall(e.x + dx / steps, e.y, e.r)) e.x += dx / steps;
     if (!hitsWall(e.x, e.y + dy / steps, e.r)) e.y += dy / steps;
   }
+}
+
+// (x, y) 근처에서 벽에 안 닿는 가장 가까운 자리 찾기
+function findFreeSpot(x, y, r, maxDist = 6) {
+  if (!hitsWall(x, y, r)) return { x, y };
+  for (let d = 0.25; d <= maxDist; d += 0.25) {
+    const n = Math.max(8, Math.round(d * 12));
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const nx = x + Math.cos(a) * d, ny = y + Math.sin(a) * d;
+      if (!hitsWall(nx, ny, r)) return { x: nx, y: ny };
+    }
+  }
+  return null;
 }
 
 // 두 점 사이에 벽이 없나 (활 쏘기, 알아채기)
