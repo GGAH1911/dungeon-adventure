@@ -129,9 +129,8 @@ function drawTouchControls() {
     ctx.restore();
     // 그림(아이콘) + 작은 글자. 아이콘이 없으면 글자만
     if (b.icon && typeof hasIcon === "function" && hasIcon(b.icon)) {
-      const small = b.r < 25; // 아주 작은 버튼(화살 바꾸기 등)은 그림만
-      drawIcon(b.locked ? "lock" : b.icon, b.x, b.y - (small ? 0 : b.r * 0.14), b.r * (small ? 1.15 : 1.05), { gray: b.locked });
-      if (!small && b.label) text(b.label, b.x, b.y + b.r * 0.72, Math.max(9, b.r * 0.26), "#fff", "center");
+      drawIcon(b.locked ? "lock" : b.icon, b.x, b.y - b.r * 0.14, b.r * 1.05, { gray: b.locked });
+      if (b.label) text(b.label, b.x, b.y + b.r * 0.72, Math.max(9, b.r * 0.26), "#fff", "center"); // 작은 버튼도 이름을 보여줘요
     } else text(b.label, b.x, b.y + 6, Math.max(12, b.r * 0.36), "#fff", "center");
   }
   hookRun("touchDraw"); // 둘이 하기: 2번 조이스틱 (coop.js)
