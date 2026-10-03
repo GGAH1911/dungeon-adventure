@@ -5,10 +5,11 @@ const SAVE_KEY = "dungeon-adventure-save-v1";
 
 function newProfile() {
   return {
-    level: 1, xp: 0, emeralds: 0, potions: 1,
-    weapons: ["wood"], armors: ["cloth"],
-    weapon: "wood", armor: "cloth",
-    cleared: [],
+    level: 1, xp: 0, emeralds: 0, potions: 1, arrows: 10,
+    weapons: ["wood"], armors: ["cloth"], bows: ["bow"],
+    weapon: "wood", armor: "cloth", bow: "bow",
+    cleared: [],   // 깬 맵
+    best: {},      // 맵마다 깬 가장 높은 레벨
   };
 }
 
@@ -29,6 +30,11 @@ function resetProfile() {
   saveProfile();
 }
 
+function ownedList(kind) {
+  const pr = game.profile;
+  return kind === "weapon" ? pr.weapons : kind === "bow" ? pr.bows : pr.armors;
+}
+
 function owns(kind, id) {
-  return (kind === "weapon" ? game.profile.weapons : game.profile.armors).includes(id);
+  return ownedList(kind).includes(id);
 }

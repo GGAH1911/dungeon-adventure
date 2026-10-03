@@ -30,6 +30,11 @@ function drawHUD() {
   ctx.fillRect(100, y + 1, 14, 18);
   ctx.fillStyle = "#ffd6f2"; ctx.fillRect(103, y - 3, 8, 5);
   text(`${pr.potions}`, 120, y + 18, 20);
+  // 화살
+  ctx.strokeStyle = "#c9a36a"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(158, y + 18); ctx.lineTo(174, y + 2); ctx.stroke();
+  ctx.fillStyle = "#dfe6ee"; ctx.fillRect(172, y, 5, 5);
+  text(p.bow.infinite ? "∞" : `${pr.arrows}`, 182, y + 18, 20);
   y += 30;
 
   // 구르기 준비
@@ -44,8 +49,8 @@ function drawHUD() {
   const aColor = p.armor.legendary ? `hsl(45, 100%, ${65 + 15 * Math.sin(game.time * 6)}%)` : "#fff";
   const eqY = touch.show ? 150 : H - 70;
   if (!touch.show) {
-    text(`무기: ${p.weapon.name}`, 16, eqY, 16, wColor);
-    text(`갑옷: ${p.armor.name}`, 16, eqY + 24, 16, aColor);
+    text(`무기: ${p.weapon.name} · 활: ${p.bow.name}`, 16, eqY - 24, 16, wColor);
+    text(`갑옷: ${p.armor.name}`, 16, eqY, 16, aColor);
   }
 
   // 메뉴 버튼 (오른쪽 위)
@@ -55,7 +60,7 @@ function drawHUD() {
 
   // 장소 정보
   if (game.scene === "dungeon") {
-    text(game.mapDef.name, W - 124, 40, 20, "#ffe27a", "right");
+    text(`${game.mapDef.name} Lv ${game.mapLevel}`, W - 124, 40, 20, "#ffe27a", "right");
     const bottom = drawMinimap(p, monsters);
     text(`남은 몬스터 ${monsters.length}`, W - 16, (bottom || 200) + 26, 17, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
   } else if (game.scene === "lobby") {
@@ -76,7 +81,7 @@ function drawHUD() {
 
   if (!touch.show && !game.overlay) {
     const hint = game.scene === "dungeon"
-      ? "이동 WASD/방향키 · 공격 스페이스/J · 구르기 Shift/K · 물약 Q · 메뉴 ESC"
+      ? "이동 WASD/방향키 · 공격 스페이스/J · 활 L · 구르기 Shift/K · 물약 Q · 메뉴 ESC"
       : "이동 WASD/방향키 · 말 걸기 E · 메뉴 ESC";
     text(hint, W / 2, H - 14, 14, "rgba(255,255,255,0.55)", "center");
   }

@@ -81,6 +81,10 @@ const sfx = {
     tone(1568, 0.4, "triangle", 0.06, null, 0.32);
   },
   arrow() { noise(0.08, 0.12, 3000); },
+  orb() { tone(700, 0.3, "sine", 0.05, 1400); },
+  bowShot() { noise(0.06, 0.15, 2200); tone(300, 0.06, "triangle", 0.05, 160); },
+  bowEmpty() { tone(250, 0.06, "square", 0.04); },
+  legendBow() { tone(1500, 0.18, "triangle", 0.05, 3000); noise(0.12, 0.12, 4000); },
   fuse() { noise(0.9, 0.08, 5000, "highpass"); },
   boom() { noise(0.6, 0.5, 400, "lowpass"); tone(70, 0.5, "sawtooth", 0.12, 30); },
   slam() { noise(0.25, 0.3, 250, "lowpass"); tone(60, 0.25, "square", 0.08, 40); },

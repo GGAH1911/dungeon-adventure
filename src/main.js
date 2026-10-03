@@ -30,7 +30,7 @@ function showMessage(str, time = 2, rainbowText = false, color = null) {
 }
 
 function resetEffects() {
-  particles = []; pickups = []; floatTexts = []; arrows = []; monsters = [];
+  particles = []; pickups = []; floatTexts = []; arrows = []; monsters = []; shots = [];
   clearLegendary();
   pathFrom = { x: -1, y: -1 };
   game.endTimer = 0;
@@ -56,17 +56,18 @@ function enterLobby(msg) {
   if (msg) showMessage(msg, 2);
 }
 
-function startDungeon(def) {
+function startDungeon(def, level) {
   resetEffects();
   const rand = generateDungeon(def);
-  spawnMonsters(def, rand);
+  spawnMonsters(def, level, rand);
   game.scene = "dungeon";
   game.overlay = null;
   game.mapDef = def;
+  game.mapLevel = level;
   placePlayer();
-  game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0 };
+  game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0, arrows: 0 };
   sfx.wave();
-  showMessage(`${def.name}  ·  몬스터를 모두 물리치세요!`, 3);
+  showMessage(`${def.name} Lv ${level}  ·  몬스터를 모두 물리치세요!`, 3);
 }
 
 // ----- 싸우기 -----
@@ -105,13 +106,15 @@ function swordAttack(p) {
   }
 }
 
-function damageMonster(m, dmg, fromX, fromY, legendary) {
+// knock: 밀려나는 정도 (화살은 조금만)
+function damageMonster(m, dmg, fromX, fromY, legendary, knock = 1) {
   if (m.hp <= 0) return;
+  if (m.def.armor) dmg *= 1 - m.def.armor; // 갑옷 입은 몬스터는 덜 아파요
   m.hp -= dmg;
   m.flash = 0.12;
-  m.stunTimer = 0.25;
+  m.stunTimer = 0.25 * knock;
   const dx = m.x - fromX, dy = m.y - fromY, d = Math.hypot(dx, dy) || 1;
-  const push = legendary ? 16 : 9;
+  const push = (legendary ? 16 : 9) * knock;
   m.knockX = (dx / d) * push; m.knockY = (dy / d) * push;
   m.aggro = true;
   const shown = Math.round(dmg * 10) / 10;
@@ -127,15 +130,16 @@ function killMonster(m, legendary) {
   spawnBurst(m.x, m.y, colors);
   if (legendary) legendBurst(m.x, m.y);
   sfx.kill();
-  gainXp(Math.round(def.xp * game.mapDef.hpMul));
+  gainXp(Math.max(1, Math.round(def.xp * rewardMul(game.mapLevel))));
   const drops = def.emeraldCount || 1;
   for (let i = 0; i < drops; i++) if (Math.random() < def.emerald) dropPickup("emerald", m.x, m.y);
   if (Math.random() < CONFIG.monster.appleChance) dropPickup("apple", m.x, m.y);
+  if (Math.random() < (def.arrowDrop || CONFIG.monster.arrowChance)) dropPickup("arrows", m.x, m.y);
   // 슬라임은 쪼개져요!
   if (def.splits) {
     for (let i = 0; i < def.splitCount; i++) {
       const a = Math.random() * Math.PI * 2;
-      const c = createMonster(def.splits, m.x + Math.cos(a) * 0.3, m.y + Math.sin(a) * 0.3, game.mapDef);
+      const c = createMonster(def.splits, m.x + Math.cos(a) * 0.3, m.y + Math.sin(a) * 0.3, game.mapLevel);
       c.aggro = true;
       c.appearTimer = 0.25;
       c.stunTimer = 0.2; c.knockX = Math.cos(a) * 5; c.knockY = Math.sin(a) * 5;
@@ -178,14 +182,16 @@ function endRun(win) {
   const r = game.run;
   let bonus = 0;
   if (win) {
-    bonus = game.mapDef.reward;
+    bonus = clearBonus(game.mapDef, game.mapLevel);
     game.profile.emeralds += bonus;
     if (!game.profile.cleared.includes(game.mapDef.id)) game.profile.cleared.push(game.mapDef.id);
+    const best = game.profile.best[game.mapDef.id] || 0;
+    if (game.mapLevel > best) game.profile.best[game.mapDef.id] = game.mapLevel;
     sfx.clear();
     showMessage("던전 클리어!", 2, true);
     for (let i = 0; i < 3; i++) addRing(game.player.x, game.player.y, { speed: 6, life: 0.6, hue: i * 120, delay: i * 0.15 });
   }
-  game.result = { win, mapName: game.mapDef.name, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus };
+  game.result = { win, mapName: `${game.mapDef.name} Lv ${game.mapLevel}`, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus };
   game.endTimer = win ? 1.8 : 1.4;
   saveProfile();
 }
@@ -224,6 +230,13 @@ function onPickup(item) {
   if (item.type === "emerald") {
     game.profile.emeralds++;
     if (game.run) game.run.emeralds++;
+    sfx.emerald();
+  } else if (item.type === "arrows") {
+    const pr = game.profile;
+    const n = 3 + Math.floor(Math.random() * 3);
+    const got = Math.min(n, CONFIG.player.maxArrows - pr.arrows);
+    pr.arrows += got;
+    addFloatText(p.x, p.y, got > 0 ? `화살 +${got}` : "화살 가득", "#e8d0a0", 16);
     sfx.emerald();
   } else if (item.type === "apple") {
     p.hp = Math.min(p.maxHp, p.hp + 2);
@@ -276,6 +289,8 @@ function update(dt) {
   for (const m of monsters) updateMonster(m, p, dt);
   monsters = monsters.filter((m) => m.hp > 0);
   updateArrows(p, dt);
+  updateShots(dt);
+  monsters = monsters.filter((m) => m.hp > 0);
 
   // 황금 갑옷: 체력이 저절로 차요
   if (p.armor.regen && p.hp < p.maxHp && p.hp > 0) {
@@ -357,6 +372,7 @@ function draw() {
   for (const m of monsters) if (onScreen(m.x, m.y)) things.push({ depth: m.x + m.y, draw: () => drawMonster(m) });
   for (const e of pickups) things.push({ depth: e.x + e.y, draw: () => drawPickup(e) });
   for (const a of arrows) things.push({ depth: a.x + a.y, draw: () => drawArrow(a) });
+  for (const sh of shots) things.push({ depth: sh.x + sh.y, draw: () => drawShot(sh) });
   for (const q of particles) things.push({ depth: q.x + q.y, draw: () => drawBox(q.x - q.size / 2, q.y - q.size / 2, q.z, q.size, q.size, q.size, q.color) });
   things.sort((a, b) => a.depth - b.depth);
   for (const t of things) t.draw();

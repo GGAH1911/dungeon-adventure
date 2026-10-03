@@ -20,7 +20,8 @@ function createPlayer(x, y) {
     hp: maxHp, maxHp,
     weapon: weaponById(pr.weapon),
     armor: armorById(pr.armor),
-    attackTimer: 0, swingTimer: 0,
+    bow: bowById(pr.bow),
+    attackTimer: 0, swingTimer: 0, bowCooldown: 0, bowTimer: 0,
     rollTimer: 0, rollCooldown: 0, rollX: 0, rollY: 0,
     hurtTimer: 0, flash: 0, regenTimer: 0,
     moving: false, walkTime: 0,
@@ -30,6 +31,7 @@ function createPlayer(x, y) {
 // 장비 바꾸기 (저장도 같이)
 function equipItem(kind, item) {
   if (kind === "weapon") { game.profile.weapon = item.id; game.player.weapon = item; }
+  else if (kind === "bow") { game.profile.bow = item.id; game.player.bow = item; }
   else { game.profile.armor = item.id; game.player.armor = item; }
   saveProfile();
 }
@@ -56,6 +58,8 @@ function updatePlayer(p, dt) {
   p.rollCooldown -= dt;
   p.hurtTimer -= dt;
   p.flash -= dt;
+  p.bowCooldown -= dt;
+  p.bowTimer -= dt;
 
   // 화면 기준 방향 (오른쪽 +, 아래 +) : 키보드 + 터치 조이스틱
   let sx = touch.moveX, sy = touch.moveY;
@@ -102,6 +106,9 @@ function updatePlayer(p, dt) {
     sfx.roll();
   }
 
+  // 활 쏘기 (누르고 있으면 계속)
+  if (game.scene === "dungeon" && isDown("KeyL", "TouchBow") && p.bowCooldown <= 0) fireBow(p);
+
   // 물약 마시기
   if (wasPressed("KeyQ", "TouchPotion") && game.scene === "dungeon") drinkPotion(p);
 }
@@ -137,7 +144,8 @@ function drawPlayer(p) {
     shimmer: legendArmor ? game.time : undefined,
   });
   if (rolling) return;
-  if (p.weapon.legendary) drawLegendSword(p); // legendary.js
+  if (p.bowTimer > 0) drawBowInHand(p); // bow.js
+  else if (p.weapon.legendary) drawLegendSword(p); // legendary.js
   else drawSword(p);
 }
 

@@ -64,7 +64,11 @@ function touchButtons() {
     { code: "TouchAttack", label: "공격", x: W - 105 * s, y: H - 115 * s, r: 62 * s, color: "#e25555" },
     { code: "TouchRoll", label: "구르기", x: W - 235 * s, y: H - 70 * s, r: 44 * s, color: "#4aa3df" },
   ];
-  if (game.scene === "dungeon") list.push({ code: "TouchPotion", label: `물약 ${game.profile.potions}`, x: W - 75 * s, y: H - 250 * s, r: 38 * s, color: "#c64fa0" });
+  if (game.scene === "dungeon") {
+    list.push({ code: "TouchPotion", label: `물약 ${game.profile.potions}`, x: W - 75 * s, y: H - 250 * s, r: 38 * s, color: "#c64fa0" });
+    const arrowsLabel = game.player.bow.infinite ? "활 ∞" : `활 ${game.profile.arrows}`;
+    list.push({ code: "TouchBow", label: arrowsLabel, x: W - 215 * s, y: H - 195 * s, r: 48 * s, color: game.player.bow.legendary ? rainbow(game.time * 200, 50) : "#b07a2a" });
+  }
   if (game.nearNpc) list.push({ code: "TouchUse", label: game.nearNpc.short, x: W - 225 * s, y: H - 195 * s, r: 46 * s, color: "#3fbf6f" });
   return list;
 }

@@ -42,9 +42,29 @@ const ARMORS = [
     body: "#ffcf33", legs: "#f0b400", helmet: "#ffe066" },
 ];
 
+// ===== 활 =====
+// 화살이 있어야 쏠 수 있어요. 화살은 가게에서 사거나 몬스터가 떨어뜨려요.
+//   damage   화살 공격력       cooldown 다시 쏠 때까지 (초)
+//   speed    화살 속도          pierce   몬스터를 몇 마리 더 뚫고 지나가나
+//   multishot 한 번에 몇 발 (화살은 1개만 써요)
+
+const BOWS = [
+  { id: "bow", name: "나무 활", price: 0, damage: 1.5, cooldown: 0.5, speed: 13, color: "#a0703a" },
+  { id: "longbow", name: "긴 활", price: 15, damage: 2.5, cooldown: 0.55, speed: 16, pierce: 1, color: "#7a4f28" },
+  { id: "triple", name: "세 갈래 활", price: 28, damage: 2, cooldown: 0.6, speed: 14, multishot: 3, color: "#2f8a64" },
+  { id: "crossbow", name: "석궁", price: 40, damage: 4.5, cooldown: 0.8, speed: 19, pierce: 2, color: "#5a5a66" },
+
+  // ↓ 치트로만 얻을 수 있는 전설의 활 (화살이 줄지 않아요)
+  { id: "legend", name: "무지개 별똥별 활", secret: true, legendary: true, price: 0,
+    damage: 8, cooldown: 0.22, speed: 24, multishot: 5, pierce: 99, infinite: true, color: "#ffffff" },
+];
+
+const ARROW_PACK = { id: "arrows", name: "화살 10개", price: 3, count: 10 };
+
 // 물약: 가게에서 사서 던전에서 마셔요 (키보드 Q, 터치 "물약" 버튼)
 const POTION = { id: "potion", name: "체력 물약", price: 4, heal: 4 };
 
 function weaponById(id) { return WEAPONS.find((w) => w.id === id) || WEAPONS[0]; }
 function armorById(id) { return ARMORS.find((a) => a.id === id) || ARMORS[0]; }
+function bowById(id) { return BOWS.find((b) => b.id === id) || BOWS[0]; }
 function sellPrice(item) { return Math.max(1, Math.floor(item.price / 2)); }

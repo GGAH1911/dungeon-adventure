@@ -4,10 +4,11 @@
 let monsters = [];
 let arrows = [];
 
-function createMonster(type, x, y, mapDef) {
+// level: 맵 레벨. 높을수록 체력과 공격력이 커져요 (maps.js 의 계산)
+function createMonster(type, x, y, level = 1) {
   const def = MONSTERS[type];
-  const hpMul = mapDef ? mapDef.hpMul : 1;
-  const dmgMul = mapDef ? mapDef.damageMul : 1;
+  const hpMul = monsterHpMul(level);
+  const dmgMul = monsterDamageMul(level);
   const size = def.size || 1;
   return {
     type, def, x, y,
@@ -27,7 +28,7 @@ function createMonster(type, x, y, mapDef) {
 }
 
 // 맵의 방마다 몬스터 배치 (첫 방은 비워둬요)
-function spawnMonsters(mapDef, rand) {
+function spawnMonsters(mapDef, level, rand) {
   monsters = [];
   const table = Object.entries(mapDef.monsters);
   const total = table.reduce((s, [, w]) => s + w, 0);
@@ -37,7 +38,7 @@ function spawnMonsters(mapDef, rand) {
     for (const [t, w] of table) { roll -= w; if (roll <= 0) { type = t; break; } }
     const room = rooms[i % rooms.length];
     const spot = randomSpotInRoom(room, rand);
-    monsters.push(createMonster(type, spot.x, spot.y, mapDef));
+    monsters.push(createMonster(type, spot.x, spot.y, level));
   }
 }
 
@@ -119,7 +120,9 @@ function updateMonster(m, p, dt) {
 
   switch (def.behavior) {
     case "pounce": updatePouncer(m, p, dist, dt); break;
-    case "archer": updateArcher(m, p, dist, dt); break;
+    case "archer":
+    case "caster": updateArcher(m, p, dist, dt); break;
+    case "flyer": updateFlyer(m, p, dist, dt); break;
     case "exploder": updateExploder(m, p, dist, dt); break;
     default: updateMelee(m, p, dist, dt);
   }
@@ -187,13 +190,14 @@ function updateArcher(m, p, dist, dt) {
       m.state = "chase";
       m.attackTimer = def.shootCooldown;
       const d = dist || 1;
-      // 화살 발사!
+      // 화살(또는 마법 구슬) 발사!
+      const orb = def.projectile === "orb";
       arrows.push({
         x: m.x + ((p.x - m.x) / d) * 0.4, y: m.y + ((p.y - m.y) / d) * 0.4,
         vx: ((p.x - m.x) / d) * def.arrowSpeed, vy: ((p.y - m.y) / d) * def.arrowSpeed,
-        life: 2.5, damage: m.damage,
+        life: orb ? 3.5 : 2.5, damage: m.damage, orb,
       });
-      sfx.arrow();
+      if (orb) sfx.orb(); else sfx.arrow();
     }
     return;
   }
@@ -209,6 +213,30 @@ function updateArcher(m, p, dist, dt) {
   }
   if (see && dist <= def.shootRange && m.attackTimer <= 0) {
     m.state = "aim"; m.stateTimer = 0.55;
+  }
+}
+
+// 박쥐: 이리저리 날다가 휙 덮치고, 다시 도망가요
+function updateFlyer(m, p, dist, dt) {
+  const def = m.def;
+  m.flyT = (m.flyT || Math.random() * 10) + dt;
+  if (m.state === "retreat") {
+    if (m.stateTimer <= 0) m.state = "chase";
+    const d = dist || 1;
+    moveWithSeparation(m, -(p.x - m.x) / d + Math.sin(m.flyT * 5) * 0.6, -(p.y - m.y) / d + Math.cos(m.flyT * 5) * 0.6, dt, m.speed * 0.8);
+    return;
+  }
+  // 지그재그로 다가오기
+  const d = dist || 1;
+  const ux = (p.x - m.x) / d, uy = (p.y - m.y) / d;
+  const weave = Math.sin(m.flyT * 6) * 0.8;
+  if (dist > 4) chaseMove(m, p, dist, dt);
+  else moveWithSeparation(m, ux - uy * weave, uy + ux * weave, dt, m.speed);
+  if (dist < 0.65 && m.attackTimer <= 0) {
+    m.attackTimer = def.attackCooldown;
+    hurtPlayer(p, m.damage, m);
+    m.state = "retreat";
+    m.stateTimer = 0.7;
   }
 }
 
@@ -242,13 +270,22 @@ function explodeMonster(m, p) {
   // 옆에 있는 몬스터도 휘말려요
   for (const o of monsters) {
     if (o === m || o.hp <= 0) continue;
-    if (Math.hypot(o.x - m.x, o.y - m.y) < def.blastRadius) damageMonster(o, 3, m.x, m.y, false);
+    if (Math.hypot(o.x - m.x, o.y - m.y) < def.blastRadius) damageMonster(o, m.damage, m.x, m.y, false);
   }
 }
 
 // ----- 화살 -----
 function updateArrows(p, dt) {
   for (const a of arrows) {
+    if (a.orb && p.hp > 0) {
+      // 마법 구슬은 주인공 쪽으로 살짝 휘어져요
+      const want = Math.atan2(p.y - a.y, p.x - a.x);
+      let cur = Math.atan2(a.vy, a.vx);
+      let diff = ((want - cur + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      cur += Math.max(-1.3 * dt, Math.min(1.3 * dt, diff));
+      const sp = Math.hypot(a.vx, a.vy);
+      a.vx = Math.cos(cur) * sp; a.vy = Math.sin(cur) * sp;
+    }
     a.x += a.vx * dt; a.y += a.vy * dt;
     a.life -= dt;
     if (isWall(Math.floor(a.x), Math.floor(a.y))) { a.life = 0; spawnDust(a.x - a.vx * 0.02, a.y - a.vy * 0.02); continue; }
@@ -267,6 +304,20 @@ function updateArrows(p, dt) {
 }
 
 function drawArrow(a) {
+  if (a.orb) {
+    const c = toScreen(a.x, a.y, 0.6);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 16 * ZOOM);
+    g.addColorStop(0, "rgba(220,250,255,0.95)");
+    g.addColorStop(0.4, "rgba(90,200,255,0.7)");
+    g.addColorStop(1, "rgba(60,120,255,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(c.x, c.y, 16 * ZOOM, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    if (Math.random() < 0.4) addSparkle(a.x, a.y, 0.6, { life: 0.4, size: 0.5, hue: 195 + Math.random() * 20, vz: 0.3 });
+    return;
+  }
   const sp = Math.hypot(a.vx, a.vy) || 1;
   const ux = a.vx / sp, uy = a.vy / sp;
   const tail = toScreen(a.x - ux * 0.45, a.y - uy * 0.45, 0.6);
@@ -289,6 +340,7 @@ function drawMonster(m) {
     case "spider": drawSpider(m); break;
     case "boomer": drawBoomer(m); break;
     case "slime": drawSlime(m); break;
+    case "bat": drawBat(m); break;
     default: {
       drawCharacter(m, def.look, { arms: def.armsForward ? "forward" : "side", scale: def.size || 1 });
       if (def.behavior === "archer") drawBow(m);
@@ -306,7 +358,7 @@ function drawMonster(m) {
 
   // 다친 몬스터는 머리 위에 체력 막대
   if (m.hp < m.maxHp && m.hp > 0) {
-    const top = def.shape === "slime" ? 0.7 * (def.size || 1) : def.shape === "spider" ? 0.7 : 1.3 * (def.size || 1);
+    const top = def.shape === "slime" ? 0.7 * (def.size || 1) : def.shape === "spider" ? 0.7 : def.shape === "bat" ? 1.35 : 1.3 * (def.size || 1);
     const s = toScreen(m.x, m.y, top + 0.1);
     const w = 24 * ZOOM * Math.max(1, def.size || 1), h = 5;
     ctx.fillStyle = "rgba(0,0,0,0.6)";
@@ -434,6 +486,31 @@ function drawSlime(m) {
     if (side) {
       drawOnFace(side, x, y, hop, w, w, 0.18, 0.36, h * 0.55, h * 0.72, "#163d1a");
       drawOnFace(side, x, y, hop, w, w, 0.64, 0.82, h * 0.55, h * 0.72, "#163d1a");
+    }
+  }
+}
+
+function drawBat(m) {
+  const def = m.def;
+  const t = game.time * 18 + (m.walkTime || 0) * 3;
+  const z = 0.85 + Math.sin(game.time * 4 + m.x) * 0.1;
+  const white = m.flash > 0;
+  const body = white ? "#ffffff" : def.color;
+  const px = -m.faceY, py = m.faceX;
+  // 날개 (퍼덕퍼덕)
+  const flap = Math.sin(t) * 0.35;
+  for (const side of [-1, 1]) {
+    const root = toScreen(m.x + px * side * 0.08, m.y + py * side * 0.08, z + 0.12);
+    const tip = toScreen(m.x + px * side * 0.55, m.y + py * side * 0.55, z + 0.12 + flap);
+    const back = toScreen(m.x + px * side * 0.35 - m.faceX * 0.2, m.y + py * side * 0.35 - m.faceY * 0.2, z + flap * 0.5);
+    fillPoly([root, tip, back], white ? "#ffffff" : shade(def.color, 0.75));
+  }
+  drawBox(m.x - 0.12, m.y - 0.12, z, 0.24, 0.24, 0.22, body);
+  if (!white) {
+    const side = faceSide(m.faceX, m.faceY);
+    if (side) {
+      drawOnFace(side, m.x - 0.12, m.y - 0.12, z, 0.24, 0.24, 0.15, 0.4, 0.1, 0.16, def.eyes);
+      drawOnFace(side, m.x - 0.12, m.y - 0.12, z, 0.24, 0.24, 0.6, 0.85, 0.1, 0.16, def.eyes);
     }
   }
 }

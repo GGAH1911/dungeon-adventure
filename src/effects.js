@@ -59,6 +59,18 @@ function updatePickups(player, dt, onPickup) {
 
 function drawPickup(e) {
   const z = 0.25 + Math.sin(e.t * 4) * 0.08;
+  if (e.type === "arrows") {
+    // 화살 묶음
+    for (let i = -1; i <= 1; i++) {
+      const a = toScreen(e.x - 0.2, e.y + i * 0.08, z + 0.05);
+      const b = toScreen(e.x + 0.2, e.y + i * 0.08, z + 0.05);
+      ctx.strokeStyle = "#6b4423"; ctx.lineWidth = 3 * ZOOM;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      ctx.fillStyle = "#dfe6ee"; ctx.beginPath(); ctx.arc(b.x, b.y, 2.5 * ZOOM, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(a.x - 2.5, a.y - 2.5, 5, 5);
+    }
+    return;
+  }
   if (e.type === "apple") {
     drawBox(e.x - 0.12, e.y - 0.12, z, 0.24, 0.24, 0.22, "#d8342c");
     drawBox(e.x - 0.02, e.y - 0.02, z + 0.22, 0.04, 0.04, 0.08, "#5a3a1a");

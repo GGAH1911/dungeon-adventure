@@ -6,7 +6,12 @@
 //   pounce   가까이 오면 점프해서 덮쳐요
 //   archer   멀리서 활을 쏘고, 가까이 가면 도망가요
 //   exploder 가까이 와서 부풀다가 펑! 터져요 (구르기로 피하세요)
-// shape (모양): human 사람 모양, spider 거미, boomer 펑펑이, slime 슬라임
+//   caster   멀리서 따라오는 마법 구슬을 던져요
+//   flyer    날아다니며 휙 덮쳤다가 도망가요
+// shape (모양): human 사람 모양, spider 거미, boomer 펑펑이, slime 슬라임, bat 박쥐
+// armor: 받는 공격을 줄여요 (0.4 = 40% 덜 아파요)
+// arrowDrop: 화살 떨어뜨릴 확률 (없으면 기본값)
+// 체력·공격력은 맵 레벨에 따라 자동으로 세져요 (config.js 의 difficulty)
 // hp 체력, speed 속도, damage 공격력(하트), xp 경험치, emerald 에메랄드 떨어뜨릴 확률
 
 const MONSTERS = {
@@ -25,7 +30,7 @@ const MONSTERS = {
   skeleton: {
     name: "해골 궁수", shape: "human", behavior: "archer",
     hp: 2.5, speed: 1.6, damage: 1, xp: 4, emerald: 0.6,
-    shootRange: 6.5, shootCooldown: 2.2, arrowSpeed: 7,
+    shootRange: 6.5, shootCooldown: 2.2, arrowSpeed: 7, arrowDrop: 0.5,
     look: { skin: "#e8e4d8", hair: "#d6d1c2", shirt: "#d9d4c5", pants: "#c9c3b2", eyes: "#222222" },
   },
   boomer: {
@@ -51,5 +56,28 @@ const MONSTERS = {
     hp: 14, speed: 1.0, damage: 3, xp: 12, emerald: 1, emeraldCount: 3,
     attackRange: 1.2, attackCooldown: 1.8, size: 1.5, heavy: true,
     look: { skin: "#8d8f93", hair: "#5f7d4a", shirt: "#7c7e82", pants: "#66686c", eyes: "#ff9a3b" },
+  },
+  bat: {
+    name: "박쥐", shape: "bat", behavior: "flyer",
+    hp: 1.5, speed: 3.4, damage: 0.5, xp: 2, emerald: 0.3,
+    attackCooldown: 1.3, color: "#3a2f45", eyes: "#ffdd33",
+  },
+  mummy: {
+    name: "미라", shape: "human", behavior: "melee",
+    hp: 5, speed: 1.3, damage: 1.5, xp: 5, emerald: 0.7,
+    attackRange: 0.8, attackCooldown: 1.2, armsForward: true,
+    look: { skin: "#d8cba6", hair: "#c4b68f", shirt: "#e0d5b5", pants: "#c9bc98", eyes: "#3fd0ff" },
+  },
+  mage: {
+    name: "얼음 마법사", shape: "human", behavior: "caster",
+    hp: 3, speed: 1.4, damage: 1.5, xp: 6, emerald: 0.8,
+    shootRange: 7, shootCooldown: 2.6, arrowSpeed: 4.5, projectile: "orb",
+    look: { skin: "#9fb7c9", hair: "#2b3a8a", shirt: "#3b56b0", pants: "#2b3f86", eyes: "#bff4ff", helmet: "#2b3a8a" },
+  },
+  knight: {
+    name: "해골 기사", shape: "human", behavior: "melee",
+    hp: 8, speed: 1.5, damage: 2, xp: 8, emerald: 0.9,
+    attackRange: 0.85, attackCooldown: 1.3, armor: 0.35,
+    look: { skin: "#e8e4d8", hair: "#d6d1c2", shirt: "#7b8494", pants: "#5d6574", eyes: "#ff4040", helmet: "#8d96a6" },
   },
 };
