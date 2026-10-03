@@ -96,6 +96,8 @@ function startDungeonBase(def, level) {
 // 몬스터 맞기: 맞기 전/뒤 알림 (보호막, 무적, 방패, 정예 속성 등은 각 파일에서)
 function damageMonster(m, dmg, fromX, fromY, legendary, knock = 1, opts = {}) {
   if (!m) return;
+  if (m.dummy && typeof hitDummy === "function") { hitDummy(m, dmg, false, game.player); return; } // 허수아비는 따로
+  if (!m.def) return; // 몬스터가 아닌 것은 무시 (오류 막기)
   const h = { m, dmg, fromX, fromY, legendary, knock, opts: opts || {} };
   if (hookAny("monsterDamage", h)) return;
   const r = damageMonsterBase(m, h.dmg, h.fromX, h.fromY, h.legendary, h.knock, h.opts);
@@ -561,17 +563,32 @@ let rafId = null;
 let paused = false;
 const frameTimes = [];
 
+// 오류 기록 (같은 오류는 한 번만 콘솔에, 화면엔 작게 알려요)
+const loopErrors = [];
+function reportLoopError(e) {
+  const msg = String((e && e.message) || e);
+  if (!loopErrors.includes(msg)) {
+    loopErrors.push(msg);
+    console.error("게임 오류(계속 진행해요):", e);
+    try { showMessage("앗, 작은 오류가 났어요. 게임은 계속돼요", 2); } catch (_) {}
+  }
+  try { clearPressed(); } catch (_) {}
+}
+
 function loop(now) {
   rafId = null;
   if (paused) return;
   const raw = now - lastTime;
   const dt = Math.min(0.05, raw / 1000);
   lastTime = now;
-  update(dt);
+  // 혹시 오류가 나도 게임이 멈추지 않게 (오류는 기록하고 다음 프레임은 계속)
+  try {
+    update(dt);
+  } catch (e) { reportLoopError(e); }
 
   const calm = (game.overlay && game.overlay !== "maps") || game.scene === "title" || cheatOpen; // 지도는 끌 때 부드럽게
   if (!calm || now - lastDraw > 66) { // 창이 떠 있으면 1초에 15번만
-    draw();
+    try { draw(); } catch (e) { reportLoopError(e); }
     lastDraw = now;
   }
   if (game.hitstop <= 0) clearPressed(); // 멈춘 동안 누른 버튼은 기억해둬요

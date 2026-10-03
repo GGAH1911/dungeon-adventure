@@ -271,6 +271,8 @@ function skillBlocked(p, s) {
   if (p.cd[s.slot] > 0) return "준비 중";
   const cost = skillCost(p, s);
   if (!s.costPerSec && cost > 0 && p.res < cost) return `${CLASS_DEFS[s.cls].res.name}이 모자라요`;
+  // 누르고 있는 기술(회오리 베기)은 막대가 조금이라도 있어야 해요
+  if (s.costPerSec && p.res <= 1) return `${CLASS_DEFS[s.cls].res.name}이 모자라요 (몬스터를 때려서 모아요)`;
   return null;
 }
 function skillCost(p, s) {
@@ -295,7 +297,9 @@ function useSkill(p, slot) {
     p.vaultCharges = p.vaultCharges === undefined ? 2 : p.vaultCharges;
     if (p.vaultCharges <= 0) return false;
   }
-  const ok = SKILL_RUN[s.id](p, s);
+  const run = SKILL_RUN[s.id];
+  if (!run) return false; // 누르고 있는 동안 도는 기술(회오리)은 위에서 따로 처리해요
+  const ok = run(p, s);
   if (ok === false) return false;
   p.res -= cost; p.resIdle = 0;
   if (s.id === "h_vault" && skillMod(p, "s2") === "B") { p.vaultCharges--; if (p.vaultCharges <= 0) { p.vaultCharges = 2; p.cd[slot] = skillCooldown(p, s); } }
@@ -563,7 +567,8 @@ function updateAllies(dt) {
     else if (w.target && w.bite <= 0) {
       w.bite = 0.8;
       const dmg = W(o) * 0.35 * w.k * (w.pounce > 0 ? 0.8 / 0.35 : 1);
-      damageMonster(w.target, dmg, w.x, w.y, false, 0.3, { skill: true });
+      if (w.target.dummy) hitDummy(w.target, dmg, false, o); // 캠프 허수아비
+      else damageMonster(w.target, dmg, w.x, w.y, false, 0.3, { skill: true });
       w.lunge = 0.15;
       if (skillMod(o, "s1") === "B") o.hp = Math.min(o.maxHp, o.hp + 0.15);
     }

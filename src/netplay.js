@@ -139,6 +139,8 @@ function netProfileCounts() {
 // 방장이 얻은 것(늘어난 것만)을 친구에게도 (모두 1인분씩)
 function netRewardDelta() {
   const a = netplay.prof || netProfileCounts(), b = netProfileCounts(), d = {};
+  // 캠프에서 사고팔기·소원 우물로 늘어난 건 방장 것이에요 (던전에서 얻은 것만 친구에게)
+  if (game.scene !== "dungeon") { netplay.prof = b; return null; }
   for (const k of ["emeralds", "arrows", "potions"]) if (b[k] > a[k]) d[k] = b[k] - a[k];
   for (const g of ["materials", "special"]) for (const id of Object.keys(b[g])) if ((b[g][id] || 0) > (a[g][id] || 0)) (d[g] = d[g] || {})[id] = b[g][id] - (a[g][id] || 0);
   netplay.prof = b;
