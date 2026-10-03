@@ -95,6 +95,8 @@ function updateMonster(m, p, dt) {
     if (Math.random() < dt * 8) addSparkle(m.x + (Math.random() - 0.5) * 0.4, m.y + (Math.random() - 0.5) * 0.4, Math.random() * 0.9, { vz: 0.3, life: 0.5, size: 0.5, hue: 195 });
   }
   m.hitT = Math.max(0, m.hitT - dt);
+  m.strikeT = Math.max(0, (m.strikeT || 0) - dt);
+  m.recentShot = Math.max(0, (m.recentShot || 0) - dt);
   if (m.hp <= 0) return;
   const baseSpeed = m.speed;
   m.speed *= slowMul;
@@ -150,25 +152,39 @@ function monsterBrain(m, p, dt) {
     case "caster": updateArcher(m, p, dist, dt); break;
     case "flyer": updateFlyer(m, p, dist, dt); break;
     case "exploder": updateExploder(m, p, dist, dt); break;
-    default: updateMelee(m, p, dist, dt);
+    default:
+      if (typeof EXTRA_BEHAVIORS !== "undefined" && EXTRA_BEHAVIORS[def.behavior]) { EXTRA_BEHAVIORS[def.behavior](m, p, dist, dt); break; }
+      updateMelee(m, p, dist, dt);
   }
 }
 
+// 근접 몬스터: 다가와서 -> 팔(무기)을 들어 올리고(예비동작) -> 내려쳐요
+// 예비동작을 보고 구르거나 피할 수 있어요
 function updateMelee(m, p, dist, dt) {
   const def = m.def;
+  if (m.state === "windup") {
+    m.moving = false;
+    faceToward(m, p);
+    if (m.stateTimer <= 0) {
+      m.state = "chase";
+      m.attackTimer = def.attackCooldown;
+      m.strikeT = 0.22;
+      if (def.heavy) {
+        // 골렘: 땅을 쾅!
+        addRing(m.x + m.faceX * 0.6, m.y + m.faceY * 0.6, { speed: 4, life: 0.35, gold: false, hue: 30 });
+        spawnDust(m.x + m.faceX * 0.6, m.y + m.faceY * 0.6);
+        game.shake = Math.max(game.shake, 0.2);
+        sfx.slam();
+      }
+      if (dist < def.attackRange + p.r + 0.35) hurtPlayer(p, m.damage, m);
+    }
+    return;
+  }
   if (dist > def.attackRange * 0.85) chaseMove(m, p, dist, dt);
   else { m.moving = false; faceToward(m, p); }
   if (dist < def.attackRange + p.r && m.attackTimer <= 0) {
-    m.attackTimer = def.attackCooldown;
-    m.swing = 0.25;
-    if (def.heavy) {
-      // 골렘: 땅을 쾅!
-      addRing(m.x + m.faceX * 0.6, m.y + m.faceY * 0.6, { speed: 4, life: 0.35, gold: false, hue: 30 });
-      spawnDust(m.x + m.faceX * 0.6, m.y + m.faceY * 0.6);
-      game.shake = Math.max(game.shake, 0.2);
-      sfx.slam();
-    }
-    hurtPlayer(p, m.damage, m);
+    m.state = "windup";
+    m.windupDur = m.stateTimer = def.windup || (def.heavy ? 0.5 : 0.28);
   }
 }
 
@@ -223,6 +239,7 @@ function updateArcher(m, p, dist, dt) {
         vx: ((p.x - m.x) / d) * def.arrowSpeed, vy: ((p.y - m.y) / d) * def.arrowSpeed,
         life: orb ? 3.5 : 2.5, damage: m.damage, orb,
       });
+      m.recentShot = 0.3;
       if (orb) sfx.orb(); else sfx.arrow();
     }
     return;
@@ -368,15 +385,21 @@ function drawMonster(m) {
     case "slime": drawSlime(m); break;
     case "bat": drawBat(m); break;
     default: {
-      drawCharacter(m, def.look, { arms: def.armsForward ? "forward" : "side", scale: (def.size || 1) * (m.scaleMul || 1), squash: m.hitT > 0 ? 0.9 : 1 });
-      if (def.behavior === "archer") drawBow(m);
+      if (typeof EXTRA_SHAPES !== "undefined" && EXTRA_SHAPES[def.shape]) { EXTRA_SHAPES[def.shape](m); break; }
+      drawRig(m, def.look, monsterPose(m), { scale: (def.size || 1) * (m.scaleMul || 1), squash: m.hitT > 0 ? 0.9 : 1 });
       if (def.heavy && !m.flash) {
         // 골렘 눈이 빛나요
-        const s = toScreen(m.x, m.y, 1.1 * (def.size || 1) * (m.scaleMul || 1));
-        ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = "rgba(255,150,60,0.35)";
-        ctx.beginPath(); ctx.arc(s.x, s.y, 14 * ZOOM, 0, Math.PI * 2); ctx.fill();
-        ctx.globalCompositeOperation = "source-over";
+        // 눈 높이에 작은 불빛 (앞을 볼 때만)
+        if (m.faceX + m.faceY > -0.3) {
+          const S = (def.size || 1) * (m.scaleMul || 1);
+          const s = toScreen(m.x + m.faceX * 0.18 * S, m.y + m.faceY * 0.18 * S, 0.92 * S);
+          ctx.globalCompositeOperation = "lighter";
+          const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, 9 * ZOOM * S);
+          g.addColorStop(0, "rgba(255,160,60,0.35)"); g.addColorStop(1, "rgba(255,120,40,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(s.x, s.y, 9 * ZOOM * S, 0, Math.PI * 2); ctx.fill();
+          ctx.globalCompositeOperation = "source-over";
+        }
       }
     }
   }
@@ -392,19 +415,6 @@ function drawMonster(m) {
     ctx.fillStyle = "#e23b3b";
     ctx.fillRect(s.x - w / 2, s.y, w * (m.hp / m.maxHp), h);
   }
-}
-
-function drawBow(m) {
-  const px = -m.faceY, py = m.faceX;
-  const hx = m.x + m.faceX * 0.3 + px * 0.15, hy = m.y + m.faceY * 0.3 + py * 0.15;
-  const a = toScreen(hx + px * 0.3, hy + py * 0.3, 0.6);
-  const b = toScreen(hx - px * 0.3, hy - py * 0.3, 0.6);
-  const bend = m.state === "aim" ? 0.35 : 0.2;
-  const c = toScreen(hx + m.faceX * bend, hy + m.faceY * bend, 0.6);
-  ctx.strokeStyle = "#7a5230"; ctx.lineWidth = 3 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(c.x, c.y, b.x, b.y); ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
 }
 
 function drawSpider(m) {

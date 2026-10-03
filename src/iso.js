@@ -142,113 +142,15 @@ function drawShadow(x, y, r) {
   ctx.fill();
 }
 
-// 사람 모양 캐릭터 그리기 (주인공, 좀비, 해골, 골렘, 상인)
-// look: 색깔들 { skin, hair, shirt, pants, eyes, helmet }
-// opts:
-//   arms: "side" | "forward"(좀비처럼 앞으로)    scale: 크기
-//   shimmer: 시간(반짝이는 갑옷)    squash: 높이 비율
-//   pose: { lean 앞으로 기울기, rightHand/leftHand 손 위치(앞, 옆, 높이) }
-//   roll: 구르는 각도(0~2파이), curl: 몸을 웅크리는 정도(0~1)
+// 사람 모양 캐릭터 그리기 (주인공, 몬스터, 상인 모두)
+// 실제 그리기는 rig.js(뼈대)가 해요. 여기선 간단한 자세만 만들어 넘겨요.
+// opts: arms "forward"(좀비처럼), scale 크기, squash, shimmer, pose(자세 직접 주기), roll/curl/hop
 function drawCharacter(e, look, opts = {}) {
-  const fx = e.faceX, fy = e.faceY;
-  const px = -fy, py = fx; // 옆 방향
-  const S = opts.scale || 1;
-  const squash = opts.squash || 1;
-  const pose = opts.pose || {};
-  const walk = e.moving ? Math.sin(e.walkTime * 11) : 0;
-  // 걸을 땐 통통, 서 있을 땐 숨쉬기
-  const bob = e.moving ? Math.abs(walk) * 0.045 : Math.sin(((typeof game !== "undefined" && game.time) || 0) * 2.6 + e.x * 3) * 0.012;
-  const lean = (pose.lean || 0) + (e.moving ? 0.03 : 0);
-  const white = e.flash > 0;
-
-  // 반짝이는 갑옷: 빛의 띠가 몸을 타고 지나가요
-  const shine = (color, cx, cy, z) => {
-    if (opts.shimmer === undefined) return color;
-    const wave = Math.sin(opts.shimmer * 4 - (cx + cy) * 5 - z * 7);
-    const band = Math.round(Math.pow(Math.max(0, wave), 6) * 12) / 12;
-    return mixHex(color, "#ffffff", band * 0.85);
-  };
-
-  // 몸 부분들 (주인공 기준: f 앞, s 옆, z 바닥 높이, w/d/h 크기)
-  const parts = [];
-  const add = (f, s, z, w, d, h, color, armor, tag) => parts.push({ f, s, z, w, d, h, color, armor, tag });
-  const legSwing = walk * 0.13;
-  add(legSwing, 0.09, 0, 0.15, 0.15, 0.36, look.pants, true);
-  add(-legSwing, -0.09, 0, 0.15, 0.15, 0.36, look.pants, true);
-  add(lean * 0.5, 0, 0.36 + bob, 0.38, 0.38, 0.38, look.shirt, true, "body");
-
-  const arm = (side, hand, swingF) => {
-    if (hand) {
-      // 손이 있는 곳까지 팔을 뻗어요
-      const sf = lean * 0.6, ss = side * 0.24, sz = 0.68 + bob;
-      const mf = (sf + hand.f) / 2, ms = (ss + hand.s) / 2, mz = (sz + hand.z) / 2;
-      add(mf, ms, mz - 0.1, 0.13, 0.13, 0.2, look.shirt, true);
-      add(hand.f, hand.s, hand.z - 0.06, 0.12, 0.12, 0.12, look.skin);
-    } else {
-      add(swingF + lean * 0.5, side * 0.26, 0.4 + bob, 0.13, 0.13, 0.34, look.shirt, true);
-    }
-  };
-  if (opts.arms === "forward") {
-    add(0.22, 0.25, 0.6 + bob, 0.13, 0.13, 0.13, look.skin);
-    add(0.22, -0.25, 0.6 + bob, 0.13, 0.13, 0.13, look.skin);
-  } else {
-    arm(1, pose.rightHand, -walk * 0.1);
-    arm(-1, pose.leftHand, walk * 0.1);
-  }
-  add(lean, 0, 0.74 + bob, 0.36, 0.36, 0.36, look.skin, false, "head");
-
-  // 구르기: 몸을 웅크리고 앞으로 한 바퀴!
-  const roll = opts.roll;
-  const curl = opts.curl || 0;
-  const C = 0.42; // 구르는 중심 높이
-  const cosR = roll !== undefined ? Math.cos(roll) : 1, sinR = roll !== undefined ? Math.sin(roll) : 0;
-
-  const placed = parts.map((q) => {
-    let cf = q.f, cs = q.s, cz = q.z + q.h / 2;
-    let w = q.w, d = q.d, h = q.h;
-    if (curl > 0) {
-      cf *= 1 - 0.45 * curl; cs *= 1 - 0.2 * curl;
-      cz = C + (cz - C) * (1 - 0.5 * curl);
-      h *= 1 - 0.3 * curl;
-    }
-    if (roll !== undefined) {
-      const dz = cz - C;
-      const nf = cf * cosR + dz * sinR;
-      const nz = C - cf * sinR + dz * cosR;
-      cf = nf; cz = nz;
-      const hv = h * Math.abs(cosR) + w * Math.abs(sinR);
-      const hw = Math.min(0.42, w * Math.abs(cosR) + h * Math.abs(sinR));
-      h = hv; w = Math.max(w, hw); d = Math.max(d, hw * 0.9);
-    }
-    cf *= S; cs *= S;
-    const cx = e.x + fx * cf + px * cs, cy = e.y + fy * cf + py * cs;
-    const hop = opts.hop || 0; // 구를 때 살짝 뛰어올라요
-    const zb = Math.max(0, (cz - h / 2) + hop) * S * squash;
-    return { ...q, cx, cy, z: zb, w: w * S, d: d * S, h: h * S * squash };
-  });
-
-  // 뒤에 있는 것부터 그리기
-  placed.sort((a, b) => (a.cx + a.cy) - (b.cx + b.cy) || a.z - b.z);
-  for (const q of placed) {
-    const bx = q.cx - q.w / 2, by = q.cy - q.d / 2;
-    const color = white ? "#ffffff" : q.armor ? shine(q.color, q.cx, q.cy, q.z) : q.color;
-    drawBox(bx, by, q.z, q.w, q.d, q.h, color);
-    if (q.tag !== "head" || white) continue;
-
-    if (look.helmet) {
-      drawBox(bx - 0.03 * S, by - 0.03 * S, q.z + q.h * 0.62, q.w + 0.06 * S, q.d + 0.06 * S, q.h * 0.45, shine(look.helmet, q.cx, q.cy, 1.1));
-    } else {
-      drawBox(bx - 0.01 * S, by - 0.01 * S, q.z + q.h - 0.06 * S * squash, q.w + 0.02 * S, q.d + 0.02 * S, 0.08 * S * squash, look.hair);
-    }
-    // 눈: 보고 있는 쪽 면에만 (구르는 중 거꾸로일 땐 안 보여요)
-    if (cosR < 0.5) continue;
-    const side = faceSide(fx, fy);
-    if (side) {
-      const v1 = q.h * 0.36, v2 = q.h * 0.55;
-      drawOnFace(side, bx, by, q.z, q.w, q.d, 0.15, 0.35, v1, v2, look.eyes);
-      drawOnFace(side, bx, by, q.z, q.w, q.d, 0.65, 0.85, v1, v2, look.eyes);
-    }
-  }
+  const pose = { ...(opts.pose || {}) };
+  if (opts.arms === "forward" && !pose.rh) { pose.rh = V(0.4, -0.13, 0.63); pose.lh = V(0.4, 0.13, 0.63); }
+  if (!pose.walk) pose.walk = { phase: e.walkTime * 11, amp: e.moving ? 1 : 0 };
+  if (pose.bob === undefined) pose.bob = e.moving ? Math.abs(Math.sin(e.walkTime * 11)) * 0.045 : Math.sin(((typeof game !== "undefined" && game.time) || 0) * 2.6 + e.x * 3) * 0.012;
+  return drawRig(e, look, pose, opts);
 }
 
 // 4개 꼭짓점 반짝이 별 (화면 좌표)

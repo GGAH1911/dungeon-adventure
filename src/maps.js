@@ -55,6 +55,31 @@ const MAPS = [
     monsters: { knight: 4, mage: 3, golem: 2, bat: 3, boomer: 2, skeleton: 3 },
     theme: { floor: "#3e3a46", moss: "#5a2030", wall: "#4a4552", darkness: 0.58, bg: "#09070d" },
   },
+  // ----- 어둠의 성 다음 맵들 (마지막 방에 보스가 있어요: boss) -----
+  {
+    id: "mine", name: "버려진 광산", desc: "곡괭이를 던지는 광부 좀비가 사는 금광",
+    minLevel: 23, size: 64, rooms: 14, count: 36, reward: 65, boss: "miner",
+    monsters: { miner: 5, spider: 3, golem: 1, boomer: 2 },
+    theme: { floor: "#6b5236", moss: "#e0b43a", wall: "#5a4330", darkness: 0.52, bg: "#140d07" },
+  },
+  {
+    id: "sky", name: "구름 섬", desc: "하늘에 뜬 섬. 바람 정령이 휙휙 날아다녀요",
+    minLevel: 26, size: 66, rooms: 14, count: 38, reward: 75, boss: "wisp",
+    monsters: { wisp: 4, bat: 3, mage: 2, skeleton: 2 },
+    theme: { floor: "#dfeefa", moss: "#ffffff", wall: "#b8d4ea", darkness: 0.12, bg: "#7fc3ee" },
+  },
+  {
+    id: "coral", name: "산호 바다 동굴", desc: "단단한 집게 게가 옆걸음으로 다가와요",
+    minLevel: 29, size: 68, rooms: 15, count: 40, reward: 85, boss: "crab",
+    monsters: { crab: 5, slime: 3, wisp: 2, mummy: 2 },
+    theme: { floor: "#2f7f86", moss: "#ff7f6a", wall: "#2a5f6e", darkness: 0.4, bg: "#061a22" },
+  },
+  {
+    id: "void", name: "공허의 끝", desc: "그림자 기사가 뒤로 순간이동해요! 예고를 보면 구르기",
+    minLevel: 32, size: 70, rooms: 15, count: 44, reward: 100, boss: "shadow",
+    monsters: { shadow: 4, knight: 3, mage: 2, boomer: 2, crab: 2 },
+    theme: { floor: "#2a2236", moss: "#7a3fd0", wall: "#1c1626", darkness: 0.66, bg: "#030206" },
+  },
 ];
 
 // 로비(캠프) 모양

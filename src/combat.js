@@ -7,34 +7,34 @@
 
 const MOVESETS = {
   sword: [
-    { kind: "slash", dir: 1, dmg: 1, dur: 0.17 },
-    { kind: "slash", dir: -1, dmg: 1.05, dur: 0.17 },
-    { kind: "overhead", dmg: 1.7, dur: 0.26, lunge: 0.35, shock: 1.2 },
+    { kind: "slash", dir: 1, dmg: 1, dur: 0.22 },
+    { kind: "slash", dir: -1, dmg: 1.05, dur: 0.22 },
+    { kind: "overhead", dmg: 1.7, dur: 0.32, lunge: 0.35, shock: 1.2 },
   ],
   dagger: [
-    { kind: "thrust", dmg: 1, dur: 0.12, lunge: 0.12 },
-    { kind: "thrust", dmg: 1, dur: 0.12, lunge: 0.12 },
-    { kind: "spin", dir: 1, dmg: 1.5, dur: 0.24 },
+    { kind: "thrust", dmg: 1, dur: 0.15, lunge: 0.12 },
+    { kind: "thrust", dmg: 1, dur: 0.15, lunge: 0.12 },
+    { kind: "spin", dir: 1, dmg: 1.5, dur: 0.3 },
   ],
   spear: [
-    { kind: "thrust", dmg: 1, dur: 0.17, lunge: 0.2 },
-    { kind: "thrust", dmg: 1.1, dur: 0.17, lunge: 0.2 },
-    { kind: "slash", dir: 1, dmg: 1.5, dur: 0.26, arc: 1.7, rangeMul: 0.9 },
+    { kind: "thrust", dmg: 1, dur: 0.2, lunge: 0.2 },
+    { kind: "thrust", dmg: 1.1, dur: 0.2, lunge: 0.2 },
+    { kind: "slash", dir: 1, dmg: 1.5, dur: 0.3, arc: 1.7, rangeMul: 0.9 },
   ],
   axe: [
-    { kind: "overhead", dmg: 1, dur: 0.22 },
-    { kind: "slash", dir: -1, dmg: 1.1, dur: 0.2 },
-    { kind: "spin", dir: 1, dmg: 1.6, dur: 0.32 },
+    { kind: "overhead", dmg: 1, dur: 0.3 },
+    { kind: "slash", dir: -1, dmg: 1.1, dur: 0.26 },
+    { kind: "spin", dir: 1, dmg: 1.6, dur: 0.36 },
   ],
   hammer: [
-    { kind: "overhead", dmg: 1, dur: 0.24, shock: 0.9 },
-    { kind: "overhead", dmg: 1.1, dur: 0.24, shock: 0.9 },
-    { kind: "slam", dmg: 1.9, dur: 0.36, lunge: 0.25, shock: 2.4 },
+    { kind: "overhead", dmg: 1, dur: 0.32, shock: 0.9 },
+    { kind: "overhead", dmg: 1.1, dur: 0.32, shock: 0.9 },
+    { kind: "slam", dmg: 1.9, dur: 0.46, lunge: 0.25, shock: 2.4 },
   ],
   scythe: [
-    { kind: "slash", dir: 1, dmg: 1, dur: 0.2 },
-    { kind: "slash", dir: -1, dmg: 1, dur: 0.2 },
-    { kind: "spin", dir: -1, dmg: 1.6, dur: 0.3 },
+    { kind: "slash", dir: 1, dmg: 1, dur: 0.26 },
+    { kind: "slash", dir: -1, dmg: 1, dur: 0.26 },
+    { kind: "spin", dir: -1, dmg: 1.6, dur: 0.36 },
   ],
 };
 
@@ -87,7 +87,7 @@ function updateAttack(p, dt) {
   }
   if (!p.move || p.hitDone) return;
   const t = 1 - p.swingTimer / p.move.dur;
-  const hitAt = p.move.kind === "overhead" || p.move.kind === "slam" ? 0.55 : 0.2;
+  const hitAt = MOVE_ANIMS[moveAnimName(p.move, p.weapon)].impact; // 칼이 실제로 지나가는 순간 (anim.js)
   if (t >= hitAt) { p.hitDone = true; resolveMove(p, p.move); }
 }
 
@@ -198,166 +198,4 @@ function applyEffect(m, effect, dmg) {
     }
     if (others.length) sfx.zap();
   }
-}
-
-// ----- 휘두르는 칼의 위치 계산 -----
-const easeOut = (t) => 1 - (1 - t) * (1 - t);
-
-// 칼 손잡이(hand)와 칼끝(tip)의 3D 위치
-function bladeGeom(p) {
-  const w = p.weapon;
-  const base = Math.atan2(p.faceY, p.faceX);
-  const L = w.length;
-  const mv = p.move;
-  const swinging = mv && p.swingTimer > 0;
-  const t = swinging ? Math.min(1, Math.max(0, 1 - p.swingTimer / mv.dur)) : 0;
-  const at = (a, r, z) => ({ x: p.x + Math.cos(a) * r, y: p.y + Math.sin(a) * r, z });
-  if (!swinging) {
-    const a = base + 0.9;
-    const hand = at(a, 0.25, 0.55);
-    return { hand, tip: { x: hand.x + Math.cos(a) * L, y: hand.y + Math.sin(a) * L, z: 0.62 }, kind: "idle", t };
-  }
-  if (mv.kind === "slash" || mv.kind === "spin") {
-    const arc = mv.kind === "spin" ? Math.PI : Math.min(mv.arc || w.arc, Math.PI * 0.95);
-    const dir = mv.dir || 1;
-    const a = mv.kind === "spin" ? base - dir * Math.PI + dir * 2 * Math.PI * easeOut(t) : base + dir * arc - dir * 2 * arc * easeOut(t);
-    const hand = at(a, 0.25, 0.55);
-    return { hand, tip: { x: hand.x + Math.cos(a) * L, y: hand.y + Math.sin(a) * L, z: 0.6 }, kind: mv.kind, t, angle: a };
-  }
-  if (mv.kind === "thrust") {
-    const ext = Math.sin(t * Math.PI);
-    const hand = at(base, 0.18 + 0.38 * ext, 0.56);
-    return { hand, tip: { x: hand.x + p.faceX * L, y: hand.y + p.faceY * L, z: 0.58 }, kind: "thrust", t, ext };
-  }
-  // overhead / slam: 위에서 앞으로 내려찍기
-  const phi = 1.9 - 2.3 * easeOut(t);
-  const hand = at(base, 0.22, 0.72);
-  return {
-    hand,
-    tip: { x: hand.x + p.faceX * Math.cos(phi) * L, y: hand.y + p.faceY * Math.cos(phi) * L, z: Math.max(0.05, 0.72 + Math.sin(phi) * L) },
-    kind: mv.kind, t, phi,
-  };
-}
-
-// 휘두르는 궤적
-function drawSwingTrail(p, colorAt, width) {
-  const mv = p.move;
-  if (!mv || p.swingTimer <= 0) return;
-  const g = bladeGeom(p);
-  const w = p.weapon;
-  const R = 0.25 + w.length * 0.92;
-  const pts = [];
-  const steps = 16;
-  if (g.kind === "slash" || g.kind === "spin") {
-    const base = Math.atan2(p.faceY, p.faceX);
-    const arc = g.kind === "spin" ? Math.PI : Math.min(mv.arc || w.arc, Math.PI * 0.95);
-    const dir = mv.dir || 1;
-    const start = g.kind === "spin" ? base - dir * Math.PI : base + dir * arc;
-    for (let i = 0; i <= steps; i++) {
-      const a = start + (g.angle - start) * (i / steps);
-      pts.push(toScreen(p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, 0.56));
-    }
-  } else if (g.kind === "thrust") {
-    const back = toScreen(g.hand.x - p.faceX * 0.3, g.hand.y - p.faceY * 0.3, 0.57);
-    const front = toScreen(g.tip.x + p.faceX * 0.25 * g.ext, g.tip.y + p.faceY * 0.25 * g.ext, 0.58);
-    pts.push(back, front);
-  } else {
-    for (let i = 0; i <= steps; i++) {
-      const ph = 1.9 + (g.phi - 1.9) * (i / steps);
-      pts.push(toScreen(g.hand.x + p.faceX * Math.cos(ph) * w.length, g.hand.y + p.faceY * Math.cos(ph) * w.length, Math.max(0.05, 0.72 + Math.sin(ph) * w.length)));
-    }
-  }
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.globalCompositeOperation = "lighter";
-  const fade = 1 - g.t * 0.5;
-  for (let i = 1; i < pts.length; i++) {
-    const k = i / (pts.length - 1);
-    ctx.strokeStyle = colorAt(k, fade);
-    ctx.lineWidth = width * (0.35 + 0.65 * k);
-    ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
-  }
-  ctx.restore();
-}
-
-// 무기 그리기 (종류마다 모양이 달라요)
-function drawWeapon(p) {
-  const w = p.weapon;
-  const g = bladeGeom(p);
-  const mv = p.move;
-  const fx = EFFECT_COLORS[w.effect];
-  const trailColor = fx || "#ffffff";
-  const rgb = parseInt(trailColor.slice(1), 16);
-  const r = (rgb >> 16) & 255, gg = (rgb >> 8) & 255, b = rgb & 255;
-  drawSwingTrail(p, (k, fade) => `rgba(${r},${gg},${b},${(0.25 + 0.55 * k) * fade})`, (mv && mv.finisher ? 13 : 9) * ZOOM);
-
-  const H = toScreen(g.hand.x, g.hand.y, g.hand.z);
-  const T = toScreen(g.tip.x, g.tip.y, g.tip.z);
-  const ux = g.tip.x - g.hand.x, uy = g.tip.y - g.hand.y, uz = g.tip.z - g.hand.z;
-  const ul = Math.hypot(ux, uy, uz) || 1;
-  const back = toScreen(g.hand.x - (ux / ul) * 0.14, g.hand.y - (uy / ul) * 0.14, g.hand.z - (uz / ul) * 0.14);
-  const line = (a, c, color, width) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke(); };
-  ctx.lineCap = "round";
-
-  // 특수 효과 무기는 은은하게 빛나요
-  if (fx) {
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    line(H, T, `rgba(${r},${gg},${b},${0.3 + 0.12 * Math.sin(game.time * 14)})`, 15 * ZOOM);
-    ctx.restore();
-    if (w.effect === "burn" && Math.random() < 0.3) spawnBurst(g.tip.x, g.tip.y, ["#ffb03b", "#ff5a1f"], 1);
-  }
-
-  const type = w.type;
-  if (type === "spear" || type === "axe" || type === "hammer" || type === "scythe") {
-    // 긴 자루
-    const start = toScreen(g.hand.x - (ux / ul) * 0.3, g.hand.y - (uy / ul) * 0.3, g.hand.z - (uz / ul) * 0.3);
-    line(start, T, "#3d2a16", 7 * ZOOM);
-    line(start, T, "#7a5230", 4.5 * ZOOM);
-    const sx = -p.faceY, sy = p.faceX; // 옆 방향
-    if (type === "spear") {
-      const tipEnd = toScreen(g.tip.x + (ux / ul) * 0.25, g.tip.y + (uy / ul) * 0.25, g.tip.z + (uz / ul) * 0.25);
-      const s1 = toScreen(g.tip.x + sx * 0.08, g.tip.y + sy * 0.08, g.tip.z);
-      const s2 = toScreen(g.tip.x - sx * 0.08, g.tip.y - sy * 0.08, g.tip.z);
-      fillPoly([s1, tipEnd, s2], w.color);
-      ctx.strokeStyle = "#1d2a33"; ctx.lineWidth = 1.5; ctx.stroke();
-    } else if (type === "hammer") {
-      drawBox(g.tip.x - 0.17, g.tip.y - 0.17, g.tip.z - 0.12, 0.34, 0.34, 0.26, w.color);
-    } else if (type === "axe") {
-      const a1 = toScreen(g.tip.x - (ux / ul) * 0.28, g.tip.y - (uy / ul) * 0.28, g.tip.z - (uz / ul) * 0.28);
-      const a2 = toScreen(g.tip.x - (ux / ul) * 0.32 + sx * 0.3, g.tip.y - (uy / ul) * 0.32 + sy * 0.3, g.tip.z - (uz / ul) * 0.32);
-      const a3 = toScreen(g.tip.x + sx * 0.34, g.tip.y + sy * 0.34, g.tip.z);
-      fillPoly([a1, a2, a3, T], w.color);
-      ctx.strokeStyle = "#1d2a33"; ctx.lineWidth = 2; ctx.stroke();
-    } else {
-      // 낫: 휘어진 날
-      const c1 = toScreen(g.tip.x + sx * 0.45 - (ux / ul) * 0.1, g.tip.y + sy * 0.45 - (uy / ul) * 0.1, g.tip.z + 0.1);
-      const c2 = toScreen(g.tip.x + sx * 0.6 - (ux / ul) * 0.45, g.tip.y + sy * 0.6 - (uy / ul) * 0.45, g.tip.z - 0.05);
-      ctx.strokeStyle = "#1d2a33"; ctx.lineWidth = 7 * ZOOM;
-      ctx.beginPath(); ctx.moveTo(T.x, T.y); ctx.quadraticCurveTo(c1.x, c1.y, c2.x, c2.y); ctx.stroke();
-      ctx.strokeStyle = w.color; ctx.lineWidth = 4 * ZOOM;
-      ctx.beginPath(); ctx.moveTo(T.x, T.y); ctx.quadraticCurveTo(c1.x, c1.y, c2.x, c2.y); ctx.stroke();
-    }
-    return;
-  }
-  // 칼, 단검
-  line(H, T, "#1d2a33", 8 * ZOOM);
-  line(H, T, w.color, 5 * ZOOM);
-  line(back, H, "#6b4423", 6 * ZOOM);
-  const sx = -p.faceY * 0.1, sy = p.faceX * 0.1;
-  line(toScreen(g.hand.x + sx, g.hand.y + sy, g.hand.z), toScreen(g.hand.x - sx, g.hand.y - sy, g.hand.z), "#8a6a2a", 4 * ZOOM);
-  if (type === "dagger") {
-    // 왼손에도 단검 하나 더
-    const ox = -p.faceY * 0.3, oy = p.faceX * 0.3;
-    const h2 = toScreen(p.x - ox + p.faceX * 0.2, p.y - oy + p.faceY * 0.2, 0.5);
-    const t2 = toScreen(p.x - ox + p.faceX * 0.55, p.y - oy + p.faceY * 0.55, 0.55);
-    line(h2, t2, "#1d2a33", 7 * ZOOM);
-    line(h2, t2, w.color, 4 * ZOOM);
-  }
-}
-
-// 손 위치를 주인공 기준(앞, 옆, 높이)으로 바꾸기 (팔 그림용)
-function toLocal(p, pt) {
-  const dx = pt.x - p.x, dy = pt.y - p.y;
-  return { f: dx * p.faceX + dy * p.faceY, s: dx * -p.faceY + dy * p.faceX, z: pt.z };
 }

@@ -62,6 +62,7 @@ function updatePlayer(p, dt) {
   p.flash -= dt;
   p.bowCooldown -= dt;
   p.bowTimer -= dt;
+  p.bowAge = (p.bowAge || 0) + dt;
 
   // 화면 기준 방향 (오른쪽 +, 아래 +) : 키보드 + 터치 조이스틱
   let sx = touch.moveX, sy = touch.moveY;
@@ -86,6 +87,7 @@ function updatePlayer(p, dt) {
   }
 
   updateAttack(p, dt); // combat.js
+  updateTrail(p, dt);  // anim.js
 
   // 휘두르는 동안은 천천히 걸어요
   const attacking = p.swingTimer > 0;
@@ -146,24 +148,6 @@ function playerLook(p) {
   return { ...base, shirt: a.body || base.shirt, pants: a.legs || base.pants, helmet: a.helmet || null };
 }
 
-// 지금 자세 (손 위치, 기울기)
-function playerPose(p) {
-  const pose = { lean: 0 };
-  if (p.hurtLean > 0) pose.lean = -0.1 * (p.hurtLean / 0.2);
-  if (p.bowTimer > 0) {
-    pose.leftHand = { f: 0.34, s: -0.06, z: 0.62 };
-    pose.rightHand = { f: p.bowTimer > 0.18 ? -0.02 : 0.12, s: 0.08, z: 0.64 };
-  } else if (p.move && p.swingTimer > 0) {
-    const g = bladeGeom(p);
-    pose.rightHand = toLocal(p, g.hand);
-    pose.lean = p.move.finisher ? 0.08 : 0.04;
-    if (p.move.kind === "overhead" || p.move.kind === "slam") pose.leftHand = { ...pose.rightHand, s: pose.rightHand.s - 0.12 };
-  } else {
-    pose.rightHand = toLocal(p, bladeGeom(p).hand);
-  }
-  return pose;
-}
-
 function drawPlayer(p) {
   const legendArmor = p.armor.legendary;
   if (legendArmor) drawArmorAuraBehind(p); // legendary.js
@@ -172,16 +156,18 @@ function drawPlayer(p) {
   if (p.hurtTimer > 0 && p.rollTimer <= 0 && Math.floor(p.hurtTimer * 14) % 2 === 0) return;
   const look = playerLook(p);
   const shimmer = legendArmor ? game.time : undefined;
+  const pose = playerPose(p); // anim.js
 
   if (p.rollTimer > 0) {
-    // 진짜 구르기: 웅크려서 앞으로 한 바퀴
+    // 진짜 구르기: 손과 무기를 몸에 붙이고 웅크려서 앞으로 한 바퀴
     const t = 1 - p.rollTimer / CONFIG.player.rollTime;
     const curl = Math.sin(Math.min(1, t * 1.15) * Math.PI);
-    drawCharacter(p, look, { roll: t * Math.PI * 2, curl: Math.max(0.6, curl), hop: Math.sin(t * Math.PI) * 0.18, shimmer });
+    pose.rh = V(0.24, -0.13, 0.52); pose.lh = V(0.24, 0.13, 0.52);
+    pose.bow = null;
+    pose.back = [];
+    drawRig(p, look, pose, { roll: t * Math.PI * 2, curl: Math.max(0.6, curl), hop: Math.sin(t * Math.PI) * 0.18, shimmer });
     return;
   }
-  drawCharacter(p, look, { pose: playerPose(p), shimmer });
-  if (p.bowTimer > 0) drawBowInHand(p); // bow.js
-  else if (p.weapon.legendary) drawLegendSword(p); // legendary.js
-  else drawWeapon(p); // combat.js
+  drawRig(p, look, pose, { bodyYaw: pose.bodyYaw || 0, shimmer });
+  drawTrail(p); // anim.js: 칼끝이 지나간 궤적
 }

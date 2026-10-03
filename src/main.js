@@ -399,6 +399,8 @@ function drawDarkness(lights) {
 // ----- 그리기 -----
 function draw() {
   clearUI();
+  // 모험 지도는 화면 전체를 쓰는 진짜 지도라서 따로 그려요 (뒤 세상은 안 그려도 돼요)
+  if (game.overlay === "maps") { drawMapSelect(); return; }
   ctx.fillStyle = world.theme.bg;
   ctx.fillRect(0, 0, view.w, view.h);
   const p = game.player;
@@ -463,7 +465,6 @@ function draw() {
     beginUIScale(1000, 620);
     switch (game.overlay) {
       case "shop": drawShop(); break;
-      case "maps": drawMapSelect(); break;
       case "smith": drawSmith(); break;
       case "wardrobe": drawWardrobe(); break;
       case "records": drawRecords(); break;
@@ -493,7 +494,7 @@ function loop(now) {
   lastTime = now;
   update(dt);
 
-  const calm = game.overlay || game.scene === "title" || cheatOpen;
+  const calm = (game.overlay && game.overlay !== "maps") || game.scene === "title" || cheatOpen; // 지도는 끌 때 부드럽게
   if (!calm || now - lastDraw > 66) { // 창이 떠 있으면 1초에 15번만
     draw();
     lastDraw = now;

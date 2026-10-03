@@ -54,7 +54,8 @@ function fireBow(p) {
   const aim = bowAim(p);
   p.faceX = aim.x; p.faceY = aim.y;
   p.bowCooldown = bow.cooldown;
-  p.bowTimer = 0.28;
+  p.bowTimer = Math.max(0.4, bow.cooldown + 0.18); // 계속 쏘면 활 자세 유지
+  p.bowAge = 0;
   if (!free) { if (type === "normal") pr.arrows--; else pr.special[type]--; }
 
   const n = bow.multishot || 1;
@@ -145,22 +146,4 @@ function drawShot(s) {
   ctx.beginPath(); ctx.arc(tip.x, tip.y, (s.type === "normal" ? 2.8 : 3.8) * ZOOM, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(tail.x - 2.5, tail.y - 2.5, 5, 5);
-}
-
-// 쏘는 순간 손에 활이 보여요
-function drawBowInHand(p) {
-  const bow = p.bow;
-  const px = -p.faceY, py = p.faceX;
-  const hx = p.x + p.faceX * 0.32, hy = p.y + p.faceY * 0.32;
-  const a = toScreen(hx + px * 0.34, hy + py * 0.34, 0.6);
-  const b = toScreen(hx - px * 0.34, hy - py * 0.34, 0.6);
-  const pull = p.bowTimer > 0.18 ? -0.15 : 0.05;
-  const c = toScreen(hx + p.faceX * 0.25, hy + p.faceY * 0.25, 0.6);
-  const sPt = toScreen(hx + p.faceX * pull, hy + p.faceY * pull, 0.6);
-  ctx.lineCap = "round";
-  ctx.strokeStyle = bow.legendary ? rainbow(game.time * 300, 65) : bow.color;
-  ctx.lineWidth = 4 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.quadraticCurveTo(c.x, c.y, b.x, b.y); ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(sPt.x, sPt.y); ctx.lineTo(b.x, b.y); ctx.stroke();
 }

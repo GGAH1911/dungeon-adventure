@@ -81,13 +81,20 @@ function interactables() {
 }
 
 function updateLobby(p, dt) {
-  for (const who of [lobby.merchant, lobby.smith]) {
-    const dx = p.x - who.x, dy = p.y - who.y, d = Math.hypot(dx, dy) || 1;
-    if (d < 6) { who.faceX = dx / d; who.faceY = dy / d; }
-  }
+  const who = lobby.merchant;
+  const mdx = p.x - who.x, mdy = p.y - who.y, md = Math.hypot(mdx, mdy) || 1;
+  if (md < 6) { who.faceX = mdx / md; who.faceY = mdy / md; }
+  // 대장장이는 늘 모루를 봐요
+  const sdx = lobby.anvil.x - lobby.smith.x, sdy = lobby.anvil.y - lobby.smith.y, sd = Math.hypot(sdx, sdy) || 1;
+  lobby.smith.faceX = sdx / sd; lobby.smith.faceY = sdy / sd;
   // 모닥불 불티, 화로 불티
   if (Math.random() < dt * 12) addSparkle(lobby.fire.x + (Math.random() - 0.5) * 0.4, lobby.fire.y + (Math.random() - 0.5) * 0.4, 0.4, { vz: 1 + Math.random(), life: 0.9, size: 0.45, gold: true });
   if (Math.random() < dt * 6) addSparkle(lobby.furnace.x, lobby.furnace.y, 1.1, { vz: 1.2, life: 0.7, size: 0.4, gold: true });
+  // 대장장이 망치가 모루에 닿는 순간 불꽃 (anim.js 의 박자와 맞춰요)
+  const beat = (game.time % 1.4) / 1.4, prevBeat = ((game.time - dt) % 1.4) / 1.4;
+  if (prevBeat < 0.66 && beat >= 0.66) {
+    for (let i = 0; i < 6; i++) addSparkle(lobby.anvil.x - 0.2, lobby.anvil.y, 0.5, { vx: (Math.random() - 0.5) * 2.5, vy: (Math.random() - 0.5) * 2.5, vz: 1.5 + Math.random(), gravity: 8, life: 0.4, size: 0.4, gold: true });
+  }
   for (const d of dummies) d.hitT = Math.max(0, d.hitT - dt);
   updateDog(p, dt);
   // 소원 우물 결과
@@ -217,7 +224,7 @@ function drawDummy(d) {
 function lobbyThings(things) {
   const L = lobby;
   things.push({ depth: L.merchant.x + L.merchant.y, draw: () => drawCharacter(L.merchant, CONFIG.colors.merchant) });
-  things.push({ depth: L.smith.x + L.smith.y, draw: () => drawCharacter(L.smith, smithColors) });
+  things.push({ depth: L.smith.x + L.smith.y, draw: () => drawCharacter(L.smith, smithColors, { pose: npcPose(L.smith, "smith") }) });
   for (const c of L.crates) things.push({ depth: c.x + c.y, draw: () => drawCrate(c) });
   for (const t of L.trees) if (onScreen(t.x, t.y, 3)) things.push({ depth: t.x + t.y, draw: () => drawTree(t) });
   for (const f of L.flowers) if (onScreen(f.x, f.y)) things.push({ depth: f.x + f.y - 0.5, draw: () => drawBox(f.x - 0.05, f.y - 0.05, 0, 0.1, 0.1, 0.12, f.c) });

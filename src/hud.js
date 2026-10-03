@@ -70,6 +70,7 @@ function drawHUD() {
     text(`${game.mapDef.name} Lv ${game.mapLevel}`, W - 124, 40, 20, "#ffe27a", "right");
     text(`남은 몬스터 ${monsters.length}`, W - 124, 64, 16, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
     drawMinimap(p, monsters);
+    if (monsters.some((m) => m.boss && m.aggro)) drawBossBar(); // 보스가 깨어나면 체력 막대
   } else if (game.scene === "lobby") {
     text("캠프", W - 124, 40, 20, "#ffe27a", "right");
   }

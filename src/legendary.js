@@ -43,7 +43,7 @@ function flashScreen(time, rainbowFlash = false) {
 }
 
 function swordTip(p) {
-  return bladeGeom(p).tip;
+  return bladeWorld(p).tip; // anim.js
 }
 
 // ----- 매 프레임 -----
@@ -215,59 +215,7 @@ function drawArmorAuraBehind(p) {
   ctx.restore();
 }
 
-// 무지개 별빛 대검
-function drawLegendSword(p) {
-  const t = game.time;
-  const g = bladeGeom(p);
-  const hue = t * 200;
-  const a = toScreen(g.hand.x, g.hand.y, g.hand.z);
-  const b = toScreen(g.tip.x, g.tip.y, g.tip.z);
-  const ux = g.tip.x - g.hand.x, uy = g.tip.y - g.hand.y, uz = g.tip.z - g.hand.z;
-  const ul = Math.hypot(ux, uy, uz) || 1;
-  const grip = toScreen(g.hand.x - (ux / ul) * 0.16, g.hand.y - (uy / ul) * 0.16, g.hand.z - (uz / ul) * 0.16);
-  const gx = -p.faceY * 0.2, gy = p.faceX * 0.2;
-  const g1 = toScreen(g.hand.x + gx, g.hand.y + gy, g.hand.z);
-  const g2 = toScreen(g.hand.x - gx, g.hand.y - gy, g.hand.z);
-
-  // 연속기 무지개 궤적
-  drawSwingTrail(p, (k, fade) => rainbow(hue + k * 300, 60, (0.35 + 0.6 * k) * fade), (p.move && p.move.finisher ? 22 : 16) * ZOOM);
-
-  ctx.save();
-  ctx.lineCap = "round";
-  // 황금 손잡이와 가드
-  ctx.strokeStyle = "#7a5200"; ctx.lineWidth = 8 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(grip.x, grip.y); ctx.lineTo(a.x, a.y); ctx.stroke();
-  ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 5 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(grip.x, grip.y); ctx.lineTo(a.x, a.y); ctx.stroke();
-  ctx.lineWidth = 6 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(g1.x, g1.y); ctx.lineTo(g2.x, g2.y); ctx.stroke();
-
-  // 빛나는 무지개 칼날
-  ctx.globalCompositeOperation = "lighter";
-  for (const [width, alpha] of [[40, 0.12], [26, 0.2]]) {
-    ctx.strokeStyle = rainbow(hue, 60, alpha);
-    ctx.lineWidth = width * ZOOM;
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-  }
-  const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-  for (let i = 0; i <= 6; i++) grad.addColorStop(i / 6, rainbow(hue + i * 60, 60));
-  ctx.strokeStyle = grad;
-  ctx.lineWidth = 15 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,0.95)";
-  ctx.lineWidth = 5 * ZOOM;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-
-  // 가드 보석, 칼끝 별
-  ctx.globalCompositeOperation = "source-over";
-  drawStar(a.x, a.y, 9 * ZOOM, rainbow(hue + 180, 65));
-  drawStar(a.x, a.y, 4 * ZOOM, "#ffffff");
-  ctx.globalCompositeOperation = "lighter";
-  const pulse = 1 + 0.3 * Math.sin(t * 12);
-  drawStar(b.x, b.y, 16 * ZOOM * pulse, rainbow(hue + 90, 70, 0.9));
-  drawStar(b.x, b.y, 7 * ZOOM * pulse, "#ffffff");
-  ctx.restore();
-}
+// 무지개 별빛 대검은 rig.js 가 손에 붙여서 그려요 (style "legend")
 
 // 바닥 충격파 (바닥 바로 위에 그려요)
 function drawLegendFloor() {
