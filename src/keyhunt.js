@@ -656,15 +656,7 @@ const KEY_CHALLENGES = {
       ch.ped = { x: r.cx + 2.6, y: r.cy + 2.6 };
       world.solids.push({ x: ch.ped.x, y: ch.ped.y, r: 0.3 });
       const len = { easy: 3, normal: 4, hard: 5, nightmare: 6 }[game.profile.difficulty] || 4;
-      // 다음 타일은 늘 위·아래·왼쪽·오른쪽 옆 칸 (대각선으로 가다 다른 타일을 밟지 않게)
-      ch.seq = [Math.floor(Math.random() * 9)];
-      while (ch.seq.length < len) {
-        const cur = ch.seq[ch.seq.length - 1], cx = cur % 3, cy = Math.floor(cur / 3), prev = ch.seq[ch.seq.length - 2];
-        const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && x < 3 && y >= 0 && y < 3).map(([x, y]) => y * 3 + x);
-        const pick = nb.filter((t) => t !== prev);
-        const from = pick.length ? pick : nb;
-        ch.seq.push(from[Math.floor(Math.random() * from.length)]);
-      }
+      ch.seq = memorySequence(len); ch.tries = 0;
       ch.phase = "idle"; ch.t = 0; ch.k = 0; ch.last = -1; ch.flash = null;
       return true;
     },
@@ -723,13 +715,36 @@ const KEY_CHALLENGES = {
     },
     interact(ch) {
       if (ch.phase === "show") return [];
-      return [{ x: ch.ped.x, y: ch.ped.y, range: 1.3, short: "보기", prompt: "빛 순서 보기", action: () => { ch.phase = "show"; ch.t = 0; sfx.click(); } }];
+      return [{ x: ch.ped.x, y: ch.ped.y, range: 1.3, short: "보기", prompt: "빛 순서 보기", action: () => {
+        // 어려움·악몽은 다시 볼 때마다 새 순서 (외워서 찍기 막기). 쉬움·보통은 같은 순서로 다시 연습
+        const hardish = ["hard", "nightmare"].includes(game.profile.difficulty);
+        if (ch.tries > 0 && hardish) { ch.seq = memorySequence(ch.seq.length, ch.seq); showMessage("새 순서예요! 잘 봐요", 1.6, false, "#ffe27a"); }
+        ch.tries = (ch.tries || 0) + 1;
+        ch.phase = "show"; ch.t = 0; sfx.click();
+      } }];
     },
     lights(ch) { return [{ x: ch.room.cx, y: ch.room.cy, radius: 3.5, power: 0.8 }]; },
     status(ch) { return ch.phase === "input" ? `기억 타일 ${ch.k}/${ch.seq.length} 밟기` : "받침대를 눌러 빛 순서를 봐요"; },
     target(ch) { return ch.ped; },
   },
 };
+
+// 기억 타일 순서: 다음 타일은 늘 위·아래·왼쪽·오른쪽 옆 칸 (대각선으로 가다 다른 타일을 밟지 않게)
+// avoid: 지난 순서와 똑같으면 다시 뽑아요
+function memorySequence(len, avoid) {
+  for (let tries = 0; tries < 20; tries++) {
+    const seq = [Math.floor(Math.random() * 9)];
+    while (seq.length < len) {
+      const cur = seq[seq.length - 1], cx = cur % 3, cy = Math.floor(cur / 3), prev = seq[seq.length - 2];
+      const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && x < 3 && y >= 0 && y < 3).map(([x, y]) => y * 3 + x);
+      const pick = nb.filter((t) => t !== prev);
+      const from = pick.length ? pick : nb;
+      seq.push(from[Math.floor(Math.random() * from.length)]);
+    }
+    if (!avoid || seq.join() !== avoid.join()) return seq;
+  }
+  return avoid.slice().reverse();
+}
 
 // 기억 타일 등에서 가까이 본 화면을 원래대로 (성공·실패·장면 바뀜)
 let khZoomT = 0;

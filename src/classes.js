@@ -800,15 +800,14 @@ hookOn("touchButtons", (list, s) => {
   clsPrepare(p);
   const cls = playerCls(p), def = CLASS_DEFS[cls];
   const W0 = view.w, H = view.h;
-  const pos = { TouchAttack: [105, 105, 60], TouchRoll: [245, 55, 40], TouchBow: [310, 135, 36], TouchArrowType: [345, 215, 22], TouchPotion: [262, 262, 30], TouchUse: [105, 338, 40] };
+  // 원래 버튼(공격·구르기·활·화살·물약·열기)은 예전 자리 그대로 두고 (손에 익은 자리), 기술 버튼은 그 왼쪽에 따로
   const out = [];
   for (const b of list) {
     if (cls === "hunter" && b.code === "TouchBow") continue; // 사냥꾼은 공격 버튼이 활이에요
-    const q = pos[b.code];
     const atk = b.code === "TouchAttack";
-    out.push(q ? { ...b, x: W0 - q[0] * s, y: H - q[1] * s, r: q[2] * s, icon: atk ? def.icon : b.icon, label: atk ? classSkill(cls, "basic").short : b.label } : b);
+    out.push(atk ? { ...b, icon: def.icon, label: classSkill(cls, "basic").short } : b);
   }
-  const sp = { s1: ["TouchSkill1", 215, 152, 38], s2: ["TouchSkill2", 168, 235, 36], ult: ["TouchUlt", 75, 248, 36] };
+  const sp = { s1: ["TouchSkill1", 395, 66, 38], s2: ["TouchSkill2", 405, 156, 36], ult: ["TouchUlt", 478, 108, 36] };
   for (const slot of SKILL_SLOTS) {
     const sk = classSkill(cls, slot), [code, dx, dy, r] = sp[slot];
     const lock = !skillUnlocked(sk);

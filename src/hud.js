@@ -25,8 +25,9 @@ function drawHUDBase() {
   y += 26;
 
   // 에메랄드, 물약
-  drawEmeraldIcon(26, y + 10, 11);
-  text(`${pr.emeralds}`, 42, y + 18, 20);
+  const bump = game.emeraldBumpAt !== undefined ? Math.max(0, 1 - (game.time - game.emeraldBumpAt) / 0.3) : 0; // 에메랄드를 받으면 통통
+  drawEmeraldIcon(26, y + 10, 11 * (1 + 0.45 * bump));
+  text(`${pr.emeralds}`, 42, y + 18, 20 + 4 * bump, bump > 0 ? "#9dffc0" : undefined);
   ctx.fillStyle = "#c64fa0";
   ctx.fillRect(100, y + 1, 14, 18);
   ctx.fillStyle = "#ffd6f2"; ctx.fillRect(103, y - 3, 8, 5);

@@ -45,8 +45,37 @@ function dropPickup(type, x, y, extra = {}) {
 }
 
 // 튀어 나왔다가 바닥에 떨어지고, 가까이 가면 빨려와요
+// 에메랄드 자동 줍기: 가장 가까운 살아있는 주인공에게 포물선으로 날아와 빨려 들어가요
+// 돌려주는 값 true = 이 주인공 차례에 처리 끝 (다른 주인공 차례면 건드리지 않아요)
+function emeraldHome(e, player, dt, onPickup) {
+  if (!e.home || !e.home.target || e.home.target.hp <= 0) {
+    const t = typeof nearestPlayer === "function" ? nearestPlayer(e.x, e.y) : player;
+    if (!t || t.hp <= 0) return true;
+    e.home = { target: t, t: 0, x0: e.x, y0: e.y, delay: Math.random() * 0.25 };
+  }
+  if (e.home.target !== player) return true;
+  const h = e.home;
+  h.t += dt;
+  if (h.t < h.delay) { e.z = Math.max(e.z || 0, 0) + dt * 1.5; return true; } // 살짝 떠오르기
+  const k = h.t - h.delay;
+  const dx = player.x - e.x, dy = player.y - e.y, d = Math.hypot(dx, dy);
+  const speed = Math.min(26, 5 + k * 34); // 점점 빨라져요
+  if (d > 0.01) { const m = Math.min(d, speed * dt); e.x += dx / d * m; e.y += dy / d * m; }
+  e.z = 0.35 + Math.min(1.2, d * 0.25) * Math.min(1, k * 4); // 높이 떠서 날아와요
+  e.spin = (e.spin || 0) + dt * 18;
+  if (Math.random() < dt * 30) addSparkle(e.x, e.y, e.z + 0.2, { life: 0.35, size: 0.45, hue: 140, vz: 0.3 });
+  if (d < 0.35) {
+    e.taken = true; onPickup(e);
+    addRing(player.x, player.y, { speed: 4, life: 0.25, hue: 140 });
+    for (let i = 0; i < 4; i++) { const a = Math.random() * Math.PI * 2; addSparkle(player.x, player.y, 0.9, { vx: Math.cos(a) * 1.5, vy: Math.sin(a) * 1.5, vz: 1.5, gravity: 5, life: 0.35, size: 0.5, hue: 140 }); }
+    game.emeraldBumpAt = game.time; // 화면 위 에메랄드가 통통 (hud.js)
+  }
+  return true;
+}
+
 function updatePickups(player, dt, onPickup) {
   for (const e of pickups) {
+    if (e.home) { if (e.home.target === player || !e.home.target || e.home.target.hp <= 0) { e.t += dt; emeraldHome(e, player, dt, onPickup); } continue; }
     e.t += dt;
     if (e.vz !== undefined && (e.z > 0 || e.vz > 0)) {
       e.vz -= 12 * dt;
@@ -56,6 +85,8 @@ function updatePickups(player, dt, onPickup) {
       if (e.z <= 0) { e.z = 0; e.vz = Math.abs(e.vz) > 2 ? -e.vz * 0.35 : 0; e.vx *= 0.5; e.vy *= 0.5; }
       if (e.z > 0 || e.vz > 0) continue;
     }
+    // 에메랄드는 바닥에 닿으면 저절로 주인공에게 날아와요 (자동 줍기)
+    if (e.type === "emerald" && e.t >= 0.45 && emeraldHome(e, player, dt, onPickup)) continue;
     const dx = player.x - e.x, dy = player.y - e.y;
     const d = Math.hypot(dx, dy);
     if (player.hp <= 0 || e.t < 0.35) continue;
