@@ -341,7 +341,7 @@ function revealAround(x, y, r = 7) {
 // 미니맵도 화면처럼 비스듬하게 그려요
 function drawMinimap(p, list) {
   if (!world.mini) return;
-  const size = Math.min(260, view.w * 0.24);
+  const size = Math.min(260, view.w * 0.24, view.h * 0.42);
   const k = size / (world.W + world.H);
   const ox = view.w - 16 - world.W * k, oy = 96;
   // 세상 (x, y) -> 미니맵 화면

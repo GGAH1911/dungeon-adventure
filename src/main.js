@@ -452,16 +452,25 @@ function draw() {
     ctx.fillRect(0, 0, view.w, view.h);
   }
 
-  if (game.scene === "title") { drawTitle(); return; }
-  drawHUD();
-  switch (game.overlay) {
-    case "shop": drawShop(); break;
-    case "maps": drawMapSelect(); break;
-    case "smith": drawSmith(); break;
-    case "wardrobe": drawWardrobe(); break;
-    case "records": drawRecords(); break;
-    case "menu": drawMenu(); break;
-    case "result": drawResult(); break;
+  // 화면 글씨와 창 (휴대폰처럼 작은 화면에서는 줄여서)
+  if (game.scene === "title") {
+    beginUIScale(820, 520); drawTitle(); endUIScale();
+    return;
+  }
+  beginUIScale(900, 540); drawHUD(); endUIScale();
+  if (!game.overlay) drawTouchControls(); // 터치 버튼은 실제 화면 크기 그대로
+  if (game.overlay) {
+    beginUIScale(1000, 620);
+    switch (game.overlay) {
+      case "shop": drawShop(); break;
+      case "maps": drawMapSelect(); break;
+      case "smith": drawSmith(); break;
+      case "wardrobe": drawWardrobe(); break;
+      case "records": drawRecords(); break;
+      case "menu": drawMenu(); break;
+      case "result": drawResult(); break;
+    }
+    endUIScale();
   }
 }
 

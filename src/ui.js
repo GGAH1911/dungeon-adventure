@@ -1,5 +1,29 @@
 // ===== 화면 글씨, 버튼, 아이콘 그리기 도구 =====
 
+// ----- 작은 화면(휴대폰)용 크기 맞추기 -----
+// 창은 최소 이 크기라고 생각하고 배치한 다음, 화면이 작으면 통째로 줄여서 그려요.
+// (버튼 누르는 자리도 같이 줄어들어요)
+let uiK = 1;
+let uiSaved = null;
+function beginUIScale(minW, minH) {
+  uiK = Math.min(1, view.w / minW, view.h / minH);
+  if (uiK >= 1) { uiK = 1; return; }
+  uiSaved = { w: view.w, h: view.h };
+  ctx.save();
+  ctx.scale(uiK, uiK);
+  view.w = uiSaved.w / uiK;
+  view.h = uiSaved.h / uiK;
+}
+function endUIScale() {
+  if (uiK < 1 && uiSaved) {
+    view.w = uiSaved.w;
+    view.h = uiSaved.h;
+    ctx.restore();
+  }
+  uiSaved = null;
+  uiK = 1;
+}
+
 function text(str, x, y, size, color = "#fff", align = "left") {
   ctx.font = `bold ${size}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
   ctx.textAlign = align;

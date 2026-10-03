@@ -34,7 +34,10 @@ function clearPressed() {
 // 그릴 때마다 "여기 누르면 이거 해" 를 등록해요.
 let uiRegions = [];
 function clearUI() { uiRegions = []; }
-function addUI(x, y, w, h, onTap) { uiRegions.push({ x, y, w, h, onTap }); }
+function addUI(x, y, w, h, onTap) {
+  const k = typeof uiK === "number" ? uiK : 1; // 작은 화면이면 줄인 만큼 맞춰요
+  uiRegions.push({ x: x * k, y: y * k, w: w * k, h: h * k, onTap });
+}
 // 창이 열려 있으면 뒤에 있는 버튼은 못 누르게 막아요
 function blockUI() { uiRegions.push({ x: 0, y: 0, w: view.w, h: view.h, onTap: null }); }
 function hitUI(x, y) {
@@ -53,13 +56,19 @@ const touch = {
   held: {},      // 손가락 번호 -> 누르고 있는 버튼
   taps: {},      // 손가락 번호 -> 누른 화면 버튼
 };
-const JOY_R = 60;
+let JOY_R = 60;
+// 터치 버튼 크기: 휴대폰처럼 작은 화면이면 작게
+function touchScale() {
+  const s = Math.max(0.62, Math.min(1.2, Math.min(view.w, view.h) / 700));
+  JOY_R = 60 * Math.max(0.8, s);
+  return s;
+}
 
 // 지금 화면에 있는 터치 버튼들 (game.js 상태에 따라 달라져요)
 function touchButtons() {
   if (!touch.show || !playing()) return [];
   const W = view.w, H = view.h;
-  const s = Math.max(0.8, Math.min(1.2, Math.min(W, H) / 700));
+  const s = touchScale();
   const p = game.player;
   const list = [
     { code: "TouchAttack", label: "공격", x: W - 110 * s, y: H - 110 * s, r: 64 * s, color: "#e25555" },

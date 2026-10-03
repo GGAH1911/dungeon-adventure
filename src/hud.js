@@ -62,13 +62,14 @@ function drawHUD() {
   // 장소 정보
   if (game.scene === "dungeon" && game.mode === "tower") {
     text(`시련의 탑 ${game.tower.floor}층 / ${TOWER.floors}`, W - 124, 40, 20, "#ffe27a", "right");
-    text(`Lv ${game.mapLevel + Math.floor((game.tower.floor - 1) * 0.6)}`, W - 124, 64, 15, "#ccc", "right");
-    if (game.tower.waveDelay <= 0 && !game.tower.cleared) text(`남은 몬스터 ${monsters.length}`, W - 16, 94, 17, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
+    const lvText = `Lv ${game.mapLevel + Math.floor((game.tower.floor - 1) * 0.6)}`;
+    const left = game.tower.waveDelay <= 0 && !game.tower.cleared ? ` · 남은 몬스터 ${monsters.length}` : "";
+    text(lvText + left, W - 124, 64, 15, monsters.length <= 3 && left ? "#ff8080" : "#ccc", "right");
     drawBossBar();
   } else if (game.scene === "dungeon") {
     text(`${game.mapDef.name} Lv ${game.mapLevel}`, W - 124, 40, 20, "#ffe27a", "right");
-    const bottom = drawMinimap(p, monsters);
-    text(`남은 몬스터 ${monsters.length}`, W - 16, (bottom || 200) + 26, 17, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
+    text(`남은 몬스터 ${monsters.length}`, W - 124, 64, 16, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
+    drawMinimap(p, monsters);
   } else if (game.scene === "lobby") {
     text("캠프", W - 124, 40, 20, "#ffe27a", "right");
   }
@@ -91,14 +92,14 @@ function drawHUD() {
       : "이동 WASD/방향키 · 말 걸기 E · 메뉴 ESC";
     text(hint, W / 2, H - 14, 14, "rgba(255,255,255,0.55)", "center");
   }
-  if (!game.overlay) drawTouchControls();
 }
 
 function drawTouchControls() {
   if (!touch.show) return;
   // 조이스틱
-  const baseX = touch.joyId !== null ? touch.joyX0 : 120;
-  const baseY = touch.joyId !== null ? touch.joyY0 : view.h - 120;
+  const js = touchScale();
+  const baseX = touch.joyId !== null ? touch.joyX0 : 120 * Math.max(0.8, js);
+  const baseY = touch.joyId !== null ? touch.joyY0 : view.h - 120 * Math.max(0.8, js);
   ctx.save();
   ctx.globalAlpha = touch.joyId !== null ? 0.6 : 0.25;
   ctx.fillStyle = "#ffffff";
@@ -107,7 +108,7 @@ function drawTouchControls() {
   const kx = touch.joyId !== null ? baseX + touch.moveX * JOY_R : baseX;
   const ky = touch.joyId !== null ? baseY + touch.moveY * JOY_R : baseY;
   ctx.fillStyle = "#dfe6ee";
-  ctx.beginPath(); ctx.arc(kx, ky, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(kx, ky, JOY_R * 0.47, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
   if (touch.joyId === null) text("이동", baseX, baseY + 6, 16, "rgba(255,255,255,0.8)", "center");
 
