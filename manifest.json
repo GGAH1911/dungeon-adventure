@@ -1,0 +1,9 @@
+{
+  "name": "던전 모험",
+  "short_name": "던전 모험",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#15171c",
+  "theme_color": "#15171c"
+}

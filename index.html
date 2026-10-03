@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>던전 모험</title>
+  <!-- 태블릿/폰: 확대 막기, 화면 꽉 채우기 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="던전 모험">
+  <meta name="theme-color" content="#15171c">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #15171c; }
+    body { position: fixed; inset: 0; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+    canvas { display: block; touch-action: none; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <!-- 순서가 중요해요: 위에 있는 파일을 아래 파일들이 사용해요 -->
+  <script src="src/config.js"></script>
+  <script src="src/items.js"></script>
+  <script src="src/monsters.js"></script>
+  <script src="src/maps.js"></script>
+  <script src="src/iso.js"></script>
+  <script src="src/sound.js"></script>
+  <script src="src/world.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/save.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/player.js"></script>
+  <script src="src/monster.js"></script>
+  <script src="src/effects.js"></script>
+  <script src="src/legendary.js"></script>
+  <script src="src/lobby.js"></script>
+  <script src="src/shop.js"></script>
+  <script src="src/mapselect.js"></script>
+  <script src="src/menus.js"></script>
+  <script src="src/hud.js"></script>
+  <script src="src/cheat.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
