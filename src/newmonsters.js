@@ -256,6 +256,7 @@ drawMonster = function (m) {
 const _spawnMonstersBase = spawnMonsters;
 spawnMonsters = function (mapDef, level, rand) {
   _spawnMonstersBase(mapDef, level, rand);
+  if (true) return; // 맵 보스는 이제 보스방에서 나와요 (bossroom.js)
   if (!mapDef.boss || !world.rooms.length) return;
   const start = world.rooms[0];
   let far = world.rooms[world.rooms.length - 1], best = -1;

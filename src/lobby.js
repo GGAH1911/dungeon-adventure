@@ -77,7 +77,7 @@ function nearestNpc(p) {
 // 지금 장면에서 말 걸 수 있는 것들
 function interactables() {
   if (game.scene === "lobby") return npcs;
-  return [...chestInteractables(), ...stairsInteractables()];
+  return [...chestInteractables(), ...stairsInteractables(), ...(typeof keyHuntInteractables === "function" ? keyHuntInteractables() : [])];
 }
 
 function updateLobby(p, dt) {

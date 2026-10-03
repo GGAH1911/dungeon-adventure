@@ -56,35 +56,20 @@ function chestLoot(c) {
   // 에메랄드
   const em = Math.round((c.gold ? 10 + Math.random() * 8 : 4 + Math.random() * 4) * (1 + 0.05 * (L - 1)));
   for (let i = 0; i < em; i++) pop("emerald");
+  // 부품 (맵 레벨에 맞는 단계)
+  const t = rewardTier(L);
+  const k = typeof rewardFactor === "function" ? rewardFactor() : 1;
+  pop("material", { mat: MATERIAL_ORDER[t], count: Math.max(1, Math.round((c.gold ? 5 : 2) * k)) });
+  if (c.gold && t < MATERIAL_ORDER.length - 1) pop("material", { mat: MATERIAL_ORDER[t + 1], count: Math.max(1, Math.round(2 * k)) });
   // 덤
-  const extras = c.gold ? 3 : 1;
+  const extras = c.gold ? 2 : 1;
   for (let i = 0; i < extras; i++) {
     const r = Math.random() * 100;
-    const gearChance = c.gold ? 35 : 10;
-    if (r < gearChance) {
-      const gear = randomGear(L, c.gold);
-      if (gear) { pop("item", gear); continue; }
-    }
-    if (r < gearChance + 30) pop("arrows");
-    else if (r < gearChance + 52) pop("special", { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
-    else if (r < gearChance + 70) pop("potion");
+    if (r < 40) pop("arrows");
+    else if (r < 62) pop("special", { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
+    else if (r < 82) pop("potion");
     else pop("apple");
   }
-}
-
-// 아직 없는 장비 중 하나 (레벨에 맞는 값까지)
-function randomGear(L, gold) {
-  const maxPrice = 12 + L * 4 + (gold ? 15 : 0);
-  const pool = [];
-  for (const w of WEAPONS) if (!w.secret && w.price > 0 && w.price <= maxPrice && !owns("weapon", w.id)) pool.push({ kind: "weapon", id: w.id });
-  for (const b of BOWS) if (!b.secret && b.price > 0 && b.price <= maxPrice && !owns("bow", b.id)) pool.push({ kind: "bow", id: b.id });
-  for (const a of ARMORS) if (!a.secret && a.price > 0 && a.price <= maxPrice && !owns("armor", a.id)) pool.push({ kind: "armor", id: a.id });
-  if (!pool.length) return null;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
-
-function gearItem(kind, id) {
-  return kind === "weapon" ? weaponById(id) : kind === "bow" ? bowById(id) : armorById(id);
 }
 
 function updateChests(dt) {

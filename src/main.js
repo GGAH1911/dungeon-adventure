@@ -79,7 +79,7 @@ function startDungeon(def, level) {
   game.mapDef = def;
   game.mapLevel = level;
   placePlayer();
-  game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0 };
+  game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0, mats: {} };
   game.profile.stats.runs++;
   sfx.wave();
   showMessage(`${def.name} Lv ${level}  ·  몬스터를 모두 물리치세요!`, 3);
@@ -137,6 +137,7 @@ function killMonster(m, legendary, opts = {}) {
   if (Math.random() < CONFIG.monster.appleChance) dropPickup("apple", m.x, m.y);
   if (Math.random() < (def.arrowDrop || CONFIG.monster.arrowChance)) dropPickup("arrows", m.x, m.y);
   if (Math.random() < 0.03) dropPickup("special", m.x, m.y, { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
+  if (Math.random() < (m.boss ? 1 : 0.06)) dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[rewardTier(game.mapLevel)], count: m.boss ? 4 : 1 });
   // 슬라임은 쪼개져요!
   if (def.splits) {
     for (let i = 0; i < def.splitCount; i++) {
@@ -196,14 +197,41 @@ function armorRevenge(p, from) {
   if (p.armor.frost) from.slow = 2.5;
 }
 
+// 보상 배수: 난이도 x 하드모드
+function rewardFactor() {
+  return diff().reward * (game.profile.hardMode ? CONFIG.hardModeReward : 1);
+}
+
+// 맵을 깨면 받는 부품: 맵 레벨에 맞는 단계 + 다음 단계 조금
+function stageMaterials(S, firstClear) {
+  const t = rewardTier(S);
+  const k = rewardFactor() * (firstClear ? 1.5 : 1);
+  const out = {};
+  out[MATERIAL_ORDER[t]] = Math.round((10 + 0.3 * S) * k);
+  if (t > 0) out[MATERIAL_ORDER[t - 1]] = Math.round(4 * k);
+  if (t < MATERIAL_ORDER.length - 1) out[MATERIAL_ORDER[t + 1]] = Math.max(1, Math.round(1.5 * k));
+  return out;
+}
+
+function giveMaterials(mats) {
+  for (const id in mats) addMaterial(id, mats[id]);
+}
+
 function endRun(win) {
   if (game.result) return;
   const r = game.run;
   const pr = game.profile;
   let bonus = 0;
+  let mats = null;
   if (win) {
-    bonus = clearBonus(game.mapDef, game.mapLevel);
+    bonus = Math.round(clearBonus(game.mapDef, game.mapLevel) * rewardFactor());
     pr.emeralds += bonus;
+    const key = `${game.mapDef.id}:${pr.difficulty}`;
+    const first = !pr.firstClears[key];
+    pr.firstClears[key] = true;
+    mats = stageMaterials(game.mapLevel, first);
+    giveMaterials(mats);
+    for (const id in r.mats || {}) mats[id] = (mats[id] || 0) + r.mats[id];
     pr.stats.clears++;
     if (!pr.cleared.includes(game.mapDef.id)) pr.cleared.push(game.mapDef.id);
     const best = pr.best[game.mapDef.id] || 0;
@@ -215,7 +243,8 @@ function endRun(win) {
     pr.stats.deaths++;
   }
   const where = game.mode === "tower" ? `시련의 탑 Lv ${game.mapLevel} · ${game.tower.floor}층` : `${game.mapDef.name} Lv ${game.mapLevel}`;
-  game.result = { win, mapName: where, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus };
+  if (!win) mats = r.mats || null;
+  game.result = { win, mapName: where, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus, mats };
   game.endTimer = win ? 1.8 : 1.4;
   saveProfile();
 }
@@ -271,12 +300,11 @@ function onPickup(item) {
     if (pr.potions < CONFIG.player.maxPotions) { pr.potions++; addFloatText(p.x, p.y, "물약 +1", "#ff9ad8", 16); }
     else { p.hp = Math.min(p.maxHp, p.hp + POTION.heal); addFloatText(p.x, p.y, `+${POTION.heal}`, "#ff9ad8", 18); }
     sfx.potion();
-  } else if (item.type === "item") {
-    const it = gearItem(item.kind, item.id);
-    if (!owns(item.kind, item.id)) ownedList(item.kind).push(item.id);
-    showMessage(`새 장비! ${it.name}`, 3, true);
-    sfx.chest();
-    addRing(p.x, p.y, { speed: 4, life: 0.5, gold: true });
+  } else if (item.type === "material") {
+    addMaterial(item.mat, item.count || 1);
+    if (game.run) { game.run.mats = game.run.mats || {}; game.run.mats[item.mat] = (game.run.mats[item.mat] || 0) + (item.count || 1); }
+    addFloatText(p.x, p.y, `${MATERIALS[item.mat].name} +${item.count || 1}`, MATERIALS[item.mat].color, 16);
+    sfx.emerald();
   } else if (item.type === "apple") {
     p.hp = Math.min(p.maxHp, p.hp + 2);
     addFloatText(p.x, p.y, "+2", "#ff7b7b", 20);
@@ -340,6 +368,7 @@ function update(dt) {
   for (const m of monsters) updateMonster(m, p, dt);
   monsters = monsters.filter((m) => m.hp > 0);
   updateArrows(p, dt);
+  if (typeof updateAbilities === "function") updateAbilities(dt);
   updateChests(dt);
 
   // 체력 재생 갑옷
@@ -404,8 +433,11 @@ function draw() {
   ctx.fillStyle = world.theme.bg;
   ctx.fillRect(0, 0, view.w, view.h);
   const p = game.player;
-  camera.x += (p.x - camera.x) * 0.12;
-  camera.y += (p.y - camera.y) * 0.12;
+  // 보스방에서는 보스가 같이 보이게 카메라를 보스 쪽으로 조금 당겨요
+  const cb = typeof bossCameraBias === "function" ? bossCameraBias(p) : null;
+  const cx = cb ? cb.x : p.x, cy = cb ? cb.y : p.y;
+  camera.x += (cx - camera.x) * 0.12;
+  camera.y += (cy - camera.y) * 0.12;
 
   ctx.save();
   if (game.shake > 0) {
@@ -415,6 +447,7 @@ function draw() {
 
   drawFloor();
   drawLegendFloor();
+  if (typeof drawTelegraphs === "function") drawTelegraphs();
 
   if (p.hp > 0) drawShadow(p.x, p.y, p.r);
   for (const m of monsters) if (onScreen(m.x, m.y)) drawShadow(m.x, m.y, m.r);

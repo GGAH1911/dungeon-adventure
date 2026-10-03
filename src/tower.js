@@ -140,6 +140,12 @@ function floorCleared() {
   const bonus = 3 + T.floor;
   pr.emeralds += bonus;
   game.run.emeralds += bonus;
+  // 층마다 부품 조금
+  const tier = rewardTier(game.mapLevel + Math.floor((T.floor - 1) * 0.6));
+  const n = Math.max(1, Math.round((2 + T.floor * 0.5) * rewardFactor()));
+  addMaterial(MATERIAL_ORDER[tier], n);
+  game.run.mats = game.run.mats || {};
+  game.run.mats[MATERIAL_ORDER[tier]] = (game.run.mats[MATERIAL_ORDER[tier]] || 0) + n;
   p.hp = Math.min(p.maxHp, p.hp + 3);
   stairs.open = true;
   sfx.clear();

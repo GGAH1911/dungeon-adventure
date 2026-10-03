@@ -7,8 +7,8 @@ let arrows = [];
 // level: 맵 레벨. 높을수록 체력과 공격력이 커져요 (maps.js 의 계산)
 function createMonster(type, x, y, level = 1) {
   const def = MONSTERS[type];
-  const hpMul = monsterHpMul(level);
-  const dmgMul = monsterDamageMul(level);
+  const hpMul = monsterHpMul(level) * diff().hp;     // 난이도에 따라
+  const dmgMul = monsterDamageMul(level) * diff().dmg;
   const size = def.size || 1;
   return {
     type, def, x, y, name: def.name,
@@ -146,6 +146,8 @@ function monsterBrain(m, p, dt) {
     return;
   }
 
+  // 기술(abilities.js): 쓸 기술이 있으면 쓰고, 그동안 원래 행동은 쉬어요
+  if ((def.abilities || def.phases || m.phases || m.abilities) && typeof tryAbilities === "function" && tryAbilities(m, p, dist, dt)) return;
   switch (def.behavior) {
     case "pounce": updatePouncer(m, p, dist, dt); break;
     case "archer":

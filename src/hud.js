@@ -50,8 +50,8 @@ function drawHUD() {
   const aColor = p.armor.legendary ? `hsl(45, 100%, ${65 + 15 * Math.sin(game.time * 6)}%)` : "#fff";
   const eqY = touch.show ? 150 : H - 70;
   if (!touch.show) {
-    text(`무기: ${itemLabel("weapon", p.weapon)} · 활: ${itemLabel("bow", p.bow)}`, 16, eqY - 24, 16, wColor);
-    text(`갑옷: ${itemLabel("armor", p.armor)}`, 16, eqY, 16, aColor);
+    text(`무기: ${p.weapon.name} Lv ${gearLevel("weapon")} · 활: ${p.bow.name} Lv ${gearLevel("bow")}`, 16, eqY - 24, 16, wColor);
+    text(`갑옷: ${p.armor.name} · 난이도 ${DIFFICULTY[game.profile.difficulty].name}${game.profile.hardMode ? " · 하드모드" : ""}`, 16, eqY, 16, aColor);
   }
 
   // 메뉴 버튼 (오른쪽 위)
@@ -68,7 +68,8 @@ function drawHUD() {
     drawBossBar();
   } else if (game.scene === "dungeon") {
     text(`${game.mapDef.name} Lv ${game.mapLevel}`, W - 124, 40, 20, "#ffe27a", "right");
-    text(`남은 몬스터 ${monsters.length}`, W - 124, 64, 16, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
+    const khs = typeof keyHuntStatus === "function" ? keyHuntStatus() : null; // 열쇠 찾기 진행 (keyhunt.js)
+    text(khs || `남은 몬스터 ${monsters.length}`, W - 124, 64, 16, khs ? "#ffd23f" : monsters.length <= 3 ? "#ff8080" : "#fff", "right");
     drawMinimap(p, monsters);
     if (monsters.some((m) => m.boss && m.aggro)) drawBossBar(); // 보스가 깨어나면 체력 막대
   } else if (game.scene === "lobby") {

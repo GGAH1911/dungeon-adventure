@@ -1,44 +1,31 @@
-// ===== 상인의 가게: 사기와 팔기 =====
-// 위쪽 "사기/팔기", 그 아래 종류(근접 무기 / 활 / 화살·물약 / 갑옷)를 고르고
-// 물건을 누르면 고르고, 한 번 더 누르거나 아래 버튼을 누르면 사기/팔기
+// ===== 상인의 가게 =====
+// 무기 종류·활 종류 열기, 화살·물약 사기 (장비 강화는 대장장이에서 부품으로!)
 
-const shop = { tab: "buy", cat: 0, sel: 0, note: "", noteColor: "#fff", noteTimer: 0 };
-const SHOP_CATS = ["근접 무기", "활", "화살 · 물약", "갑옷"];
-const TYPE_NAMES = { sword: "칼", dagger: "단검", spear: "창", axe: "도끼", hammer: "망치", scythe: "낫" };
-const EFFECT_NAMES = { burn: "불붙이기", slow: "느리게", chain: "번개", heal: "처치 시 회복", emerald: "에메랄드 더" };
+const shop = { cat: 0, sel: 0, note: "", noteColor: "#fff", noteTimer: 0 };
+const SHOP_CATS = ["무기 종류", "활 종류", "화살 · 물약"];
+const TYPE_DESC = {
+  sword: "베기 → 반대로 베기 → 내려찍기", dagger: "아주 빨라요 · 찌르기 → 찌르기 → 회오리",
+  spear: "멀리 닿아요 · 찌르기 → 찌르기 → 휘두르기", axe: "세고 느려요 · 내려찍기 → 베기 → 회오리",
+  hammer: "아주 세고 느려요 · 마무리는 땅 울리기", scythe: "넓게 베어요 · 베기 → 베기 → 회오리",
+};
+const BOW_DESC = {
+  basic: "기본 활", rapid: "아주 빨리 쏴요", long: "세고 1마리 뚫어요", triple: "3발씩 쏴요",
+  crossbow: "아주 세고 2마리 뚫어요, 느려요", storm: "5발씩, 1마리 뚫기",
+};
 
-function openShop() {
-  game.overlay = "shop";
-  shop.sel = 0; shop.noteTimer = 0;
-  sfx.equip();
-}
-
-function shopNote(msg, color = "#fff") {
-  shop.note = msg; shop.noteColor = color; shop.noteTimer = 2.2;
-}
+function openShop() { game.overlay = "shop"; shop.sel = 0; shop.noteTimer = 0; sfx.equip(); }
+function shopNote(msg, color = "#fff") { shop.note = msg; shop.noteColor = color; shop.noteTimer = 2.2; }
+function setShopCat(c) { shop.cat = c; shop.sel = 0; }
 
 function shopEntries() {
-  const sellable = (list, kind) => list.filter((i) => !i.secret && i.price > 0 && owns(kind, i.id)).map((item) => ({ kind, item }));
-  const c = shop.cat;
-  if (shop.tab === "buy") {
-    if (c === 0) return WEAPONS.filter((i) => !i.secret).map((item) => ({ kind: "weapon", item }));
-    if (c === 1) return BOWS.filter((i) => !i.secret).map((item) => ({ kind: "bow", item }));
-    if (c === 2) return [...ARROW_TYPES.map((item) => ({ kind: "arrows", item })), { kind: "potion", item: POTION }];
-    return ARMORS.filter((i) => !i.secret).map((item) => ({ kind: "armor", item }));
-  }
-  if (c === 0) return sellable(WEAPONS, "weapon");
-  if (c === 1) return sellable(BOWS, "bow");
-  if (c === 2) return [];
-  return sellable(ARMORS, "armor");
+  if (shop.cat === 0) return WEAPON_TYPE_ORDER.map((id) => ({ kind: "weaponType", id, item: WEAPON_TYPES[id] }));
+  if (shop.cat === 1) return BOW_TYPE_ORDER.map((id) => ({ kind: "bowType", id, item: BOW_TYPES[id] }));
+  return [...ARROW_TYPES.map((item) => ({ kind: "arrows", id: item.id, item })), { kind: "potion", id: "potion", item: POTION }];
 }
-
-function setShopTab(tab) { shop.tab = tab; shop.sel = 0; if (tab === "sell" && shop.cat === 2) shop.cat = 0; }
-function setShopCat(c) { shop.cat = c; shop.sel = 0; }
 
 function updateShop(dt) {
   shop.noteTimer -= dt;
-  for (let i = 0; i < 4; i++) if (wasPressed("Digit" + (i + 1))) setShopCat(i);
-  if (wasPressed("Tab")) setShopTab(shop.tab === "buy" ? "sell" : "buy");
+  for (let i = 0; i < 3; i++) if (wasPressed("Digit" + (i + 1))) setShopCat(i);
   const n = shopEntries().length;
   if (wasPressed("ArrowUp", "KeyW")) shop.sel -= 2;
   if (wasPressed("ArrowDown", "KeyS")) shop.sel += 2;
@@ -49,176 +36,94 @@ function updateShop(dt) {
   if (wasPressed("Escape", "KeyE")) closeOverlay();
 }
 
+function notEnough(price) { sfx.denied(); shopNote(`에메랄드가 ${price - game.profile.emeralds}개 모자라요`, "#ff8080"); }
+
 function shopAction() {
-  const entry = shopEntries()[shop.sel];
-  if (!entry) return;
-  if (shop.tab === "buy") buyEntry(entry);
-  else sellEntry(entry);
-}
-
-function notEnough(price) {
-  sfx.denied();
-  shopNote(`에메랄드가 ${price - game.profile.emeralds}개 모자라요`, "#ff8080");
-}
-
-function buyEntry({ kind, item }) {
+  const e = shopEntries()[shop.sel];
+  if (!e) return;
   const pr = game.profile;
-  if (kind === "arrows") {
-    const max = CONFIG.player.maxArrows;
-    if (arrowCount(item.id) >= max) return shopNote(`${item.name}은 ${max}개까지만 가질 수 있어요`, "#ddd");
-    if (pr.emeralds < item.price) return notEnough(item.price);
-    pr.emeralds -= item.price;
-    if (item.id === "normal") pr.arrows = Math.min(max, pr.arrows + item.pack);
-    else pr.special[item.id] = Math.min(max, (pr.special[item.id] || 0) + item.pack);
-    saveProfile();
-    sfx.buy();
-    return shopNote(`${item.name} ${item.pack}개를 샀어요! (${arrowCount(item.id)}개)`, "#7dffb0");
-  }
-  if (kind === "potion") {
-    if (pr.potions >= CONFIG.player.maxPotions) return shopNote(`물약은 ${CONFIG.player.maxPotions}개까지만 가질 수 있어요`, "#ddd");
-    if (pr.emeralds < item.price) return notEnough(item.price);
-    pr.emeralds -= item.price;
-    pr.potions++;
-    saveProfile();
-    sfx.buy();
-    return shopNote(`물약을 샀어요! (${pr.potions}개)`, "#7dffb0");
-  }
-  if (owns(kind, item.id)) {
-    equipItem(kind, item);
+  if (e.kind === "weaponType" || e.kind === "bowType") {
+    const owned = e.kind === "weaponType" ? pr.weaponTypes : pr.bowTypes;
+    if (!owned.includes(e.id)) {
+      if (pr.emeralds < e.item.price) return notEnough(e.item.price);
+      pr.emeralds -= e.item.price;
+      owned.push(e.id);
+      sfx.buy();
+    }
+    if (e.kind === "weaponType") pr.weaponType = e.id; else pr.bowType = e.id;
+    refreshGear();
     sfx.equip();
-    return shopNote(`${item.name} 장착!`, "#7dd3ff");
+    return shopNote(`${e.item.name} 장착! (강화 레벨은 그대로)`, "#7dffb0");
   }
-  if (pr.emeralds < item.price) return notEnough(item.price);
-  pr.emeralds -= item.price;
-  ownedList(kind).push(item.id);
-  equipItem(kind, item);
-  sfx.buy();
-  shopNote(`${item.name}${josa(item.name, "을", "를")} 샀어요!`, "#7dffb0");
-}
-
-function sellEntry({ kind, item }) {
-  const pr = game.profile;
-  const list = ownedList(kind);
-  const i = list.indexOf(item.id);
-  if (i < 0) return;
-  list.splice(i, 1);
-  // 강화한 만큼 조금 더 쳐줘요
-  const price = sellPrice(item) + upgradeLevel(kind, item.id) * 2;
-  delete pr.upgrades[kind + ":" + item.id];
-  pr.emeralds += price;
-  if (kind === "weapon" && pr.weapon === item.id) equipItem("weapon", WEAPONS[0]);
-  if (kind === "armor" && pr.armor === item.id) equipItem("armor", ARMORS[0]);
-  if (kind === "bow" && pr.bow === item.id) equipItem("bow", BOWS[0]);
-  saveProfile();
-  sfx.emerald();
-  shop.sel = Math.max(0, Math.min(shopEntries().length - 1, shop.sel));
-  shopNote(`${item.name}${josa(item.name, "을", "를")} 팔았어요! 에메랄드 +${price}`, "#7dffb0");
-}
-
-function itemStats({ kind, item }) {
-  if (kind === "weapon") {
-    const speed = item.cooldown <= 0.3 ? "빠름" : item.cooldown <= 0.45 ? "보통" : "느림";
-    let s = `${TYPE_NAMES[item.type] || "칼"} · 공격력 ${item.damage} · ${speed}`;
-    if (item.effect) s += ` · ${EFFECT_NAMES[item.effect]}`;
-    return s;
+  if (e.kind === "arrows") {
+    const it = e.item, max = CONFIG.player.maxArrows;
+    if (arrowCount(it.id) >= max) return shopNote(`${it.name}은 ${max}개까지만 가질 수 있어요`, "#ddd");
+    if (pr.emeralds < it.price) return notEnough(it.price);
+    pr.emeralds -= it.price;
+    if (it.id === "normal") pr.arrows = Math.min(max, pr.arrows + it.pack);
+    else pr.special[it.id] = Math.min(max, (pr.special[it.id] || 0) + it.pack);
+    saveProfile(); sfx.buy();
+    return shopNote(`${it.name} ${it.pack}개를 샀어요! (${arrowCount(it.id)}개)`, "#7dffb0");
   }
-  if (kind === "bow") {
-    let s = `공격력 ${item.damage}`;
-    if (item.multishot) s += ` · ${item.multishot}발씩`;
-    if (item.pierce) s += ` · ${item.pierce}마리 뚫기`;
-    s += item.cooldown <= 0.3 ? " · 아주 빠름" : item.cooldown <= 0.5 ? " · 빠름" : item.cooldown <= 0.65 ? " · 보통" : " · 느림";
-    return s;
-  }
-  if (kind === "arrows") return `${item.desc} · ${item.pack}개 묶음`;
-  if (kind === "armor") {
-    const bits = [item.block > 0 ? `막기 ${Math.round(item.block * 100)}%` : "못 막아요"];
-    if (item.speed > 0) bits.push(`빠름 +${Math.round(item.speed * 100)}%`);
-    if (item.speed < 0) bits.push(`느림 ${Math.round(item.speed * 100)}%`);
-    if (item.roll) bits.push("구르기 자주");
-    if (item.hearts) bits.push(`하트 +${item.hearts}`);
-    if (item.thorns) bits.push("가시 반사");
-    if (item.frost) bits.push("때린 몹 느리게");
-    if (item.regen) bits.push("체력 재생");
-    return bits.join(" · ");
-  }
-  return `던전에서 마시면 하트 ${item.heal}개 회복`;
+  if (pr.potions >= CONFIG.player.maxPotions) return shopNote(`물약은 ${CONFIG.player.maxPotions}개까지만 가질 수 있어요`, "#ddd");
+  if (pr.emeralds < POTION.price) return notEnough(POTION.price);
+  pr.emeralds -= POTION.price; pr.potions++;
+  saveProfile(); sfx.buy();
+  shopNote(`물약을 샀어요! (${pr.potions}개)`, "#7dffb0");
 }
 
 function drawShop() {
-  const W = view.w, H = view.h;
-  const pr = game.profile;
-  const pw = Math.min(1000, W - 24), ph = Math.min(640, H - 24);
+  const W = view.w, H = view.h, pr = game.profile;
+  const pw = Math.min(960, W - 24), ph = Math.min(560, H - 24);
   const x0 = (W - pw) / 2, y0 = (H - ph) / 2;
   drawPanel(x0, y0, pw, ph);
-
   text("상인의 가게", x0 + 24, y0 + 40, 26, "#ffe27a");
   drawEmeraldIcon(x0 + pw - 150, y0 + 30, 12);
   text(`${pr.emeralds}`, x0 + pw - 132, y0 + 39, 22, "#fff");
   drawButton(x0 + pw - 58, y0 + 12, 42, 38, "✕", closeOverlay, { size: 20 });
-
-  // 사기/팔기
-  drawButton(x0 + 190, y0 + 14, 90, 36, "사기", () => setShopTab("buy"), { selected: shop.tab === "buy" });
-  drawButton(x0 + 288, y0 + 14, 90, 36, "팔기", () => setShopTab("sell"), { selected: shop.tab === "sell" });
-  // 종류
-  const catW = (pw - 40 - 30) / 4;
-  SHOP_CATS.forEach((name, i) => {
-    if (shop.tab === "sell" && i === 2) return;
-    drawButton(x0 + 20 + i * (catW + 10), y0 + 62, catW, 40, name, () => setShopCat(i), { selected: shop.cat === i, size: 16 });
-  });
+  const catW = (pw - 40 - 20) / 3;
+  SHOP_CATS.forEach((name, i) => drawButton(x0 + 20 + i * (catW + 10), y0 + 60, catW, 40, name, () => setShopCat(i), { selected: shop.cat === i, size: 16 }));
+  text("장비를 더 세게 하려면 대장장이에서 부품으로 강화하세요", x0 + 24, y0 + 124, 13, "#999");
 
   const entries = shopEntries();
-  const top = y0 + 116, bottom = y0 + ph - 70;
+  const top = y0 + 136, bottom = y0 + ph - 64;
   const colW = (pw - 52) / 2;
-  const rows = Math.max(1, Math.ceil(entries.length / 2));
-  const rowH = Math.min(62, (bottom - top) / rows);
-  if (!entries.length) text(shop.tab === "sell" ? "팔 물건이 없어요" : "", x0 + 30, top + 30, 16, "#777");
-  entries.forEach((entry, i) => {
-    const cx = x0 + 20 + (i % 2) * (colW + 12);
-    const ry = top + Math.floor(i / 2) * rowH;
-    const selected = shop.sel === i;
-    const { kind, item } = entry;
-    const consumable = kind === "potion" || kind === "arrows";
-    const equipped = (kind === "weapon" && pr.weapon === item.id) || (kind === "armor" && pr.armor === item.id) || (kind === "bow" && pr.bow === item.id);
-    const own = !consumable && owns(kind, item.id);
-
-    roundRectPath(cx, ry, colW, rowH - 5, 8);
-    ctx.fillStyle = selected ? "rgba(255,226,122,0.18)" : "rgba(255,255,255,0.04)";
-    ctx.fill();
-    if (selected) { ctx.strokeStyle = "#ffe27a"; ctx.lineWidth = 2; ctx.stroke(); }
-    addUI(cx, ry, colW, rowH - 5, () => { if (shop.sel === i) shopAction(); else shop.sel = i; });
-
-    ctx.fillStyle = item.color || item.body || (kind === "potion" ? "#c64fa0" : CONFIG.colors.player.shirt);
-    ctx.fillRect(cx + 10, ry + (rowH - 5) / 2 - 11, 22, 22);
-    const name = consumable ? item.name : itemLabel(kind, item);
-    const small = rowH < 52;
-    text(name, cx + 42, ry + (small ? 20 : 24), small ? 15 : 17, "#fff");
-    text(itemStats(entry), cx + 42, ry + (small ? 37 : 44), 12, "#aaa");
-
-    const rx = cx + colW - 10, my = ry + 22;
-    const priceTag = (n, color) => { text(`${n}`, rx, my, 17, color, "right"); drawEmeraldIcon(rx - 12 - String(n).length * 10, my - 6, 8); };
-    if (shop.tab === "sell") {
-      priceTag(`+${sellPrice(item) + upgradeLevel(kind, item.id) * 2}`, "#7dffb0");
-      if (equipped) text("쓰는 중", rx, my + 19, 11, "#7dd3ff", "right");
-    } else if (equipped) text("장착중", rx, my + 4, 15, "#7dffb0", "right");
-    else if (own) text("가지고 있음", rx, my + 4, 13, "#7dd3ff", "right");
-    else {
-      priceTag(item.price, pr.emeralds >= item.price ? "#fff" : "#ff8080");
-      if (kind === "potion") text(`${pr.potions}/${CONFIG.player.maxPotions}`, rx, my + 19, 11, "#ccc", "right");
-      if (kind === "arrows") text(`${arrowCount(item.id)}개 있음`, rx, my + 19, 11, "#ccc", "right");
-    }
+  const rows = Math.ceil(entries.length / 2);
+  const rowH = Math.min(70, (bottom - top) / rows);
+  entries.forEach((e, i) => {
+    const cx = x0 + 20 + (i % 2) * (colW + 12), ry = top + Math.floor(i / 2) * rowH;
+    const sel = shop.sel === i;
+    roundRectPath(cx, ry, colW, rowH - 6, 8);
+    ctx.fillStyle = sel ? "rgba(255,226,122,0.18)" : "rgba(255,255,255,0.04)"; ctx.fill();
+    if (sel) { ctx.strokeStyle = "#ffe27a"; ctx.lineWidth = 2; ctx.stroke(); }
+    addUI(cx, ry, colW, rowH - 6, () => { if (shop.sel === i) shopAction(); else shop.sel = i; });
+    let desc = "", right = "", rightColor = "#fff", price = null;
+    if (e.kind === "weaponType" || e.kind === "bowType") {
+      const owned = (e.kind === "weaponType" ? pr.weaponTypes : pr.bowTypes).includes(e.id);
+      const using = e.kind === "weaponType" ? pr.weaponType === e.id : pr.bowType === e.id;
+      desc = e.kind === "weaponType" ? TYPE_DESC[e.id] : BOW_DESC[e.id];
+      if (using) { right = "사용 중"; rightColor = "#7dffb0"; }
+      else if (owned) { right = "장착하기"; rightColor = "#7dd3ff"; }
+      else price = e.item.price;
+    } else if (e.kind === "arrows") { desc = `${e.item.desc} · ${e.item.pack}개 묶음 · ${arrowCount(e.id)}개 있음`; price = e.item.price; }
+    else { desc = `던전에서 마시면 하트 ${POTION.heal}개 회복 · ${pr.potions}/${CONFIG.player.maxPotions}`; price = POTION.price; }
+    ctx.fillStyle = e.item.color || (e.kind === "potion" ? "#c64fa0" : "#a0784a");
+    ctx.fillRect(cx + 10, ry + rowH / 2 - 14, 20, 20);
+    text(e.item.name, cx + 40, ry + 25, 18, "#fff");
+    text(desc, cx + 40, ry + 47, 12, "#aaa");
+    if (price !== null) {
+      text(`${price}`, cx + colW - 12, ry + 30, 18, pr.emeralds >= price ? "#fff" : "#ff8080", "right");
+      drawEmeraldIcon(cx + colW - 22 - String(price).length * 10, ry + 24, 8);
+    } else text(right, cx + colW - 12, ry + 30, 15, rightColor, "right");
   });
-
-  const entry = entries[shop.sel];
-  let label = null;
-  if (entry) {
-    if (shop.tab === "sell") label = "팔기";
-    else if (entry.kind === "potion" || entry.kind === "arrows") label = "사기";
-    else label = owns(entry.kind, entry.item.id) ? "장착하기" : "사기";
+  const e = entries[shop.sel];
+  if (e) {
+    const owned = e.kind === "weaponType" ? pr.weaponTypes.includes(e.id) : e.kind === "bowType" ? pr.bowTypes.includes(e.id) : false;
+    drawButton(x0 + pw - 170, y0 + ph - 54, 150, 42, owned ? "장착하기" : e.kind.endsWith("Type") ? "열기" : "사기", shopAction, { color: "rgba(80,200,120,0.35)", size: 19 });
   }
-  if (label) drawButton(x0 + pw - 170, y0 + ph - 56, 150, 42, label, shopAction, { color: "rgba(80,200,120,0.35)", size: 19 });
   if (shop.noteTimer > 0) {
     ctx.globalAlpha = Math.min(1, shop.noteTimer * 2);
-    text(shop.note, x0 + 24, y0 + ph - 28, 17, shop.noteColor);
+    text(shop.note, x0 + 24, y0 + ph - 26, 17, shop.noteColor);
     ctx.globalAlpha = 1;
   }
 }

@@ -239,6 +239,7 @@ function monsterPose(m) {
     lean: walking ? 0.05 : 0,
   };
   const wpn = def.weapon;
+  if (m.state === "cast" && typeof castPose === "function") return castPose(m, pose); // 기술 예고 자세 (abilities.js)
   let windK = m.state === "windup" && m.windupDur ? 1 - Math.max(0, m.stateTimer) / m.windupDur : 0;
   if (m.state === "blinkStrike") windK = 1 - Math.max(0, m.stateTimer) / 0.3; // 그림자 기사: 순간이동 뒤 내려치기 준비
   if (m.state === "throw" && wpn) {

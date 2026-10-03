@@ -82,6 +82,8 @@ function buildRigItems(e, look, pose, opts = {}) {
   for (const side of [1, -1]) {
     const f = swing * 0.13 * side;
     box(V(f, side * RIG.legS, legH / 2), RIG.legW, RIG.legW, legH, look.pants, { armor: true, tag: "leg" });
+    // 신발 (다리 아랫부분을 감싸요)
+    if (look.boots) box(V(f + 0.015, side * RIG.legS, 0.065), RIG.legW + 0.03, RIG.legW + 0.03, 0.13, look.boots, { armor: true, tag: "boot" });
   }
 
   // 윗몸 변환: 엉덩이를 중심으로 기울이고 돌리기

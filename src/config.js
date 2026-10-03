@@ -34,15 +34,24 @@ const CONFIG = {
     arrowChance: 0.15,    // 화살 묶음 떨어뜨릴 확률 (해골은 monsters.js 에서 따로)
   },
 
-  // ===== 맵 레벨(난이도) =====
+  // ===== 난이도 (메뉴에서 바꿔요) =====
+  // hp/dmg: 몬스터 체력·공격력 배수, reward: 부품·에메랄드 배수, tele: 예고 시간 배수
+  difficulties: {
+    easy: { name: "쉬움", hp: 0.65, dmg: 0.5, reward: 0.75, tele: 1.4 },
+    normal: { name: "보통", hp: 1, dmg: 1, reward: 1, tele: 1 },
+    hard: { name: "어려움", hp: 1.4, dmg: 1.35, reward: 1.3, tele: 0.9 },
+    nightmare: { name: "악몽", hp: 2, dmg: 1.9, reward: 1.7, tele: 0.8 },
+  },
+  hardModeReward: 1.25, // 하드모드(쓰러지면 처음부터) 보상 배수
+
+  // ===== 맵 레벨 =====
   // 맵을 고를 때 레벨을 정해요. 레벨이 높을수록 몬스터가 세지고 보상도 커져요.
   // "그 레벨쯤의 주인공 + 그 레벨쯤 살 수 있는 장비"로 좀비를 3~4번 때리면 잡히도록 맞췄어요.
   difficulty: {
     hpPerLevel: 0.08,     // 몬스터 체력: 주인공 공격력이 크는 만큼 (레벨당 +8%)
-    gearPerLevel: 0.25,   // 몬스터 체력: 좋은 장비를 살 거라고 보고 더 늘어나는 정도
-    gearMax: 4,           //   (장비 몫은 4배까지만)
+    gearFollow: 0.85,     // 몬스터 체력: 그 레벨쯤 강화했을 장비를 몇 % 따라가나
     extraPerLevel: 0.01,  // 몬스터 체력: 조금씩 더 어려워지는 정도
-    damagePerLevel: 0.12, // 몬스터 공격력: 레벨당 +12%
+    damagePerLevel: 0.15, // 몬스터 공격력: 레벨당 +15%
     rewardPerLevel: 0.05, // 경험치: 레벨당 +5%
     bonusPerLevel: 0.1,   // 클리어 보너스 에메랄드: 레벨당 +10%
     pickAbove: 3,         // 내 레벨보다 몇 레벨 높은 것까지 고를 수 있나
@@ -61,6 +70,7 @@ const CONFIG = {
     "최강전사": "legend",     // 전설의 무기 + 전설의 활 + 전설의 갑옷
     "치트끄기": "uncheat",    // 전설의 장비 없애기
     "에메랄드비": "emeralds", // 에메랄드 100개
+    "부품비": "materials",    // 모든 부품 20개씩
   },
 
   colors: {
@@ -69,3 +79,7 @@ const CONFIG = {
     emerald: "#29d67a",
   },
 };
+
+// 난이도 표 (짧게 부르기)
+const DIFFICULTY = CONFIG.difficulties;
+function diff() { return DIFFICULTY[(typeof game !== "undefined" && game.profile && game.profile.difficulty) || "normal"] || DIFFICULTY.normal; }

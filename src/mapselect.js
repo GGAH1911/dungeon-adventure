@@ -778,9 +778,14 @@ function drawMapInfoPanel() {
     drawButton(ix + iw - 118, y - 22, 118, 32, `내 레벨(${pr.level})`, () => { mapSel.level = pr.level; }, { size: 14 });
   }
   y += 24;
-  text(`클리어 보너스 에메랄드 ${clearBonus(m, L)}개`, ix, y, 14, "#7dffb0");
+  text(`클리어 보너스 에메랄드 ${Math.round(clearBonus(m, L) * rewardFactor())}개 · 경험치 ×${rewardMul(L).toFixed(2)}`, ix, y, 13, "#7dffb0");
   y += 20;
-  text(`경험치 ×${rewardMul(L).toFixed(2)}`, ix, y, 14, "#7dffb0");
+  // 받을 부품 미리보기 (처음 깨면 더 많이)
+  const first = !pr.firstClears[`${m.id}:${pr.difficulty}`];
+  const mats = stageMaterials(L, first);
+  text("부품: " + Object.entries(mats).map(([id, n]) => `${MATERIALS[id].name} ${n}`).join(", ") + (first ? " (첫 클리어!)" : ""), ix, y, 13, "#7dd3ff");
+  y += 20;
+  text(`난이도 ${DIFFICULTY[pr.difficulty].name}${pr.hardMode ? " · 하드모드" : ""}`, ix, y, 13, "#ccc");
 
   const goH = 52;
   drawButton(ix, y0 + ph - goH - 14, iw, goH, "출발!", () => tryStartMap(mapSel.index), { color: "rgba(140,90,220,0.55)", size: 22 });

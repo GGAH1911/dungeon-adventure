@@ -10,22 +10,21 @@ function damageBonus(level) {
 function xpNeeded(level) {
   return CONFIG.level.xpFirst + (level - 1) * CONFIG.level.xpGrow;
 }
-// 갑옷 하트와 강화까지 더한 최대 하트
+// 갑옷 하트(머리·바지·세트)까지 더한 최대 하트
 function maxHpFor(armor) {
-  return playerMaxHp(game.profile.level) + (armor.hearts || 0) + upgradeLevel("armor", armor.id) * UPGRADE.armorHearts;
+  return playerMaxHp(game.profile.level) + (armor.hearts || 0);
 }
 
 function createPlayer(x, y) {
-  const pr = game.profile;
-  const armor = armorById(pr.armor);
+  const armor = currentArmor();
   const maxHp = maxHpFor(armor);
   return {
     x, y, r: 0.3,
     faceX: Math.SQRT1_2, faceY: Math.SQRT1_2, // 보고 있는 방향
     hp: maxHp, maxHp,
-    weapon: weaponById(pr.weapon),
+    weapon: currentWeapon(),
     armor,
-    bow: bowById(pr.bow),
+    bow: currentBow(),
     attackTimer: 0, swingTimer: 0, move: null, combo: 0, comboTimer: 0, hitDone: true, lungeTimer: 0, lungeSpeed: 0,
     bowCooldown: 0, bowTimer: 0,
     rollTimer: 0, rollCooldown: 0, rollX: 0, rollY: 0,
@@ -34,16 +33,17 @@ function createPlayer(x, y) {
   };
 }
 
-// 장비 바꾸기 (저장도 같이)
-function equipItem(kind, item) {
+// 강화하거나 종류를 바꾸면 주인공 장비를 다시 계산해요 (저장도 같이)
+function refreshGear() {
   const p = game.player;
-  if (kind === "weapon") { game.profile.weapon = item.id; p.weapon = item; p.move = null; }
-  else if (kind === "bow") { game.profile.bow = item.id; p.bow = item; }
-  else {
-    game.profile.armor = item.id; p.armor = item;
+  if (p) {
+    p.weapon = currentWeapon();
+    p.bow = currentBow();
+    p.armor = currentArmor();
+    p.move = null;
     const old = p.maxHp;
-    p.maxHp = maxHpFor(item);
-    p.hp = Math.max(1, Math.min(p.maxHp, p.hp + (p.maxHp - old)));
+    p.maxHp = maxHpFor(p.armor);
+    p.hp = Math.max(1, Math.min(p.maxHp, p.hp + Math.max(0, p.maxHp - old)));
   }
   saveProfile();
 }
@@ -93,7 +93,8 @@ function updatePlayer(p, dt) {
   const attacking = p.swingTimer > 0;
   if (p.moving) {
     if (!attacking) { p.faceX = wx; p.faceY = wy; }
-    const speed = cfg.speed * (1 + (game.profile.level - 1) * CONFIG.level.speedPerLevel) * (1 + (p.armor.speed || 0)) * power * (attacking ? 0.45 : 1);
+    const slowed = p.abSlow > 0 ? 0.55 : 1; // 거미줄·얼음 숨결 등에 맞으면 느려져요
+    const speed = cfg.speed * (1 + (game.profile.level - 1) * CONFIG.level.speedPerLevel) * (1 + (p.armor.speed || 0)) * power * (attacking ? 0.45 : 1) * slowed;
     moveEntity(p, wx * speed * dt, wy * speed * dt);
     p.walkTime += dt * power;
   }
@@ -145,7 +146,11 @@ function drinkPotion(p) {
 function playerLook(p) {
   const base = { ...CONFIG.colors.player, ...(game.profile.look || {}) };
   const a = game.profile.look && game.profile.look.hideArmor ? {} : p.armor;
-  return { ...base, shirt: a.body || base.shirt, pants: a.legs || base.pants, helmet: a.helmet || null };
+  return {
+    ...base,
+    shirt: a.body || base.shirt, pants: a.legs || base.pants, helmet: a.helmet || null,
+    boots: a.boots || null, hand: a.gloves || null, forearm: a.gloves ? shade(a.gloves, 0.9) : null,
+  };
 }
 
 function drawPlayer(p) {
@@ -155,7 +160,7 @@ function drawPlayer(p) {
   // 맞은 뒤 무적일 때는 깜빡깜빡
   if (p.hurtTimer > 0 && p.rollTimer <= 0 && Math.floor(p.hurtTimer * 14) % 2 === 0) return;
   const look = playerLook(p);
-  const shimmer = legendArmor ? game.time : undefined;
+  const shimmer = legendArmor || p.armor.shimmerSet ? game.time : undefined;
   const pose = playerPose(p); // anim.js
 
   if (p.rollTimer > 0) {

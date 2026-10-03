@@ -92,19 +92,12 @@ function drawPickup(e) {
     }
     return;
   }
-  if (e.type === "item") {
-    // 새 장비: 빛나는 상자가 빙글빙글
-    const it = gearItem(e.kind, e.id);
-    const c = toScreen(e.x, e.y, z + 0.2);
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    const g = ctx.createLinearGradient(c.x, c.y - 120 * ZOOM, c.x, c.y);
-    g.addColorStop(0, "rgba(255,240,150,0)"); g.addColorStop(1, "rgba(255,240,150,0.45)");
-    ctx.fillStyle = g; ctx.fillRect(c.x - 14 * ZOOM, c.y - 120 * ZOOM, 28 * ZOOM, 120 * ZOOM);
-    ctx.restore();
-    const sz = 0.26 + Math.sin(e.t * 5) * 0.03;
-    drawBox(e.x - sz / 2, e.y - sz / 2, z, sz, sz, sz, it.color || it.body || "#ffffff");
-    drawStar(c.x, c.y - 10 * ZOOM, 8 * ZOOM, "#fff7c0");
+  if (e.type === "material") {
+    // 부품: 반짝이는 작은 결정
+    const m = MATERIALS[e.mat] || MATERIALS.scrap;
+    const sz = 0.2 + Math.sin(e.t * 5) * 0.02;
+    drawBox(e.x - sz / 2, e.y - sz / 2, z, sz, sz, sz * 1.2, m.color);
+    if (Math.sin(e.t * 6 + e.x) > 0.6) { const c = toScreen(e.x, e.y, z + sz * 1.3); drawStar(c.x, c.y, 6 * ZOOM, "#ffffff"); }
     return;
   }
   const c = toScreen(e.x, e.y, z);

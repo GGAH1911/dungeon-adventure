@@ -122,30 +122,15 @@ function applyCheat(action) {
   const p = game.player;
   const pr = game.profile;
   if (action === "legend") {
-    const w = WEAPONS.find((i) => i.id === "legend");
-    const a = ARMORS.find((i) => i.id === "legend");
-    const b = BOWS.find((i) => i.id === "legend");
-    if (!pr.weapons.includes(w.id)) pr.weapons.push(w.id);
-    if (!pr.armors.includes(a.id)) pr.armors.push(a.id);
-    if (!pr.bows.includes(b.id)) pr.bows.push(b.id);
-    equipItem("weapon", w);
-    equipItem("armor", a);
-    equipItem("bow", b);
+    pr.legend = true;
+    refreshGear();
     p.hp = p.maxHp;
     legendCelebration(p);
     showMessage("전설의 장비 장착!!", 3.5, true);
   } else if (action === "uncheat") {
-    // 전설의 장비를 없애고, 가진 것 중 제일 좋은 걸로 바꿔요
-    const had = pr.weapons.some((id) => weaponById(id).secret) || pr.armors.some((id) => armorById(id).secret) || pr.bows.some((id) => bowById(id).secret);
-    pr.weapons = pr.weapons.filter((id) => !weaponById(id).secret);
-    pr.armors = pr.armors.filter((id) => !armorById(id).secret);
-    pr.bows = pr.bows.filter((id) => !bowById(id).secret);
-    const best = (list, byId) => list.map(byId).sort((x, y) => y.price - x.price)[0];
-    if (weaponById(pr.weapon).secret) equipItem("weapon", best(pr.weapons, weaponById) || WEAPONS[0]);
-    if (armorById(pr.armor).secret) equipItem("armor", best(pr.armors, armorById) || ARMORS[0]);
-    if (bowById(pr.bow).secret) equipItem("bow", best(pr.bows, bowById) || BOWS[0]);
-    saveProfile();
-    if (had) {
+    if (pr.legend) {
+      pr.legend = false;
+      refreshGear();
       sfx.denied();
       spawnBurst(p.x, p.y, ["#888888", "#bbbbbb"], 16);
       showMessage("치트 끝! 전설의 장비가 사라졌어요", 2.5);
@@ -158,6 +143,11 @@ function applyCheat(action) {
     for (let i = 0; i < 25; i++) dropPickupRain(p);
     sfx.buy();
     showMessage("에메랄드 비가 내려요! +100", 2.5);
+  } else if (action === "materials") {
+    for (const id of MATERIAL_ORDER) addMaterial(id, 20);
+    saveProfile();
+    sfx.buy();
+    showMessage("부품이 쏟아져요! 모든 부품 +20", 2.5);
   }
 }
 
