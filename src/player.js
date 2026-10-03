@@ -129,7 +129,7 @@ function updatePlayer(p, dt) {
   if (inp.attackPressed) p.attackBuffer = 0.35;
   if ((p.attackBuffer > 0 || inp.attackHeld) && p.attackTimer <= 0) {
     p.attackBuffer = 0;
-    startAttack(p);
+    if (!hookAny("basicAttack", p, inp)) startAttack(p); // 직업마다 기본 공격이 달라요 (classes.js)
   }
 
   // 구르기 (방향키를 누르고 있으면 그쪽으로)
@@ -149,6 +149,9 @@ function updatePlayer(p, dt) {
 
   // 물약 마시기
   if (inp.potionPressed && game.scene !== "lobby") drinkPotion(p);
+
+  // 직업 기술 (classes.js)
+  hookRun("playerSkills", p, inp, dt);
 }
 
 function drinkPotion(p) {
@@ -184,6 +187,7 @@ function drawPlayer(p) {
 
   // 맞은 뒤 무적일 때는 깜빡깜빡
   if (p.hurtTimer > 0 && p.rollTimer <= 0 && Math.floor(p.hurtTimer * 14) % 2 === 0) return;
+  if (hookAny("drawPlayerAs", p)) { hookRun("drawPlayerOver", p); return; } // 곰 변신 등 (classes.js)
   const look = playerLook(p);
   const shimmer = legendArmor || p.armor.shimmerSet ? game.time : undefined;
   const pose = playerPose(p); // anim.js
@@ -200,4 +204,5 @@ function drawPlayer(p) {
   }
   drawRig(p, look, pose, { bodyYaw: pose.bodyYaw || 0, shimmer });
   drawTrail(p); // anim.js: 칼끝이 지나간 궤적
+  hookRun("drawPlayerOver", p);
 }

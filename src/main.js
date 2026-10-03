@@ -167,7 +167,7 @@ function killMonsterBase(m, legendary, opts = {}) {
 }
 
 // 주인공이 맞았을 때
-function hurtPlayer(p, damage, from) { const hp0 = p.hp; const r = hurtPlayerBase(p, damage, from); hookRun("playerHurt", p, damage, from, hp0); return r; }
+function hurtPlayer(p, damage, from) { if (p && p.ally) { hookRun("allyHurt", p, damage, from); return; } const hp0 = p.hp; const r = hurtPlayerBase(p, damage, from); hookRun("playerHurt", p, damage, from, hp0); return r; }
 function hurtPlayerBase(p, damage, from) {
   if (p.rollTimer > 0 || p.hurtTimer > 0 || p.hp <= 0) return;
   const a = p.armor;
@@ -393,7 +393,8 @@ function updateBase(dt) {
   // ----- 던전 / 탑 -----
   if (game.mode !== "tower") for (const q of alivePlayers()) revealAround(q.x, q.y);
   updatePaths(p.x, p.y);
-  for (const m of monsters) updateMonster(m, nearestPlayer(m.x, m.y), dt); // 가장 가까운 주인공을 쫓아요
+  // 가장 가까운 주인공을 쫓아요 (드루이드 늑대처럼 우리 편이 더 가까우면 그쪽도: classes.js "targetsForMonster")
+  for (const m of monsters) updateMonster(m, hookFilter("targetsForMonster", nearestPlayer(m.x, m.y), m), dt);
   monsters = monsters.filter((m) => m.hp > 0);
   updateArrows(p, dt);
   if (typeof updateAbilities === "function") updateAbilities(dt);

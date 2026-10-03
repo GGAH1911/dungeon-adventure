@@ -25,6 +25,7 @@ function weaponClass(w) {
 }
 function weaponStyle(w) {
   if (w.legendary) return "legend";
+  if (w.style) return w.style; // 직업 무기 모양 (지팡이 등: classes.js)
   return { sword: "blade", dagger: "dagger", spear: "spear", axe: "axe", hammer: "hammer", scythe: "scythe" }[w.type] || "blade";
 }
 
