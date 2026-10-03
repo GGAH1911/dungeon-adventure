@@ -27,6 +27,7 @@ const NET_MAX_PLAYERS = 4;       // 방장 1 + 친구 3
 const NET_JOIN_TIMEOUT = 15000;  // 들어가기 시간 제한 (ms)
 const NET_PING_EVERY = 2000;
 const NET_LOST_AFTER = 9000;     // 이만큼 아무 소식이 없으면 끊긴 걸로
+const NET_PART_SIZE = 15000;     // PeerJS json 한 메시지 한계(16300바이트)보다 조금 작게
 
 const NET_TEXT = {
   "no-room": (c) => `방 번호 ${c || ""}을(를) 찾을 수 없어요. 방장 화면의 숫자를 다시 봐요`,
@@ -74,17 +75,38 @@ const netLater = (fn) => Promise.resolve().then(fn);
 
 // ===== 연결 방법 1: PeerJS =====
 // 연결(conn) 공통 모양: { remote, open, send(obj), onData(fn), onClose(fn), close(), pc, fast? }
+const netEncoder = typeof TextEncoder !== "undefined" ? new TextEncoder() : null;
+function netByteLen(str) { return netEncoder ? netEncoder.encode(str).length : str.length * 3; }
 function netWrapPeerConn(c) {
   const conn = { remote: c.peer, open: c.open, kind: (c.metadata && c.metadata.kind) || "main", _data: [], _close: [], raw: c };
   Object.defineProperty(conn, "pc", { get: () => c.peerConnection });
-  conn.send = (obj) => { if (c.open) c.send(obj); };
+  // PeerJS "json" 연결은 한 메시지가 16300바이트를 넘으면 오류를 내고 연결을 끊어요 -> 큰 메시지는 조각내서 보내요
+  let partSeq = 0;
+  conn.send = (obj) => {
+    if (!c.open) return;
+    const str = JSON.stringify(obj);
+    if (str.length * 3 < NET_PART_SIZE || netByteLen(str) < NET_PART_SIZE) { c.send(obj); return; }
+    const id = ++partSeq, step = Math.floor(NET_PART_SIZE / 3), n = Math.ceil(str.length / step); // 한글은 UTF-8 로 3바이트까지
+    for (let i = 0; i < n; i++) c.send({ _n: "part", id, i, n, s: str.slice(i * step, (i + 1) * step) });
+  };
+  const parts = new Map();
+  const deliver = (d) => {
+    if (d && d._n === "part") {
+      let a = parts.get(d.id); if (!a) { a = []; parts.set(d.id, a); }
+      a[d.i] = d.s;
+      if (a.filter((x) => x !== undefined).length < d.n) return;
+      parts.delete(d.id);
+      try { d = JSON.parse(a.join("")); } catch (e) { return; }
+    }
+    for (const f of conn._data) f(d);
+  };
   conn.onData = (fn) => conn._data.push(fn);
   conn.onClose = (fn) => conn._close.push(fn);
   let closed = false;
   const fireClose = (why) => { if (closed) return; closed = true; conn.open = false; for (const f of conn._close) f(why); };
   conn.close = () => { try { c.close(); } catch (e) { /* 무시 */ } fireClose("closed"); };
   c.on("open", () => { conn.open = true; });
-  c.on("data", (d) => { for (const f of conn._data) f(d); });
+  c.on("data", deliver);
   c.on("close", () => fireClose("closed"));
   c.on("error", () => fireClose("error"));
   return conn;

@@ -4,7 +4,8 @@ let particles = [];
 let pickups = [];     // 바닥에 떨어진 에메랄드, 사과
 let floatTexts = [];  // 떠오르는 숫자/글씨
 
-function spawnBurst(x, y, colors, count = 12) {
+function spawnBurst(x, y, colors, count = 12) { hookRun("event", "burst", [x, y, colors, count]); return spawnBurstBase(x, y, colors, count); }
+function spawnBurstBase(x, y, colors, count = 12) {
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2, s = 1 + Math.random() * 2.5;
     particles.push({
@@ -112,7 +113,8 @@ function drawPickup(e) {
 }
 
 // ----- 떠오르는 글씨 (데미지 숫자 등) -----
-function addFloatText(x, y, str, color = "#fff", size = 18) {
+function addFloatText(x, y, str, color = "#fff", size = 18) { hookRun("event", "float", [x, y, str, color, size]); return addFloatTextBase(x, y, str, color, size); }
+function addFloatTextBase(x, y, str, color = "#fff", size = 18) {
   floatTexts.push({ x, y, z: 1.3, str, color, size, life: 0.8, max: 0.8, dx: (Math.random() - 0.5) * 0.3 });
 }
 

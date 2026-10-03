@@ -87,8 +87,8 @@ hookOn("profileLoaded", (pr) => {
 }, 40);
 
 function playerCls(p) { return (p && p.cls) || (game.profile && game.profile.cls) || "warrior"; }
-function skillMod(p, slot) { const pr = game.profile; return ((pr.skillMods || {})[playerCls(p)] || {})[slot] || "A"; }
-function skillUnlocked(s) { return (game.profile.level || 1) >= s.unlock; }
+function skillMod(p, slot) { const mods = (p && p.skillMods) || game.profile.skillMods || {}; return (mods[playerCls(p)] || {})[slot] || "A"; }
+function skillUnlocked(s, p) { return ((p && p.level) || game.profile.level || 1) >= s.unlock; } // p.level: 같이 하기 친구 레벨
 
 // ----- 우리 편(늑대)과 기술 효과들 -----
 let allies = [];     // 늑대 (몬스터 배열에 넣지 않아요)
@@ -170,7 +170,7 @@ function clsPrepare(p) {
 
 // ----- 조작: 기술 버튼 -----
 hookOn("playerInput", (inp, p) => {
-  const two = p && p.pid === 2;
+  const two = p && p.pid === 2 && typeof coopLocal === "function" && coopLocal(); // 한 태블릿 2번만 숫자패드 (같은 Wi-Fi 친구는 자기 기기 키)
   const k1 = two ? ["Numpad7", "T2Skill1"] : ["KeyU", "Digit1", "TouchSkill1"];
   const k2 = two ? ["Numpad8", "T2Skill2"] : ["KeyI", "Digit2", "TouchSkill2"];
   const k3 = two ? ["Numpad9", "T2Ult"] : ["KeyO", "Digit3", "TouchUlt"];
@@ -243,7 +243,7 @@ hookOn("playerSkills", (p, inp, dt) => {
   }
   // 회오리 베기 (누르고 있는 동안)
   const s1 = classSkill(cls, "s1");
-  if (cls === "warrior" && skillUnlocked(s1) && inp.s1Held && p.res > 1 && p.swingTimer <= 0) {
+  if (cls === "warrior" && skillUnlocked(s1, p) && inp.s1Held && p.res > 1 && p.swingTimer <= 0) {
     if (!p.spinning) { p.spinning = true; p.spinT = 0; p.spinAng = Math.atan2(p.faceY, p.faceX); sfx.bigSwing(); }
     p.res -= s1.cost * dt; p.resIdle = 0;
     p.spinAng += dt * 16;
@@ -267,7 +267,7 @@ hookOn("playerSkills", (p, inp, dt) => {
 
 function skillBlocked(p, s) {
   if (!s) return "없음";
-  if (!skillUnlocked(s)) return `Lv ${s.unlock}에 열려요`;
+  if (!skillUnlocked(s, p)) return `Lv ${s.unlock}에 열려요`;
   if (p.cd[s.slot] > 0) return "준비 중";
   const cost = skillCost(p, s);
   if (!s.costPerSec && cost > 0 && p.res < cost) return `${CLASS_DEFS[s.cls].res.name}이 모자라요`;

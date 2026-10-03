@@ -31,12 +31,14 @@ function addSparkle(x, y, z, o = {}) {
   });
 }
 
-function addRing(x, y, o = {}) {
+function addRing(x, y, o = {}) { hookRun("event", "ring", [x, y, o]); return addRingBase(x, y, o); }
+function addRingBase(x, y, o = {}) {
   const life = o.life || 0.45;
   rings.push({ x, y, r: 0.2, speed: o.speed || 9, life, max: life, hue: o.hue || 0, gold: !!o.gold, delay: o.delay || 0 });
 }
 
-function flashScreen(time, rainbowFlash = false) {
+function flashScreen(time, rainbowFlash = false) { hookRun("event", "flash", [time, rainbowFlash]); return flashScreenBase(time, rainbowFlash); }
+function flashScreenBase(time, rainbowFlash = false) {
   screenFlash.life = time;
   screenFlash.max = time;
   screenFlash.rainbow = rainbowFlash;

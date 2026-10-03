@@ -29,6 +29,7 @@ function playing() {
 }
 
 function showMessage(str, time = 2, rainbowText = false, color = null) {
+  hookRun("event", "msg", [str, time, rainbowText, color]); // 같이 하기: 방장이 모아 친구에게
   game.message = str;
   game.messageTimer = time;
   game.messageRainbow = rainbowText;
@@ -75,7 +76,7 @@ function enterLobby(msg) {
 function startDungeon(def, level) { const r = startDungeonBase(def, level); hookRun("dungeonStarted", def, level); return r; }
 function startDungeonBase(def, level) {
   resetEffects();
-  const rand = generateDungeon(def);
+  const rand = generateDungeon(def, hookFilter("dungeonSeed", undefined, def)); // 같이 하기: 방장 씨앗
   spawnMonsters(def, level, rand);
   placeChests(rand);
   game.scene = "dungeon";
@@ -268,6 +269,7 @@ function endRunBase(win) {
 
 // ----- 레벨 -----
 function gainXp(n) {
+  hookRun("reward", "xp", n); // 같이 하기: 친구도 같이 받아요
   const pr = game.profile;
   if (pr.level >= CONFIG.level.max) return;
   pr.xp += n;
@@ -295,8 +297,8 @@ function levelUp() {
   saveProfile();
 }
 
-function onPickup(item) {
-  const p = game.player;
+function onPickup(item, picker) {
+  const p = picker || game.player;
   const pr = game.profile;
   const max = CONFIG.player.maxArrows;
   if (item.type === "emerald") {
@@ -338,6 +340,7 @@ function updateBase(dt) {
   game.messageTimer -= dt;
   game.shake = Math.max(0, game.shake - dt);
   game.fade = Math.max(0, game.fade - dt);
+  hookRun("netTick", dt); // 같이 하기: 주고받기 (netplay.js)
   if (cheatOpen) return; // 치트 입력 중엔 잠깐 멈춰요
 
   // 맞는 순간 잠깐 멈춤 (타격감)
@@ -360,16 +363,21 @@ function updateBase(dt) {
     case "smith": updateSmith(dt); return;
     case "wardrobe": updateWardrobe(); return;
     case "records": updateRecords(); return;
-    case "menu": updateMenu(); return;
+    case "menu": updateMenu(); if (hookAny("keepRunning", dt)) updateWorld(dt); return; // 같이 할 땐 메뉴를 열어도 안 멈춰요
     case "result": updateResult(); return;
     default: if (game.overlay && hookAny("overlayUpdate", game.overlay, dt)) return; // 다른 파일이 만든 창
   }
   if (wasPressed("Escape")) { openMenu(); return; }
+  updateWorld(dt);
+}
 
+// 세상 계산 (주인공·몬스터·기술). 같이 하기의 친구 기기는 계산을 건너뛰고 방장 상태를 그려요 ("simulateSkip")
+function updateWorld(dt) {
+  if (hookAny("simulateSkip", dt)) return;
   const p = game.player;
   for (const q of allPlayers()) if (q.hp > 0) updatePlayer(q, dt); // 혼자면 1번만
   updateParticles(dt);
-  for (const q of alivePlayers()) updatePickups(q, dt, onPickup); // 누가 주워도 같이 써요
+  for (const q of alivePlayers()) updatePickups(q, dt, (item) => onPickup(item, q)); // 누가 주워도 같이 써요 (하트 회복은 주운 사람)
   hookRun("playersUpdated", dt); // 둘이 하기: 유령·부활·따라가기 (coop.js)
   updateFloatTexts(dt);
   updateLegendary(dt, p);

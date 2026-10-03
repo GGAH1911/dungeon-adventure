@@ -111,3 +111,5 @@ const sfx = {
     for (let i = 0; i < 10; i++) tone(2500 + Math.random() * 1500, 0.08, "sine", 0.03, null, 0.6 + i * 0.06);
   },
 };
+// 같이 하기: 소리도 방장이 모아 친구에게 보내요 (hookRun "event", "sfx")
+for (const k of Object.keys(sfx)) { const base = sfx[k]; sfx[k] = function (...a) { if (typeof hookRun === "function") hookRun("event", "sfx", [k, ...a]); return base.apply(this, a); }; }

@@ -30,7 +30,15 @@ var coopZoomMul = 1; // iso.js 가 읽어요
 // 저장을 coop.js 보다 먼저 읽는 경우도 있어서 늘 이걸로 꺼내요
 function coopPr() { const pr = game.profile; if (!pr.coop) pr.coop = { on: false, color: 0 }; return pr.coop; }
 function coopOn() { return !!(game.profile && coopPr().on); }
-function coopActive() { return coopOn() && game.players && game.players.length > 1; }
+// 여러 명이 같이 있는지 (한 태블릿이든 같은 Wi-Fi 든). 그리기는 이것으로.
+function coopActive() { return !!(game.players && game.players.length > 1); }
+// 한 태블릿 둘이 하기 (키보드·화면 나누기) 일 때만
+function coopLocal() { return coopOn() && coopActive(); }
+// 이 기기가 세상을 계산하는지 (혼자·한 태블릿·같은 Wi-Fi 방장). 같은 Wi-Fi 친구 기기는 계산 안 해요
+function coopNetGuest() { return typeof netplay !== "undefined" && netplay.role === "guest"; }
+function coopSim() { return coopActive() && !coopNetGuest(); }
+// 번호별 색 (1번 빨강, 2~4번 COOP_COLORS)
+function coopColorOf(pid) { if (pid === 1) return { label: "#ff7a7a" }; const c = pid === 2 && coopOn() ? coopPr().color : (pid - 2) % COOP_COLORS.length; return COOP_COLORS[c] || COOP_COLORS[0]; }
 function coopFriend() { return game.players && game.players[1]; }
 
 // 한 태블릿 둘이 하기는 쓰지 않아요 (화면이 좁아서). 메뉴에서 숨기고, 둘이 하는 엔진(game.players 등)은
@@ -73,14 +81,15 @@ hookOn("menuItems", (items) => {
 
 // ----- 겉모습: 2번은 옷 색을 섞어서 구분 -----
 hookOn("playerLook", (look, p) => {
-  if (p.pid !== 2) return look;
-  const c = COOP_COLORS[(game.profile.coop && coopPr().color) || 0];
+  if (!p.pid || p.pid < 2) return look;
+  if (p.netLook) look = { ...look, ...p.netLook }; // 같은 Wi-Fi 친구: 자기 기기 모습
+  const c = coopColorOf(p.pid);
   return { ...look, hair: c.hair, skin: c.skin, shirt: mixHex(look.shirt, c.tint, 0.55), pants: mixHex(look.pants, c.tint, 0.35) };
 }, 50);
 
 // ----- 조작 나누기 -----
 hookOn("playerInput", (inp, p) => {
-  if (!coopActive()) return inp;
+  if (!coopLocal()) return inp;
   if (p.pid === 2) {
     const q = {
       sx: touch2.moveX, sy: touch2.moveY,
@@ -112,7 +121,7 @@ hookOn("playerInput", (inp, p) => {
 
 // ----- 터치: 화면을 좌우로 나눠요 -----
 hookOn("touchButtons", (list, s) => {
-  if (!coopActive()) return list;
+  if (!coopLocal()) return list;
   const W = view.w, H = view.h, k = s * 0.82;
   const mid = W / 2;
   // 1번 버튼: 왼쪽 절반의 가운데 아래 (조이스틱은 왼쪽 아래 구석)
@@ -137,7 +146,7 @@ hookOn("touchButtons", (list, s) => {
 }, 50);
 
 hookOn("touchJoyStart", (e, x, y) => {
-  if (!coopActive()) return false;
+  if (!coopLocal()) return false;
   if (x < view.w * 0.5) return false;      // 왼쪽은 1번 (원래 조이스틱)
   if (touch2.joyId === null) {
     touch2.joyId = e.pointerId;
@@ -158,7 +167,7 @@ hookOn("touchMove", (e) => {
 }, 50);
 hookOn("touchEnd", (e) => { if (e.pointerId === touch2.joyId) { touch2.joyId = null; touch2.moveX = touch2.moveY = 0; } }, 50);
 hookOn("touchDraw", () => {
-  if (!coopActive()) return;
+  if (!coopLocal()) return;
   const js = touchScale();
   const on = touch2.joyId !== null;
   const bx = on ? touch2.joyX0 : view.w - 120 * Math.max(0.8, js), by = on ? touch2.joyY0 : view.h - 120 * Math.max(0.8, js);
@@ -183,7 +192,7 @@ function coopSetZoom(z) {
   resizeCanvas();
 }
 hookOn("cameraTarget", (t, cx, cy) => {
-  if (!coopActive()) { if (coopZoomMul !== 1) coopSetZoom(1); return t; }
+  if (!coopLocal()) { if (coopZoomMul !== 1) coopSetZoom(1); return t; } // 같은 Wi-Fi 는 각자 자기 주인공을 따라가요
   const [p1, p2] = game.players;
   const mx = (cx + p2.x) / 2, my = (cy + p2.y) / 2;
   const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -210,7 +219,7 @@ function coopRevive(q, frac) {
 }
 
 hookOn("playerDown", (p) => {
-  if (!coopActive()) return false;
+  if (!coopSim()) return false;
   const others = alivePlayers().filter((q) => q !== p);
   if (others.length) {
     p.ghost = true; p.ghostT = 0; p.reviveT = 0;
@@ -222,10 +231,10 @@ hookOn("playerDown", (p) => {
 }, 50);
 
 hookOn("playersUpdated", (dt) => {
-  if (!coopActive()) return;
-  const [p1, p2] = game.players;
-  // 장면(보스방·다시 도전·탑 층·포털)이 바뀌면 친구도 같이
-  if (coop.tiles !== world.tiles) { coop.tiles = world.tiles; coopSnap(p2, p1); }
+  if (!coopSim()) return;
+  const p1 = game.players[0], rest = game.players.slice(1);
+  // 장면(보스방·다시 도전·탑 층·포털)이 바뀌면 친구들도 같이
+  if (coop.tiles !== world.tiles) { coop.tiles = world.tiles; for (const q of rest) coopSnap(q, p1); }
   // 둘 다 쓰러졌다가 1번이 다시 일어나면(다시 도전) 친구도 같이 일어나요
   if (coop.allDown && p1.hp > 0) {
     coop.allDown = false;
@@ -233,9 +242,10 @@ hookOn("playersUpdated", (dt) => {
   }
   const alive = alivePlayers();
   // 너무 멀어지면 뒤처진 쪽을 앞사람 옆으로
-  if (alive.length === 2 && Math.hypot(p1.x - p2.x, p1.y - p2.y) > CONFIG.coop.catchUp) {
-    coopSnap(p2, p1);
-    addFloatText(p2.x, p2.y, "슝!", "#ffe27a", 18);
+  // (한 태블릿일 때만: 같은 Wi-Fi 는 각자 화면이라 멀어져도 돼요)
+  if (coopLocal()) for (const q of rest) if (q.hp > 0 && p1.hp > 0 && Math.hypot(p1.x - q.x, p1.y - q.y) > CONFIG.coop.catchUp) {
+    coopSnap(q, p1);
+    addFloatText(q.x, q.y, "슝!", "#ffe27a", 18);
   }
   // 유령: 친구를 따라다니고, 친구가 옆에 있으면 부활 게이지
   for (const q of game.players) {
@@ -252,15 +262,20 @@ hookOn("playersUpdated", (dt) => {
     if (q.reviveT >= CONFIG.coop.reviveTime) coopRevive(q, CONFIG.coop.reviveHp);
     else if (easy && q.ghostT >= CONFIG.coop.autoRevive) { coopSnap(q, f); coopRevive(q, CONFIG.coop.reviveHp); }
   }
-  // 둘이 하면 몬스터가 더 튼튼해요 (처음 볼 때 한 번만)
-  if (game.scene === "dungeon") {
-    for (const m of monsters) {
-      if (m._coopK || m.hp <= 0 || m.clone || m.b2Decoy || (m.def && m.def.untargetable)) continue;
-      const k = m.boss ? CONFIG.coop.bossHp : CONFIG.coop.monsterHp;
-      m.maxHp *= k; m.hp *= k; m._coopK = k;
-    }
-  }
+  // 인원 수에 따라 몬스터가 더 튼튼해요 (party.js partyScale). 인원이 바뀌면 체력 비율은 그대로, 최대 체력만 다시
+  if (game.scene === "dungeon") coopScaleMonsters(game.players.length);
 }, 50);
+function coopScaleMonsters(n) {
+  const S = typeof partyScale === "function" ? partyScale(n) : { monsterHp: CONFIG.coop.monsterHp, bossHp: CONFIG.coop.bossHp, damage: 1 };
+  for (const m of monsters) {
+    if (m.hp <= 0 || m.clone || m.b2Decoy || (m.def && m.def.untargetable)) continue;
+    const k = m.boss ? S.bossHp : S.monsterHp, kd = S.damage || 1;
+    const k0 = m._coopK || 1, d0 = m._coopD || 1;
+    if (k !== k0) { m.maxHp *= k / k0; m.hp *= k / k0; m._coopK = k; }
+    if (kd !== d0 && typeof m.damage === "number") { m.damage *= kd / d0; m._coopD = kd; }
+  }
+}
+
 
 // ----- 기술 장판: 노린 사람 말고 친구도 맞아요 (소환·치유 같은 효과는 한 번만) -----
 const COOP_NO_SPLASH = new Set(["summon", "heal", "shield", "buffAllies", "enrage", "teleport", "charge"]);
@@ -285,7 +300,7 @@ function coopHitOther(c, q) {
   }
 }
 hookOn("castResolved", (c, p) => {
-  if (!coopActive()) return;
+  if (!coopSim()) return;
   for (const q of alivePlayers()) if (q !== p) coopHitOther(c, q);
 }, 15);
 
@@ -305,9 +320,9 @@ hookOn("worldThings", (things) => {
     } });
     things.push({ depth: q.x + q.y + 50, draw: () => {
       const s = toScreen(q.x, q.y, 2.05);
-      const col = q.pid === 1 ? "#ff7a7a" : COOP_COLORS[coopPr().color].label;
-      text(String(q.pid), s.x, s.y, 15, col, "center");
-      if (q.pid === 2 && q.hp > 0) {
+      const col = coopColorOf(q.pid).label;
+      text(q.netName ? `${q.pid} ${q.netName}` : String(q.pid), s.x, s.y, 15, col, "center");
+      if (q !== game.player && q.hp > 0) {
         const w = 34, f = Math.max(0, q.hp / q.maxHp);
         ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(s.x - w / 2, s.y + 4, w, 5);
         ctx.fillStyle = f > 0.35 ? "#ff6b6b" : "#ffb070"; ctx.fillRect(s.x - w / 2, s.y + 4, w * f, 5);
@@ -317,7 +332,7 @@ hookOn("worldThings", (things) => {
 }, 60);
 
 hookOn("hudDraw", () => {
-  if (!coopActive()) return;
+  if (!coopLocal()) return;
   const p2 = coopFriend(), W = view.w;
   const col = COOP_COLORS[coopPr().color].label;
   const hs = 15, shown = Math.min(p2.maxHp, 20);

@@ -63,6 +63,7 @@ function createPlayer(x, y) {
 // 강화하거나 종류를 바꾸면 주인공 장비를 다시 계산해요 (저장도 같이)
 function refreshGear() {
   for (const p of allPlayers()) {
+    if (hookAny("refreshPlayerGear", p)) continue; // 같이 하기: 친구는 자기 기기 장비 (netplay.js)
     p.weapon = currentWeapon();
     p.bow = currentBow();
     p.armor = currentArmor();
