@@ -53,10 +53,13 @@ function finishWalls(rand) {
 }
 
 // ----- 던전 만들기: 방 여러 개를 복도로 이어요 -----
-function generateDungeon(def) {
-  const rand = makeRandom(Date.now() % 1000000 + 7);
+// seed 를 주면 같은 바닥·벽·방이 나와요 (같이 하기: 방장이 씨앗을 보내요). 없으면 지금처럼 시간으로.
+function generateDungeon(def, seed) {
+  const s = seed === undefined || seed === null ? Date.now() % 1000000 + 7 : seed;
+  const rand = makeRandom(s);
   const W = def.size, H = def.size;
   resetWorld(W, H, -1, def.theme);
+  world.seed = s;
 
   const rooms = [];
   for (let tries = 0; tries < 600 && rooms.length < def.rooms; tries++) {

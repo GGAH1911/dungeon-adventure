@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>같이 하기 연결 시험</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #15171c; color: #eee; font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; -webkit-user-select: none; user-select: none; }
+  main { max-width: 760px; margin: 0 auto; padding: 14px; }
+  h1 { font-size: 26px; color: #ffe27a; margin: 6px 0 10px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  button { font: inherit; border: 3px solid #fff3; border-radius: 14px; background: #2b3140; color: #fff; font-size: 24px; padding: 16px 18px; flex: 1; min-width: 140px; cursor: pointer; }
+  button:active { transform: scale(0.97); }
+  button.big { background: #3a6b3f; font-size: 28px; }
+  button.blue { background: #2f5a8a; }
+  button.gray { background: #3a3a3a; font-size: 18px; }
+  button:disabled { opacity: 0.35; }
+  .card { background: #1f232c; border-radius: 16px; padding: 14px; margin: 12px 0; }
+  .code { font-size: 64px; letter-spacing: 18px; text-align: center; color: #ffe27a; font-weight: bold; margin: 6px 0; }
+  .status { font-size: 22px; text-align: center; min-height: 30px; }
+  .err { color: #ff9090; }
+  .ok { color: #7dffb0; }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-width: 420px; margin: 8px auto; }
+  .pad button { font-size: 34px; padding: 14px 0; min-width: 0; }
+  .typed { font-size: 52px; letter-spacing: 16px; text-align: center; min-height: 64px; color: #9fe6ff; }
+  table { width: 100%; border-collapse: collapse; font-size: 18px; }
+  td { padding: 6px 4px; border-bottom: 1px solid #ffffff14; }
+  td:first-child { color: #aaa; width: 42%; }
+  canvas { width: 100%; height: 110px; background: #111318; border-radius: 10px; display: block; }
+  textarea { width: 100%; height: 160px; font-size: 13px; background: #0e1014; color: #ddd; border-radius: 10px; border: 1px solid #333; }
+  .small { font-size: 14px; color: #999; }
+  .hide { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>같이 하기 연결 시험</h1>
+  <div class="small">두 기기(태블릿·휴대폰)에서 이 페이지를 열고, 한 쪽은 "방 만들기", 다른 쪽은 "방 들어가기"를 눌러요.</div>
+
+  <div id="menu" class="card">
+    <div class="row">
+      <button class="big" id="bHost">방 만들기</button>
+      <button class="blue" id="bJoin">방 들어가기</button>
+    </div>
+  </div>
+
+  <div id="hostBox" class="card hide">
+    <div class="status">방 번호를 친구에게 알려줘요</div>
+    <div class="code" id="code">····</div>
+    <div class="status" id="hostStatus">친구를 기다려요...</div>
+  </div>
+
+  <div id="joinBox" class="card hide">
+    <div class="status">방장 화면의 숫자 4개를 눌러요</div>
+    <div class="typed" id="typed"></div>
+    <div class="pad" id="pad"></div>
+    <div class="row"><button class="big" id="bGo">들어가기</button></div>
+  </div>
+
+  <div class="status" id="msg"></div>
+
+  <div id="live" class="card hide">
+    <table>
+      <tr><td>내 자리</td><td id="vSlot">-</td></tr>
+      <tr><td>인원</td><td id="vCount">-</td></tr>
+      <tr><td>연결 길</td><td id="vIce">-</td></tr>
+      <tr><td>왕복 시간</td><td id="vRtt">-</td></tr>
+    </table>
+    <canvas id="graph" width="700" height="110"></canvas>
+    <div class="row" style="margin-top:10px">
+      <button class="blue" id="bBlast">보내기 시험 (10초)</button>
+    </div>
+    <table style="margin-top:8px">
+      <tr><td>보낸 / 돌아온</td><td id="vBlast">-</td></tr>
+      <tr><td>잃어버림</td><td id="vLoss">-</td></tr>
+      <tr><td>지연 (왕복)</td><td id="vLat">-</td></tr>
+      <tr><td>받은 개수 (상대가 보낸 것)</td><td id="vRecv">0</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button class="gray" id="bCopy">결과 복사</button>
+      <button class="gray" id="bLeave">나가기</button>
+    </div>
+    <textarea id="out" readonly></textarea>
+    <div class="small">결과를 복사해서 개발자(아빠 컴퓨터의 Aside)에게 붙여넣어 주세요.</div>
+  </div>
+</main>
+<script src="../src/net.js?v=d05f270-1791046316"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const transport = params.get("t") || "peer"; // ?t=broadcast : 같은 브라우저 두 탭
+  const S = new NetSession({ transport, info: { ua: navigator.userAgent.slice(0, 120) } });
+  const log = [];
+  const R = { started: new Date().toISOString(), transport, ua: navigator.userAgent, role: null, code: null, slot: null, rtts: [], ice: null, blast: null, recvBlast: 0, errors: [] };
+  function note(t) { log.push(new Date().toLocaleTimeString() + " " + t); render(); }
+  function setMsg(t, cls) { $("msg").textContent = t; $("msg").className = "status " + (cls || ""); }
+
+  // 숫자판
+  let typed = "";
+  for (const k of ["1","2","3","4","5","6","7","8","9","←","0","C"]) {
+    const b = document.createElement("button"); b.textContent = k;
+    b.onclick = () => { if (k === "←") typed = typed.slice(0, -1); else if (k === "C") typed = ""; else if (typed.length < 4) typed += k; $("typed").textContent = typed; };
+    $("pad").appendChild(b);
+  }
+
+  S.on("open", (o) => { R.role = o.role; R.code = o.code; R.slot = o.slot; note("열림 " + JSON.stringify(o)); showLive(); });
+  S.on("join", (slot) => { note("친구 들어옴: 자리 " + slot); $("hostStatus").textContent = "친구가 들어왔어요! (" + S.count + "명)"; $("hostStatus").className = "status ok"; showLive(); });
+  S.on("leave", (slot, why) => { note("나감: 자리 " + slot + " (" + why + ")"); setMsg("자리 " + slot + " 연결이 끊겼어요", "err"); });
+  S.on("error", (e) => { R.errors.push(e.code); note("오류 " + e.code + ": " + e.text); setMsg(e.text, "err"); });
+  S.on("rtt", (slot, ms) => { R.rtts.push(ms); if (R.rtts.length > 30) R.rtts.shift(); drawGraph(); render(); });
+  S.on("count", () => render());
+
+  // 보내기 시험: 1초에 20번, 1KB, 10초. 상대는 받자마자 돌려보내요.
+  const PAD = "x".repeat(1000);
+  let blast = null;
+  S.on("message", (m, from) => {
+    if (m.k === "blob") { R.recvBlast++; (S.role === "host" ? S.send(from, { k: "echo", seq: m.seq, t: m.t }) : S.toHost({ k: "echo", seq: m.seq, t: m.t })); render(); }
+    else if (m.k === "echo" && blast) { if (!blast.got.has(m.seq)) { blast.got.add(m.seq); blast.lat.push(Date.now() - m.t); } render(); }
+  });
+  $("bBlast").onclick = () => {
+    if (!S.role) return;
+    blast = { sent: 0, got: new Set(), lat: [], start: Date.now() };
+    R.blast = null;
+    $("bBlast").disabled = true;
+    const iv = setInterval(() => {
+      const msg = { k: "blob", seq: blast.sent++, t: Date.now(), pad: PAD };
+      if (S.role === "host") S.broadcast(msg); else S.toHost(msg);
+      if (blast.sent >= 200) {
+        clearInterval(iv);
+        setTimeout(() => { finishBlast(); $("bBlast").disabled = false; }, 1500);
+      }
+    }, 50);
+  };
+  function finishBlast() {
+    if (!blast) return;
+    const l = blast.lat.slice().sort((a, b) => a - b);
+    R.blast = { sent: blast.sent, back: blast.got.size, loss: blast.sent - blast.got.size, avg: l.length ? Math.round(l.reduce((a, b) => a + b, 0) / l.length) : null, p95: l.length ? l[Math.floor(l.length * 0.95)] : null, max: l.length ? l[l.length - 1] : null };
+    note("보내기 시험 " + JSON.stringify(R.blast));
+  }
+
+  async function updateIce() {
+    if (!S.role) return;
+    try {
+      const info = await S.iceInfo();
+      if (info) {
+        R.ice = info;
+        const s = info.selected;
+        const name = { host: "같은 Wi-Fi 직접 (host)", srflx: "공유기 바깥 주소 (srflx)", prflx: "직접 (prflx)", relay: "중계 서버 (relay)" };
+        $("vIce").textContent = s ? `${name[s.local.type] || s.local.type} ↔ ${name[s.remote.type] || s.remote.type}${s.local.mdns || s.remote.mdns ? " · .local" : ""}` : "찾는 중...";
+      } else $("vIce").textContent = transport === "peer" ? "-" : "시험 연결 (" + transport + ")";
+    } catch (e) { $("vIce").textContent = "알 수 없음"; }
+    render();
+  }
+  setInterval(updateIce, 2000);
+
+  function showLive() { $("live").classList.remove("hide"); render(); }
+  function drawGraph() {
+    const c = $("graph"), g = c.getContext("2d");
+    g.clearRect(0, 0, c.width, c.height);
+    const max = Math.max(50, ...R.rtts);
+    g.strokeStyle = "#ffffff22"; g.beginPath(); g.moveTo(0, c.height - 100 / max * c.height); g.lineTo(c.width, c.height - 100 / max * c.height); g.stroke();
+    g.fillStyle = "#7dffb0";
+    R.rtts.forEach((v, i) => { const h = v / max * (c.height - 8); g.fillRect(i * (c.width / 30) + 2, c.height - h, c.width / 30 - 4, h); });
+    g.fillStyle = "#aaa"; g.font = "16px sans-serif"; g.fillText("최대 " + max + "ms", 6, 18);
+  }
+  function render() {
+    $("vSlot").textContent = S.slot ? (S.slot === 1 ? "1 (방장)" : S.slot) : "-";
+    $("vCount").textContent = S.role ? S.count + "명" : "-";
+    if (R.rtts.length) { const a = Math.round(R.rtts.reduce((x, y) => x + y, 0) / R.rtts.length); $("vRtt").textContent = `지금 ${R.rtts[R.rtts.length - 1]}ms · 평균 ${a}ms · 최대 ${Math.max(...R.rtts)}ms`; }
+    if (blast) { $("vBlast").textContent = `${blast.sent} / ${blast.got.size}`; $("vLoss").textContent = R.blast ? R.blast.loss + "개" : "-"; }
+    if (R.blast) $("vLat").textContent = `평균 ${R.blast.avg}ms · 95% ${R.blast.p95}ms · 최대 ${R.blast.max}ms`;
+    $("vRecv").textContent = R.recvBlast;
+    const rt = R.rtts.length ? { last: R.rtts[R.rtts.length - 1], avg: Math.round(R.rtts.reduce((x, y) => x + y, 0) / R.rtts.length), max: Math.max(...R.rtts), n: R.rtts.length } : null;
+    $("out").value = JSON.stringify({ ...R, rtts: undefined, rtt: rt, iceSelected: R.ice && R.ice.selected, iceLocalTypes: R.ice && [...new Set(R.ice.locals.map((c) => c.type + (/\.local$/.test(c.addr) ? "(.local)" : "")))], log: log.slice(-15) }, null, 1);
+  }
+
+  $("bHost").onclick = async () => {
+    $("menu").classList.add("hide"); $("hostBox").classList.remove("hide");
+    setMsg("방을 만드는 중...");
+    try { const code = await S.host(); $("code").textContent = code; setMsg("방이 생겼어요", "ok"); }
+    catch (e) { $("menu").classList.remove("hide"); $("hostBox").classList.add("hide"); }
+  };
+  $("bJoin").onclick = () => { $("menu").classList.add("hide"); $("joinBox").classList.remove("hide"); };
+  $("bGo").onclick = async () => {
+    if (typed.length !== 4) { setMsg("숫자 4개를 눌러요", "err"); return; }
+    setMsg("들어가는 중... (최대 15초)");
+    $("bGo").disabled = true;
+    try { await S.join(typed); $("joinBox").classList.add("hide"); setMsg("들어왔어요!", "ok"); }
+    catch (e) { /* error 이벤트에서 문구 */ }
+    $("bGo").disabled = false;
+  };
+  $("bLeave").onclick = () => { S.leave(); setMsg("나왔어요"); setTimeout(() => location.reload(), 400); };
+  $("bCopy").onclick = async () => {
+    render();
+    try { await navigator.clipboard.writeText($("out").value); setMsg("복사했어요!", "ok"); }
+    catch (e) { $("out").select(); document.execCommand && document.execCommand("copy"); setMsg("글 상자를 길게 눌러 복사해요"); }
+  };
+  render();
+</script>
+</body>
+</html>
