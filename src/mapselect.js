@@ -98,7 +98,7 @@ function tryStartMap(i) {
   if (!mapUnlocked(i)) {
     sfx.denied();
     const prev = unlockSource(i).name;
-    mapSel.note = `${prev}${josa(prev, "을", "를")} 먼저 깨야 열려요`;
+    mapSel.note = `${josa(prev, "을/를")} 먼저 깨야 열려요`;
     mapSel.noteTimer = 2;
     showMessage(mapSel.note, 1.8);
     return;
@@ -774,7 +774,7 @@ function drawMapInfoPanel() {
     y += 40;
     text("잠겨 있어요", ix, y, 20, "#ffb070");
     y += 28;
-    for (const l of wrapLines(`${prev}${josa(prev, "을", "를")} 먼저 깨면 열려요`, iw, 16)) { text(l, ix, y, 16, "#ffd0a0"); y += 22; }
+    for (const l of wrapLines(`${josa(prev, "을/를")} 먼저 깨면 열려요`, iw, 16)) { text(l, ix, y, 16, "#ffd0a0"); y += 22; }
     return;
   }
 

@@ -92,12 +92,6 @@ function drawHeart(x, y, size, fill) {
     }
 }
 
-// 받침 있으면 "을", 없으면 "를"
-function josa(word, withFinal, withoutFinal) {
-  const code = word.charCodeAt(word.length - 1) - 0xac00;
-  if (code < 0 || code > 11171) return withoutFinal;
-  return code % 28 !== 0 ? withFinal : withoutFinal;
-}
 
 // ----- 받침에 맞는 조사 붙이기: josa("분노", "이/가") -> "분노가", josa("집중", "이/가") -> "집중이" -----
 // 쓸 수 있는 짝: "이/가", "을/를", "은/는", "과/와", "으로/로", "이에요/예요"
