@@ -59,12 +59,19 @@ const MAPS = [
 
 // 로비(캠프) 모양
 const LOBBY = {
-  width: 18, height: 15,
-  theme: { floor: "#6e8f4e", moss: "#7fa35a", wall: "#8a6a42", darkness: 0.3, bg: "#0f1a12" },
+  width: 30, height: 23,
+  theme: { floor: "#6e8f4e", moss: "#7fa35a", wall: "#8a6a42", path: "#a08a62", darkness: 0.28, bg: "#0f1a12" },
 };
 
+// 이 맵을 열려면 깨야 하는 맵
+function unlockSource(index) {
+  const m = MAPS[index];
+  if (m.unlockAfter) return MAPS.find((x) => x.id === m.unlockAfter);
+  return index === 0 ? null : MAPS[index - 1];
+}
 function mapUnlocked(index) {
-  return index === 0 || game.profile.cleared.includes(MAPS[index - 1].id);
+  const src = unlockSource(index);
+  return !src || game.profile.cleared.includes(src.id);
 }
 
 // ----- 맵 레벨(난이도) 계산 -----

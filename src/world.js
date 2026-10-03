@@ -24,7 +24,7 @@ function makeRandom(seed) {
 }
 
 function resetWorld(W, H, fill, theme) {
-  world.W = W; world.H = H; world.theme = theme;
+  world.W = W; world.H = H; world.theme = theme; world.path = null;
   world.tiles = []; world.pattern = []; world.solids = []; world.rooms = [];
   for (let y = 0; y < H; y++) {
     world.tiles.push(new Array(W).fill(fill));
@@ -122,8 +122,22 @@ function buildLobbyWorld() {
     for (let x = 0; x < W; x++)
       if (x === W - 1 || y === H - 1) world.tiles[y][x] = LOW_WALL;
       else if (x === 0 || y === 0) world.tiles[y][x] = 1;
-  world.start = { x: W / 2, y: H - 3.5 };
+  world.path = world.tiles.map((row) => row.map(() => false));
+  world.start = { x: 15, y: 15.5 };
   world.explored = null;
+  world.mini = null;
+}
+
+// 흙길 그리기 (로비)
+function carvePath(ax, ay, bx, by) {
+  const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2);
+  for (let i = 0; i <= n; i++) {
+    const x = ax + ((bx - ax) * i) / n, y = ay + ((by - ay) * i) / n;
+    for (const [ox, oy] of [[0, 0], [0.6, 0], [0, 0.6]]) {
+      const tx = Math.floor(x + ox), ty = Math.floor(y + oy);
+      if (world.path[ty] && world.tiles[ty][tx] === 0) world.path[ty][tx] = true;
+    }
+  }
 }
 
 function isWall(tx, ty) {
@@ -229,6 +243,7 @@ function drawFloor() {
       const v = world.pattern[y][x];
       const isMoss = v < 0.15;
       let color = shade(isMoss ? th.moss : th.floor, 0.85 + (Math.round(v * 6) / 6) * 0.25);
+      if (world.path && world.path[y][x]) color = shade(th.path, 0.9 + (Math.round(v * 4) / 4) * 0.15);
       if (isMoss && th.lava) color = shade(th.moss, Math.round(lavaPulse * 10) / 10);
       (groups[color] = groups[color] || []).push(x, y);
     }

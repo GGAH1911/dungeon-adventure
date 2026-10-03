@@ -7,13 +7,16 @@ const CONFIG = {
   player: {
     speed: 4.2,           // 걷는 속도 (1초에 몇 칸)
     baseHp: 10,           // 레벨 1일 때 하트 개수
-    rollSpeed: 11,        // 구르기 속도
-    rollTime: 0.22,       // 구르는 시간 (초) - 구르는 동안은 안 맞아요!
+    rollSpeed: 8.5,       // 구르기 속도
+    rollTime: 0.32,       // 구르는 시간 (초) - 구르는 동안은 안 맞아요!
     rollCooldown: 0.9,    // 다시 구를 수 있을 때까지 (초)
     hurtInvincible: 0.7,  // 맞은 뒤 잠깐 무적인 시간 (초)
     maxPotions: 5,        // 물약 최대 개수
     maxArrows: 99,        // 화살 최대 개수
     autoAimRange: 10,     // 활이 저절로 겨냥하는 거리 (칸)
+    comboWindow: 0.5,     // 연속기: 휘두른 뒤 이 시간 안에 또 누르면 다음 동작 (초)
+    critChance: 0.1,      // 치명타 확률 (0.1 = 10%)
+    critDamage: 1.8,      // 치명타 공격력 배수
   },
 
   level: {

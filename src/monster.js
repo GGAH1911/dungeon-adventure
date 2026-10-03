@@ -11,7 +11,8 @@ function createMonster(type, x, y, level = 1) {
   const dmgMul = monsterDamageMul(level);
   const size = def.size || 1;
   return {
-    type, def, x, y,
+    type, def, x, y, name: def.name,
+    burn: 0, burnDmg: 0, burnTick: 0, slow: 0, hitT: 0,
     r: 0.3 * Math.max(0.7, size),
     faceX: Math.SQRT1_2, faceY: Math.SQRT1_2,
     hp: def.hp * hpMul, maxHp: def.hp * hpMul,
@@ -80,6 +81,31 @@ function faceToward(m, p) {
 
 // ----- 매 프레임 -----
 function updateMonster(m, p, dt) {
+  // 불붙음: 0.5초마다 아파요
+  if (m.burn > 0) {
+    m.burn -= dt;
+    m.burnTick -= dt;
+    if (m.burnTick <= 0 && m.hp > 0) { m.burnTick = 0.5; damageMonster(m, m.burnDmg, m.x, m.y, false, 0, { dot: true, color: "#ff9a3b" }); }
+    if (Math.random() < dt * 14) addSparkle(m.x + (Math.random() - 0.5) * 0.4, m.y + (Math.random() - 0.5) * 0.4, 0.3 + Math.random() * 0.6, { vz: 1.2, life: 0.4, size: 0.55, gold: true });
+  }
+  // 느려짐: 반만 움직여요
+  const slowMul = m.slow > 0 ? 0.5 : 1;
+  if (m.slow > 0) {
+    m.slow -= dt;
+    if (Math.random() < dt * 8) addSparkle(m.x + (Math.random() - 0.5) * 0.4, m.y + (Math.random() - 0.5) * 0.4, Math.random() * 0.9, { vz: 0.3, life: 0.5, size: 0.5, hue: 195 });
+  }
+  m.hitT = Math.max(0, m.hitT - dt);
+  if (m.hp <= 0) return;
+  const baseSpeed = m.speed;
+  m.speed *= slowMul;
+  try {
+    monsterBrain(m, p, dt * (slowMul < 1 ? 0.7 : 1));
+  } finally {
+    m.speed = baseSpeed;
+  }
+}
+
+function monsterBrain(m, p, dt) {
   const def = m.def;
   m.flash -= dt;
   m.attackTimer -= dt;
@@ -342,11 +368,11 @@ function drawMonster(m) {
     case "slime": drawSlime(m); break;
     case "bat": drawBat(m); break;
     default: {
-      drawCharacter(m, def.look, { arms: def.armsForward ? "forward" : "side", scale: def.size || 1 });
+      drawCharacter(m, def.look, { arms: def.armsForward ? "forward" : "side", scale: (def.size || 1) * (m.scaleMul || 1), squash: m.hitT > 0 ? 0.9 : 1 });
       if (def.behavior === "archer") drawBow(m);
       if (def.heavy && !m.flash) {
         // 골렘 눈이 빛나요
-        const s = toScreen(m.x, m.y, 1.1 * (def.size || 1));
+        const s = toScreen(m.x, m.y, 1.1 * (def.size || 1) * (m.scaleMul || 1));
         ctx.globalCompositeOperation = "lighter";
         ctx.fillStyle = "rgba(255,150,60,0.35)";
         ctx.beginPath(); ctx.arc(s.x, s.y, 14 * ZOOM, 0, Math.PI * 2); ctx.fill();
@@ -356,8 +382,8 @@ function drawMonster(m) {
   }
   ctx.restore();
 
-  // 다친 몬스터는 머리 위에 체력 막대
-  if (m.hp < m.maxHp && m.hp > 0) {
+  // 다친 몬스터는 머리 위에 체력 막대 (보스는 화면 위에)
+  if (m.hp < m.maxHp && m.hp > 0 && !m.boss) {
     const top = def.shape === "slime" ? 0.7 * (def.size || 1) : def.shape === "spider" ? 0.7 : def.shape === "bat" ? 1.35 : 1.3 * (def.size || 1);
     const s = toScreen(m.x, m.y, top + 0.1);
     const w = 24 * ZOOM * Math.max(1, def.size || 1), h = 5;

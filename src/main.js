@@ -1,19 +1,25 @@
 // ===== 게임 본체: 장면 바꾸기, 싸우기, 레벨, 그리기 =====
-// 장면(scene): "title" 처음 화면 -> "lobby" 캠프 <-> "dungeon" 던전
-// 창(overlay): "shop" 가게, "maps" 모험 지도, "menu" 메뉴, "result" 결과
+// 장면(scene): "title" 처음 화면 -> "lobby" 캠프 <-> "dungeon" 던전(또는 탑)
+// 창(overlay): "shop" 가게, "maps" 모험 지도, "smith" 대장장이, "wardrobe" 옷장,
+//              "records" 기록판, "menu" 메뉴, "result" 결과
 
 const game = {
   scene: "title",
+  mode: null,         // "tower" 이면 시련의 탑
   overlay: null,
   profile: loadProfile(),
   player: null,
   mapDef: null,
+  mapLevel: 1,
+  tower: null,
   run: null,          // 이번 던전에서 모은 것
   result: null,
   endTimer: 0,
   nearNpc: null,
   message: "", messageTimer: 0, messageRainbow: false, messageColor: null,
   shake: 0,
+  hitstop: 0,         // 맞는 순간 잠깐 멈춤
+  fade: 0,            // 층 올라갈 때 화면 깜깜
   time: 0,
   confirmReset: false,
 };
@@ -30,11 +36,14 @@ function showMessage(str, time = 2, rainbowText = false, color = null) {
 }
 
 function resetEffects() {
-  particles = []; pickups = []; floatTexts = []; arrows = []; monsters = []; shots = [];
+  particles = []; pickups = []; floatTexts = []; arrows = []; monsters = []; shots = []; impacts = []; chests = [];
+  stairs = null;
   clearLegendary();
   pathFrom = { x: -1, y: -1 };
   game.endTimer = 0;
+  game.result = null;
   game.nearNpc = null;
+  game.hitstop = 0;
 }
 
 function placePlayer() {
@@ -48,8 +57,10 @@ function enterLobby(msg) {
   resetEffects();
   buildLobby();
   game.scene = "lobby";
+  game.mode = null;
   game.overlay = null;
   game.mapDef = null;
+  game.tower = null;
   placePlayer();
   game.player.faceX = -Math.SQRT1_2; game.player.faceY = -Math.SQRT1_2;
   saveProfile();
@@ -60,81 +71,71 @@ function startDungeon(def, level) {
   resetEffects();
   const rand = generateDungeon(def);
   spawnMonsters(def, level, rand);
+  placeChests(rand);
   game.scene = "dungeon";
+  game.mode = "dungeon";
   game.overlay = null;
   game.mapDef = def;
   game.mapLevel = level;
   placePlayer();
-  game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0, arrows: 0 };
+  game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0 };
+  game.profile.stats.runs++;
   sfx.wave();
   showMessage(`${def.name} Lv ${level}  ·  몬스터를 모두 물리치세요!`, 3);
 }
 
 // ----- 싸우기 -----
-// 칼 휘두르기 (player.js 에서 불러요)
-function swordAttack(p) {
-  const w = p.weapon;
-  const dmg = w.damage * damageBonus(game.profile.level);
-  // 가까운 몬스터 쪽으로 자동으로 몸을 돌려요
-  let nearest = null, best = w.range + 0.6;
-  for (const m of monsters) {
-    const d = Math.hypot(m.x - p.x, m.y - p.y);
-    if (d < best && m.appearTimer <= 0) { best = d; nearest = m; }
-  }
-  if (nearest && best > 0.01) {
-    p.faceX = (nearest.x - p.x) / best;
-    p.faceY = (nearest.y - p.y) / best;
-  }
-
-  const minFacing = Math.cos(Math.min(w.arc, Math.PI)) - 0.05;
-  const hit = [];
-  for (const m of monsters.slice()) {
-    if (m.appearTimer > 0 || m.hp <= 0) continue;
-    const dx = m.x - p.x, dy = m.y - p.y;
-    const d = Math.hypot(dx, dy) || 0.001;
-    if (d > w.range + m.r) continue;
-    const facing = (dx * p.faceX + dy * p.faceY) / d; // 1 이면 정면
-    if (d > 0.5 && facing < minFacing) continue;       // 칼이 안 닿는 쪽
-    damageMonster(m, dmg, p.x, p.y, w.legendary);
-    hit.push(m);
-  }
-
-  if (w.legendary) legendStrike(p, hit);
-  else {
-    sfx.swing();
-    if (hit.length) sfx.hit();
-  }
-}
-
-// knock: 밀려나는 정도 (화살은 조금만)
-function damageMonster(m, dmg, fromX, fromY, legendary, knock = 1) {
+// knock: 밀려나는 정도   opts: { crit 치명타, melee 칼/화살, effect 특수효과, finisher 마무리, dot 지속피해 }
+function damageMonster(m, dmg, fromX, fromY, legendary, knock = 1, opts = {}) {
   if (m.hp <= 0) return;
   if (m.def.armor) dmg *= 1 - m.def.armor; // 갑옷 입은 몬스터는 덜 아파요
   m.hp -= dmg;
-  m.flash = 0.12;
-  m.stunTimer = 0.25 * knock;
-  const dx = m.x - fromX, dy = m.y - fromY, d = Math.hypot(dx, dy) || 1;
-  const push = (legendary ? 16 : 9) * knock;
-  m.knockX = (dx / d) * push; m.knockY = (dy / d) * push;
+  m.lastCrit = !!opts.crit;
   m.aggro = true;
   const shown = Math.round(dmg * 10) / 10;
-  addFloatText(m.x, m.y, `${shown}`, legendary ? "rainbow" : "#fff", legendary ? 26 : 18);
-  game.shake = Math.max(game.shake, 0.12);
-  if (m.hp <= 0) killMonster(m, legendary);
+  if (opts.dot) {
+    addFloatText(m.x, m.y, `${shown}`, opts.color || "#ffb070", 15);
+  } else {
+    m.flash = 0.1;
+    m.hitT = 0.15;
+    if (knock > 0) {
+      m.stunTimer = 0.22 * Math.min(1.5, knock);
+      const dx = m.x - fromX, dy = m.y - fromY, d = Math.hypot(dx, dy) || 1;
+      const push = (legendary ? 16 : 10) * knock * (m.boss ? 0.2 : 1);
+      m.knockX = (dx / d) * push; m.knockY = (dy / d) * push;
+    }
+    if (opts.crit) addFloatText(m.x, m.y, `치명타! ${shown}`, "#ffd84a", 26);
+    else addFloatText(m.x, m.y, `${shown}`, legendary ? "rainbow" : opts.finisher ? "#ffe9a8" : "#fff", legendary ? 26 : opts.finisher ? 23 : 19);
+    if (opts.melee) addImpact(m, fromX, fromY, opts.crit, EFFECT_COLORS[opts.effect]);
+    game.shake = Math.max(game.shake, opts.finisher || opts.crit ? 0.2 : 0.1);
+    if (opts.effect) applyEffect(m, opts.effect, dmg);
+  }
+  if (m.hp <= 0) killMonster(m, legendary, opts);
 }
 
-function killMonster(m, legendary) {
+function killMonster(m, legendary, opts = {}) {
   const def = m.def;
-  game.run.kills++;
+  const pr = game.profile;
+  if (game.run) game.run.kills++;
+  pr.stats.kills++;
   const colors = def.look ? [def.look.skin, def.look.shirt, def.look.pants] : [def.color, shade(def.color, 0.6), "#ffffff"];
-  spawnBurst(m.x, m.y, colors);
+  spawnBurst(m.x, m.y, colors, m.boss ? 40 : 14);
   if (legendary) legendBurst(m.x, m.y);
+  if (m.boss) { game.shake = 0.5; flashScreen(0.2); hitStop(0.15); addRing(m.x, m.y, { speed: 8, life: 0.6, gold: true }); }
   sfx.kill();
-  gainXp(Math.max(1, Math.round(def.xp * rewardMul(game.mapLevel))));
-  const drops = def.emeraldCount || 1;
-  for (let i = 0; i < drops; i++) if (Math.random() < def.emerald) dropPickup("emerald", m.x, m.y);
+  gainXp(Math.max(1, Math.round(def.xp * rewardMul(game.mapLevel) * (m.boss ? 8 : 1))));
+  const w = game.player.weapon;
+  if (w.effect === "heal" && opts.melee) {
+    const p = game.player;
+    p.hp = Math.min(p.maxHp, p.hp + 0.5);
+    addFloatText(p.x, p.y, "+0.5", "#c08aff", 15);
+  }
+  const extra = w.effect === "emerald" && opts.melee ? 0.25 : 0;
+  const drops = (def.emeraldCount || 1) * (m.boss ? 8 : 1);
+  for (let i = 0; i < drops; i++) if (Math.random() < def.emerald + extra) dropPickup("emerald", m.x, m.y);
   if (Math.random() < CONFIG.monster.appleChance) dropPickup("apple", m.x, m.y);
   if (Math.random() < (def.arrowDrop || CONFIG.monster.arrowChance)) dropPickup("arrows", m.x, m.y);
+  if (Math.random() < 0.03) dropPickup("special", m.x, m.y, { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
   // 슬라임은 쪼개져요!
   if (def.splits) {
     for (let i = 0; i < def.splitCount; i++) {
@@ -151,47 +152,69 @@ function killMonster(m, legendary) {
 // 주인공이 맞았을 때
 function hurtPlayer(p, damage, from) {
   if (p.rollTimer > 0 || p.hurtTimer > 0 || p.hp <= 0) return;
+  const a = p.armor;
+  const isMonster = from && from.def;
 
   // 갑옷이 막았어요!
-  if (Math.random() < p.armor.block) {
+  if (Math.random() < a.block) {
     p.hurtTimer = 0.3;
     addFloatText(p.x, p.y, "막음!", "#ffe27a", 20);
     sfx.block();
-    if (p.armor.legendary) legendBlock(p);
-    const dx = from.x - p.x, dy = from.y - p.y, d = Math.hypot(dx, dy) || 1;
-    from.stunTimer = 0.3;
-    from.knockX = (dx / d) * 8; from.knockY = (dy / d) * 8;
+    if (a.legendary) legendBlock(p);
+    if (isMonster) {
+      const dx = from.x - p.x, dy = from.y - p.y, d = Math.hypot(dx, dy) || 1;
+      from.stunTimer = 0.3;
+      from.knockX = (dx / d) * 8; from.knockY = (dy / d) * 8;
+    }
+    armorRevenge(p, from);
     return;
   }
 
   p.hp = Math.max(0, p.hp - damage);
   p.hurtTimer = CONFIG.player.hurtInvincible;
+  p.hurtLean = 0.2;
   p.flash = 0.1;
-  game.shake = 0.25;
+  game.shake = 0.3;
+  hitStop(0.06);
+  flashScreen(0.08);
   sfx.hurt();
-  addFloatText(p.x, p.y, `-${Math.round(damage * 10) / 10}`, "#ff6b6b", 18);
+  addFloatText(p.x, p.y, `-${Math.round(damage * 10) / 10}`, "#ff6b6b", 20);
   const dx = p.x - from.x, dy = p.y - from.y, d = Math.hypot(dx, dy) || 1;
-  moveEntity(p, (dx / d) * 0.35, (dy / d) * 0.35);
+  moveEntity(p, (dx / d) * 0.4, (dy / d) * 0.4);
+  armorRevenge(p, from);
   if (p.hp <= 0) {
     spawnBurst(p.x, p.y, [CONFIG.colors.player.shirt, CONFIG.colors.player.skin], 16);
     endRun(false);
   }
 }
 
+// 가시 갑옷, 서리 갑옷: 때린 몬스터도 혼나요
+function armorRevenge(p, from) {
+  if (!from || !from.def || from.hp <= 0) return;
+  if (p.armor.thorns) damageMonster(from, p.armor.thorns * damageBonus(game.profile.level), p.x, p.y, false, 0.6, { color: "#c8e070" });
+  if (p.armor.frost) from.slow = 2.5;
+}
+
 function endRun(win) {
+  if (game.result) return;
   const r = game.run;
+  const pr = game.profile;
   let bonus = 0;
   if (win) {
     bonus = clearBonus(game.mapDef, game.mapLevel);
-    game.profile.emeralds += bonus;
-    if (!game.profile.cleared.includes(game.mapDef.id)) game.profile.cleared.push(game.mapDef.id);
-    const best = game.profile.best[game.mapDef.id] || 0;
-    if (game.mapLevel > best) game.profile.best[game.mapDef.id] = game.mapLevel;
+    pr.emeralds += bonus;
+    pr.stats.clears++;
+    if (!pr.cleared.includes(game.mapDef.id)) pr.cleared.push(game.mapDef.id);
+    const best = pr.best[game.mapDef.id] || 0;
+    if (game.mapLevel > best) pr.best[game.mapDef.id] = game.mapLevel;
     sfx.clear();
-    showMessage("던전 클리어!", 2, true);
+    showMessage(game.mode === "tower" ? "시련의 탑 정복!" : "던전 클리어!", 2, true);
     for (let i = 0; i < 3; i++) addRing(game.player.x, game.player.y, { speed: 6, life: 0.6, hue: i * 120, delay: i * 0.15 });
+  } else {
+    pr.stats.deaths++;
   }
-  game.result = { win, mapName: `${game.mapDef.name} Lv ${game.mapLevel}`, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus };
+  const where = game.mode === "tower" ? `시련의 탑 Lv ${game.mapLevel} · ${game.tower.floor}층` : `${game.mapDef.name} Lv ${game.mapLevel}`;
+  game.result = { win, mapName: where, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus };
   game.endTimer = win ? 1.8 : 1.4;
   saveProfile();
 }
@@ -213,7 +236,7 @@ function gainXp(n) {
 
 function levelUp() {
   const p = game.player;
-  p.maxHp = playerMaxHp(game.profile.level);
+  p.maxHp = maxHpFor(p.armor);
   p.hp = p.maxHp;
   sfx.levelUp();
   showMessage(`레벨 업!  Lv ${game.profile.level}`, 2.5, false, "#7dd3ff");
@@ -227,22 +250,38 @@ function levelUp() {
 
 function onPickup(item) {
   const p = game.player;
+  const pr = game.profile;
+  const max = CONFIG.player.maxArrows;
   if (item.type === "emerald") {
-    game.profile.emeralds++;
+    pr.emeralds++;
     if (game.run) game.run.emeralds++;
     sfx.emerald();
   } else if (item.type === "arrows") {
-    const pr = game.profile;
-    const n = 3 + Math.floor(Math.random() * 3);
-    const got = Math.min(n, CONFIG.player.maxArrows - pr.arrows);
+    const got = Math.min(3 + Math.floor(Math.random() * 3), max - pr.arrows);
     pr.arrows += got;
     addFloatText(p.x, p.y, got > 0 ? `화살 +${got}` : "화살 가득", "#e8d0a0", 16);
     sfx.emerald();
+  } else if (item.type === "special") {
+    const at = arrowTypeById(item.arrowType);
+    pr.special[at.id] = Math.min(max, (pr.special[at.id] || 0) + 3);
+    addFloatText(p.x, p.y, `${at.name} +3`, at.color, 16);
+    sfx.emerald();
+  } else if (item.type === "potion") {
+    if (pr.potions < CONFIG.player.maxPotions) { pr.potions++; addFloatText(p.x, p.y, "물약 +1", "#ff9ad8", 16); }
+    else { p.hp = Math.min(p.maxHp, p.hp + POTION.heal); addFloatText(p.x, p.y, `+${POTION.heal}`, "#ff9ad8", 18); }
+    sfx.potion();
+  } else if (item.type === "item") {
+    const it = gearItem(item.kind, item.id);
+    if (!owns(item.kind, item.id)) ownedList(item.kind).push(item.id);
+    showMessage(`새 장비! ${it.name}`, 3, true);
+    sfx.chest();
+    addRing(p.x, p.y, { speed: 4, life: 0.5, gold: true });
   } else if (item.type === "apple") {
     p.hp = Math.min(p.maxHp, p.hp + 2);
     addFloatText(p.x, p.y, "+2", "#ff7b7b", 20);
     sfx.apple();
   }
+  saveProfile();
 }
 
 // ----- 매 프레임 계산 -----
@@ -250,7 +289,11 @@ function update(dt) {
   game.time += dt;
   game.messageTimer -= dt;
   game.shake = Math.max(0, game.shake - dt);
+  game.fade = Math.max(0, game.fade - dt);
   if (cheatOpen) return; // 치트 입력 중엔 잠깐 멈춰요
+
+  // 맞는 순간 잠깐 멈춤 (타격감)
+  if (game.hitstop > 0) { game.hitstop -= dt; return; }
 
   if (wasPressed("KeyM")) {
     muted = !muted;
@@ -264,6 +307,9 @@ function update(dt) {
   switch (game.overlay) {
     case "shop": updateShop(dt); return;
     case "maps": updateMapSelect(); return;
+    case "smith": updateSmith(dt); return;
+    case "wardrobe": updateWardrobe(); return;
+    case "records": updateRecords(); return;
     case "menu": updateMenu(); return;
     case "result": updateResult(); return;
   }
@@ -275,24 +321,27 @@ function update(dt) {
   updatePickups(p, dt, onPickup);
   updateFloatTexts(dt);
   updateLegendary(dt, p);
+  updateImpacts(dt);
+  updateShots(dt);
+
+  // 말 걸기 / 상자 열기 / 계단
+  game.nearNpc = p.hp > 0 ? nearestNpc(p) : null;
+  if (game.nearNpc && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
 
   if (game.scene === "lobby") {
     updateLobby(p, dt);
-    game.nearNpc = nearestNpc(p);
-    if (game.nearNpc && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
     return;
   }
 
-  // ----- 던전 -----
-  revealAround(p.x, p.y);
+  // ----- 던전 / 탑 -----
+  if (game.mode !== "tower") revealAround(p.x, p.y);
   updatePaths(p.x, p.y);
   for (const m of monsters) updateMonster(m, p, dt);
   monsters = monsters.filter((m) => m.hp > 0);
   updateArrows(p, dt);
-  updateShots(dt);
-  monsters = monsters.filter((m) => m.hp > 0);
+  updateChests(dt);
 
-  // 황금 갑옷: 체력이 저절로 차요
+  // 체력 재생 갑옷
   if (p.armor.regen && p.hp < p.maxHp && p.hp > 0) {
     p.regenTimer += dt;
     if (p.regenTimer >= p.armor.regen) {
@@ -302,8 +351,11 @@ function update(dt) {
     }
   }
 
-  // 다 물리쳤나?
-  if (monsters.length === 0 && !game.result && p.hp > 0) endRun(true);
+  if (game.mode === "tower") {
+    if (!game.result && p.hp > 0) updateTower(p, dt);
+  } else if (monsters.length === 0 && !game.result && p.hp > 0) {
+    endRun(true);
+  }
   if (game.result && game.endTimer > 0) {
     game.endTimer -= dt;
     if (game.endTimer <= 0) game.overlay = "result";
@@ -354,7 +406,7 @@ function draw() {
 
   ctx.save();
   if (game.shake > 0) {
-    const k = (10 * game.shake) / 0.25;
+    const k = (12 * game.shake) / 0.25;
     ctx.translate((Math.random() - 0.5) * k, (Math.random() - 0.5) * k);
   }
 
@@ -368,6 +420,8 @@ function draw() {
   const things = [];
   collectWalls(things, p);
   if (game.scene !== "dungeon") lobbyThings(things);
+  chestThings(things);
+  stairsThings(things);
   if (p.hp > 0) things.push({ depth: p.x + p.y, draw: () => drawPlayer(p) });
   for (const m of monsters) if (onScreen(m.x, m.y)) things.push({ depth: m.x + m.y, draw: () => drawMonster(m) });
   for (const e of pickups) things.push({ depth: e.x + e.y, draw: () => drawPickup(e) });
@@ -382,34 +436,104 @@ function draw() {
   const lights = [{ x: p.x, y: p.y, radius: p.armor.legendary ? CONFIG.light.legendLight : CONFIG.light.playerLight }];
   if (p.weapon.legendary) lights.push({ x: p.x, y: p.y, radius: CONFIG.light.playerLight + 2, power: 0.6 });
   if (game.scene !== "dungeon") lights.push(...lobbyLights());
+  for (const c of chests) if (!c.open) lights.push({ x: c.x, y: c.y, radius: 1.6, power: 0.5 });
+  if (stairs && stairs.open) lights.push({ x: stairs.x, y: stairs.y, radius: 3.5, power: 0.8 });
   drawDarkness(lights);
 
   // 어둠 위에서 빛나는 것들
   drawLegendGlow(p);
+  drawImpacts();
   drawFloatTexts();
-  if (game.scene === "lobby") drawNpcLabels();
+  drawNpcLabels();
   drawScreenFlash();
+  if (game.fade > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${Math.min(1, game.fade / 0.4)})`;
+    ctx.fillRect(0, 0, view.w, view.h);
+  }
 
   if (game.scene === "title") { drawTitle(); return; }
   drawHUD();
-  if (game.overlay === "shop") drawShop();
-  else if (game.overlay === "maps") drawMapSelect();
-  else if (game.overlay === "menu") drawMenu();
-  else if (game.overlay === "result") drawResult();
+  switch (game.overlay) {
+    case "shop": drawShop(); break;
+    case "maps": drawMapSelect(); break;
+    case "smith": drawSmith(); break;
+    case "wardrobe": drawWardrobe(); break;
+    case "records": drawRecords(); break;
+    case "menu": drawMenu(); break;
+    case "result": drawResult(); break;
+  }
 }
 
 // ----- 게임 루프 -----
+// 컴퓨터/태블릿이 힘들지 않게:
+//  1) 화면이 안 보이거나 다른 앱으로 가면 멈춰요
+//  2) 버벅이면 그리는 해상도를 자동으로 낮춰요
+//  3) 가게·메뉴 같은 창이 떠 있을 땐 덜 자주 그려요
 let lastTime = performance.now();
+let lastDraw = 0;
+let rafId = null;
+let paused = false;
+const frameTimes = [];
+
 function loop(now) {
-  const dt = Math.min(0.05, (now - lastTime) / 1000);
+  rafId = null;
+  if (paused) return;
+  const raw = now - lastTime;
+  const dt = Math.min(0.05, raw / 1000);
   lastTime = now;
   update(dt);
-  draw();
-  clearPressed();
-  requestAnimationFrame(loop);
+
+  const calm = game.overlay || game.scene === "title" || cheatOpen;
+  if (!calm || now - lastDraw > 66) { // 창이 떠 있으면 1초에 15번만
+    draw();
+    lastDraw = now;
+  }
+  if (game.hitstop <= 0) clearPressed(); // 멈춘 동안 누른 버튼은 기억해둬요
+
+  // 게임 중에 계속 많이 느리면(초당 25번도 못 그리면) 해상도를 한 단계 낮춰요
+  // (절전 모드처럼 초당 30번으로 고정된 건 괜찮아요)
+  if (!calm && raw < 250) {
+    frameTimes.push(raw);
+    if (frameTimes.length >= 90) {
+      const sorted = frameTimes.slice().sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      frameTimes.length = 0;
+      if (median > 40) lowerQuality();
+    }
+  }
+  rafId = requestAnimationFrame(loop);
 }
+
+function pauseGame() {
+  if (paused) return;
+  paused = true;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  for (const k in keys) keys[k] = false;
+  touch.moveX = touch.moveY = 0; touch.joyId = null;
+  // 멈춤 화면 한 번만 그려둬요
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, 0, view.w, view.h);
+  text("잠깐 멈춤", view.w / 2, view.h / 2, 40, "#ffe27a", "center");
+  text("화면을 누르면 계속해요", view.w / 2, view.h / 2 + 40, 18, "#ddd", "center");
+}
+
+function resumeGame() {
+  if (!paused || document.hidden) return;
+  paused = false;
+  lastTime = performance.now();
+  frameTimes.length = 0;
+  if (!rafId) rafId = requestAnimationFrame(loop);
+}
+
+document.addEventListener("visibilitychange", () => (document.hidden ? pauseGame() : resumeGame()));
+window.addEventListener("blur", () => { if (!cheatOpen) pauseGame(); });
+window.addEventListener("focus", resumeGame);
+window.addEventListener("pointerdown", resumeGame, true);
+window.addEventListener("keydown", resumeGame, true);
+window.addEventListener("resize", () => { frameTimes.length = 0; });
 
 // 처음 화면 뒤에는 캠프가 보여요
 buildLobby();
 placePlayer();
-requestAnimationFrame(loop);
+rafId = requestAnimationFrame(loop);

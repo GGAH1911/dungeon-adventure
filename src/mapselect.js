@@ -27,16 +27,17 @@ function openMapSelect() {
 function tryStartMap(i) {
   if (!mapUnlocked(i)) {
     sfx.denied();
-    const prev = MAPS[i - 1].name;
+    const prev = unlockSource(i).name;
     showMessage(`${prev}${josa(prev, "을", "를")} 먼저 깨야 열려요`, 1.8);
     return;
   }
   closeOverlay();
-  startDungeon(MAPS[i], mapSel.level);
+  if (MAPS[i].type === "tower") startTower(mapSel.level);
+  else startDungeon(MAPS[i], mapSel.level);
 }
 
 function updateMapSelect() {
-  const cols = 4;
+  const cols = 5;
   const move = (i) => selectMap(Math.max(0, Math.min(MAPS.length - 1, i)));
   if (wasPressed("ArrowLeft", "KeyA")) move(mapSel.index - 1);
   if (wasPressed("ArrowRight", "KeyD")) move(mapSel.index + 1);
@@ -58,11 +59,11 @@ function drawMapSelect() {
   text(`내 레벨 ${pr.level}`, x0 + 170, y0 + 40, 17, "#7dd3ff");
   drawButton(x0 + pw - 58, y0 + 14, 42, 38, "✕", closeOverlay, { size: 20 });
 
-  // 맵 카드 4 x 2
-  const gap = 10, cols = 4;
+  // 맵 카드 5 x 2
+  const gap = 10, cols = 5;
   const gridTop = y0 + 62;
   const cardW = (pw - 40 - gap * (cols - 1)) / cols;
-  const cardH = Math.min(118, (ph - 330) / 2);
+  const cardH = Math.min(104, (ph - 330) / 2);
   MAPS.forEach((m, i) => {
     const cx = x0 + 20 + (i % cols) * (cardW + gap);
     const cy = gridTop + Math.floor(i / cols) * (cardH + gap);
@@ -81,13 +82,14 @@ function drawMapSelect() {
       else selectMap(i);
     });
 
-    text(`${i + 1}. ${m.name}`, cx + 12, cy + 28, 17, open ? "#fff" : "#888");
+    text(m.type === "tower" ? `★ ${m.name}` : `${i + 1}. ${m.name}`, cx + 12, cy + 28, cardW < 200 ? 15 : 17, open ? "#fff" : "#888");
     if (!open) {
       text("잠겨 있어요", cx + 12, cy + 56, 14, "#aaa");
       return;
     }
     text(`Lv ${m.minLevel}부터`, cx + 12, cy + 52, 13, "#eee");
-    if (best) text(`최고 Lv ${best} 클리어`, cx + 12, cy + cardH - 14, 13, "#7dffb0");
+    if (m.type === "tower") { if (pr.towerBest) text(`최고 ${pr.towerBest}층`, cx + 12, cy + cardH - 14, 13, "#7dffb0"); }
+    else if (best) text(`최고 Lv ${best} 클리어`, cx + 12, cy + cardH - 14, 13, "#7dffb0");
     else if (pr.cleared.includes(m.id)) text("클리어!", cx + 12, cy + cardH - 14, 13, "#7dffb0");
   });
 
@@ -101,12 +103,17 @@ function drawMapSelect() {
 
   text(m.name, x0 + 40, dy + 34, 24, open ? "#ffe27a" : "#888");
   text(m.desc, x0 + 40, dy + 62, 15, "#ddd");
-  const names = Object.keys(m.monsters).map((k) => MONSTERS[k].name).join(", ");
-  text(`몬스터: ${names}`, x0 + 40, dy + 88, 14, "#ccc");
-  text(`크기 ${m.size}×${m.size} · 몬스터 ${m.count}마리`, x0 + 40, dy + 112, 14, "#aaa");
+  if (m.type === "tower") {
+    text(`${m.floors}층까지 · 층마다 웨이브 · 5층·10층 보스 · 보스를 잡으면 황금 상자`, x0 + 40, dy + 88, 14, "#ccc");
+    text(`올라갈수록 몬스터가 세져요. 최고 기록 ${game.profile.towerBest || 0}층`, x0 + 40, dy + 112, 14, "#aaa");
+  } else {
+    const names = Object.keys(m.monsters).map((k) => MONSTERS[k].name).join(", ");
+    text(`몬스터: ${names}`, x0 + 40, dy + 88, 14, "#ccc");
+    text(`크기 ${m.size}×${m.size} · 몬스터 ${m.count}마리 · 보물상자 3~4개`, x0 + 40, dy + 112, 14, "#aaa");
+  }
 
   if (!open) {
-    const prev = MAPS[mapSel.index - 1].name;
+    const prev = unlockSource(mapSel.index).name;
     text(`${prev}${josa(prev, "을", "를")} 먼저 깨면 열려요`, x0 + 40, dy + 150, 17, "#ffb070");
     return;
   }

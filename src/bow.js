@@ -1,30 +1,50 @@
 // ===== 활과 화살 (주인공) =====
-// 터치: "활" 버튼 (누르고 있으면 계속 쏴요)   키보드: L
-// 가장 가까운 몬스터를 저절로 겨냥해요. 화살은 가게에서 사거나 몬스터가 떨어뜨려요.
+// 터치: "활" 버튼 (누르고 있으면 계속 쏴요), 작은 "화살" 버튼으로 화살 종류 바꾸기
+// 키보드: L 쏘기, Tab 화살 바꾸기
+// 가장 가까운 몬스터를 저절로 겨냥해요. 화살은 가게에서 사거나 몬스터·상자에서 얻어요.
+// 로비 연습장에서는 화살이 줄지 않아요.
 
 let shots = [];
 
 // 쏠 방향: 가까이 보이는 몬스터가 있으면 그쪽, 없으면 보고 있는 쪽
 function bowAim(p) {
   let best = null, bestD = CONFIG.player.autoAimRange;
-  for (const m of monsters) {
-    if (m.appearTimer > 0 || m.hp <= 0) continue;
+  for (const m of allTargets()) {
     const d = Math.hypot(m.x - p.x, m.y - p.y);
     if (d < bestD && lineOfSight(p.x, p.y, m.x, m.y)) { bestD = d; best = m; }
   }
   if (!best) return { x: p.faceX, y: p.faceY };
   // 움직이는 몬스터는 조금 앞을 겨냥
-  const lead = bestD / p.bow.speed;
+  const lead = best.dummy ? 0 : bestD / p.bow.speed;
   const tx = best.x + (best.moving ? best.faceX * best.speed * lead : 0);
   const ty = best.y + (best.moving ? best.faceY * best.speed * lead : 0);
   const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy) || 1;
   return { x: dx / d, y: dy / d };
 }
 
+// 지금 쏠 화살 종류 (특수 화살이 떨어지면 보통 화살)
+function currentArrowType() {
+  const t = game.profile.arrowType || "normal";
+  return t !== "normal" && arrowCount(t) <= 0 ? "normal" : t;
+}
+
+function cycleArrowType() {
+  const pr = game.profile;
+  const ids = ARROW_TYPES.map((a) => a.id).filter((id) => id === "normal" || arrowCount(id) > 0);
+  const i = ids.indexOf(currentArrowType());
+  pr.arrowType = ids[(i + 1) % ids.length];
+  const at = arrowTypeById(pr.arrowType);
+  showMessage(`${at.name} (${arrowCount(at.id)}개)`, 1, false, at.color);
+  sfx.click();
+}
+
 function fireBow(p) {
   const bow = p.bow;
   const pr = game.profile;
-  if (!bow.infinite && pr.arrows <= 0) {
+  const practice = game.scene === "lobby";
+  const type = currentArrowType();
+  const free = bow.infinite || practice;
+  if (!free && arrowCount(type) <= 0) {
     if (!p.noArrowWarned) { showMessage("화살이 없어요! 가게에서 사거나 몬스터한테서 주워요", 1.8); p.noArrowWarned = true; }
     sfx.bowEmpty();
     p.bowCooldown = 0.4;
@@ -35,23 +55,31 @@ function fireBow(p) {
   p.faceX = aim.x; p.faceY = aim.y;
   p.bowCooldown = bow.cooldown;
   p.bowTimer = 0.28;
-  if (!bow.infinite) pr.arrows--;
+  if (!free) { if (type === "normal") pr.arrows--; else pr.special[type]--; }
 
   const n = bow.multishot || 1;
   const spread = n > 1 ? 0.22 : 0;
   const base = Math.atan2(aim.y, aim.x);
-  const dmg = bow.damage * damageBonus(pr.level);
+  const dmg = bow.damage * damageBonus(pr.level) * (1 + UPGRADE.weaponBonus * upgradeLevel("bow", bow.id)) * (type === "bomb" ? 1.4 : 1);
   for (let i = 0; i < n; i++) {
     const a = base + (i - (n - 1) / 2) * spread;
     shots.push({
       x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35,
       vx: Math.cos(a) * bow.speed, vy: Math.sin(a) * bow.speed,
-      life: 1.4, damage: dmg, pierce: bow.pierce || 0, hit: [],
-      legendary: !!bow.legendary, hue: Math.random() * 360,
+      life: 1.4, damage: dmg, pierce: type === "bomb" ? 0 : bow.pierce || 0, hit: [],
+      legendary: !!bow.legendary, hue: Math.random() * 360, type,
     });
   }
   if (bow.legendary) { sfx.legendBow(); flashScreen(0.05); }
   else sfx.bowShot();
+}
+
+function bombBlast(x, y, dmg) {
+  addRing(x, y, { speed: 7, life: 0.3, hue: 20 });
+  spawnBurst(x, y, ["#ff9a3b", "#ffd23f", "#555555"], 16);
+  game.shake = Math.max(game.shake, 0.25);
+  sfx.boom();
+  for (const m of monsters) if (m.hp > 0 && Math.hypot(m.x - x, m.y - y) < 1.8) damageMonster(m, dmg * 0.7, x, y, false, 1.2, { dot: true });
 }
 
 function updateShots(dt) {
@@ -60,21 +88,35 @@ function updateShots(dt) {
     s.life -= dt;
     if (isWall(Math.floor(s.x), Math.floor(s.y))) {
       s.life = 0;
-      if (s.legendary) legendBurst(s.x, s.y); else spawnDust(s.x, s.y);
+      if (s.legendary) legendBurst(s.x, s.y);
+      else if (s.type === "bomb") bombBlast(s.x, s.y, s.damage);
+      else spawnDust(s.x, s.y);
       continue;
     }
-    for (const m of monsters) {
-      if (m.hp <= 0 || m.appearTimer > 0 || s.hit.includes(m)) continue;
+    for (const m of allTargets()) {
+      if (s.hit.includes(m)) continue;
       if (Math.hypot(m.x - s.x, m.y - s.y) > m.r + 0.2) continue;
       s.hit.push(m);
-      damageMonster(m, s.damage, s.x - s.vx * 0.05, s.y - s.vy * 0.05, s.legendary, 0.5);
+      if (m.dummy) {
+        m.hitT = 0.35;
+        const center = m.kind === "target" && Math.hypot(m.x - s.x, m.y - s.y) < 0.2;
+        addFloatText(m.x, m.y, center ? "정중앙!" : m.kind === "target" ? "명중!" : `${Math.round(s.damage * 10) / 10}`, center ? "#ffd84a" : "#fff", center ? 24 : 18);
+        sfx.hit();
+        s.life = 0;
+        break;
+      }
+      const crit = Math.random() < CONFIG.player.critChance;
+      const eff = s.type === "fire" ? "burn" : s.type === "ice" ? "slow" : null;
+      damageMonster(m, s.damage * (crit ? CONFIG.player.critDamage : 1), s.x - s.vx * 0.05, s.y - s.vy * 0.05, s.legendary, 0.5, { crit, effect: eff, melee: true });
+      hitStop(0.03, crit);
+      if (s.type === "bomb") bombBlast(s.x, s.y, s.damage);
       if (s.legendary) legendBurst(s.x, s.y);
       if (s.pierce-- <= 0) { s.life = 0; break; }
     }
-    // 전설의 화살은 무지개 꼬리
-    if (s.legendary && Math.random() < 0.8) {
-      addSparkle(s.x, s.y, 0.6, { life: 0.35, size: 0.7, hue: s.hue + game.time * 400, vz: 0.2 });
-    }
+    // 화살 꼬리
+    if (s.legendary && Math.random() < 0.8) addSparkle(s.x, s.y, 0.6, { life: 0.35, size: 0.7, hue: s.hue + game.time * 400, vz: 0.2 });
+    else if (s.type === "fire" && Math.random() < 0.6) addSparkle(s.x, s.y, 0.6, { life: 0.3, size: 0.5, gold: true });
+    else if (s.type === "ice" && Math.random() < 0.5) addSparkle(s.x, s.y, 0.6, { life: 0.3, size: 0.5, hue: 195 });
   }
   shots = shots.filter((s) => s.life > 0);
 }
@@ -99,8 +141,8 @@ function drawShot(s) {
   }
   ctx.strokeStyle = "#6b4423"; ctx.lineWidth = 3 * ZOOM;
   ctx.beginPath(); ctx.moveTo(tail.x, tail.y); ctx.lineTo(tip.x, tip.y); ctx.stroke();
-  ctx.fillStyle = "#dfe6ee";
-  ctx.beginPath(); ctx.arc(tip.x, tip.y, 2.8 * ZOOM, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = arrowTypeById(s.type).color;
+  ctx.beginPath(); ctx.arc(tip.x, tip.y, (s.type === "normal" ? 2.8 : 3.8) * ZOOM, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(tail.x - 2.5, tail.y - 2.5, 5, 5);
 }
