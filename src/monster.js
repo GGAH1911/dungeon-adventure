@@ -47,7 +47,7 @@ function spawnMonstersBase(mapDef, level, rand) {
 // ----- 움직임 도우미 -----
 function chaseMove(m, p, dist, dt, speedMul = 1) {
   let mx = 0, my = 0;
-  const step = dist > 1.5 ? nextStepToward(m.x, m.y) : null;
+  const step = dist > 1.5 ? nextStepToward(m.x, m.y, p) : null;
   if (step) {
     const sx = step.x - m.x, sy = step.y - m.y, sd = Math.hypot(sx, sy) || 1;
     mx = sx / sd; my = sy / sd;

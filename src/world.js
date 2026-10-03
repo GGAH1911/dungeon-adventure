@@ -220,27 +220,43 @@ function randomSpotInRoom(room, rand) {
 let pathDist = [];
 let pathFrom = { x: -1, y: -1 };
 
+function computePathDist(sx, sy) {
+  const dist = world.tiles.map((row) => row.map(() => Infinity));
+  if (isWall(sx, sy)) return dist;
+  dist[sy][sx] = 0;
+  const queue = [[sx, sy]];
+  for (let i = 0; i < queue.length; i++) {
+    const [x, y] = queue[i];
+    if (dist[y][x] > 40) continue; // 너무 먼 곳은 계산 안 해요
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      if (isWall(nx, ny) || dist[ny][nx] !== Infinity) continue;
+      dist[ny][nx] = dist[y][x] + 1;
+      queue.push([nx, ny]);
+    }
+  }
+  return dist;
+}
+
 function updatePaths(px, py) {
   const sx = Math.floor(px), sy = Math.floor(py);
   if (sx === pathFrom.x && sy === pathFrom.y) return;
   pathFrom = { x: sx, y: sy };
-  pathDist = world.tiles.map((row) => row.map(() => Infinity));
-  if (isWall(sx, sy)) return;
-  pathDist[sy][sx] = 0;
-  const queue = [[sx, sy]];
-  for (let i = 0; i < queue.length; i++) {
-    const [x, y] = queue[i];
-    if (pathDist[y][x] > 40) continue; // 너무 먼 곳은 계산 안 해요
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = x + dx, ny = y + dy;
-      if (isWall(nx, ny) || pathDist[ny][nx] !== Infinity) continue;
-      pathDist[ny][nx] = pathDist[y][x] + 1;
-      queue.push([nx, ny]);
-    }
-  }
+  pathDist = computePathDist(sx, sy);
 }
 
-function nextStepToward(x, y) {
+// 쫓는 대상마다 따로 길 지도 (같이 하기: 친구를 쫓는 몬스터는 친구 쪽 길로, 늑대를 쫓으면 늑대 쪽으로)
+function pathFieldFor(t) {
+  if (!t || t === game.player) return pathDist;
+  const sx = Math.floor(t.x), sy = Math.floor(t.y);
+  const f = t._pathField;
+  if (f && f.x === sx && f.y === sy && f.tiles === world.tiles) return f.dist;
+  t._pathField = { x: sx, y: sy, tiles: world.tiles, dist: computePathDist(sx, sy) };
+  return t._pathField.dist;
+}
+
+function nextStepToward(x, y, target) {
+  const pathDist = pathFieldFor(target);
   const tx = Math.floor(x), ty = Math.floor(y);
   if (!pathDist[ty] || pathDist[ty][tx] === undefined) return null;
   let best = null, bestD = pathDist[ty][tx];
