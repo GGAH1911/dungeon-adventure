@@ -81,7 +81,7 @@ function touchButtons() {
   list.push({ code: "TouchArrowType", label: "화살", x: W - 318 * s, y: H - 238 * s, r: 26 * s, color: at.color, dark: type === "normal" || type === "ice" });
   if (game.scene === "dungeon") list.push({ code: "TouchPotion", label: `물약 ${game.profile.potions}`, x: W - 72 * s, y: H - 245 * s, r: 36 * s, color: "#c64fa0" });
   if (game.nearNpc) list.push({ code: "TouchUse", label: game.nearNpc.short, x: W - 160 * s, y: H - 300 * s, r: 46 * s, color: "#3fbf6f" });
-  return list;
+  return hookFilter("touchButtons", list, s); // 둘이 하기: 양쪽 배치 (coop.js)
 }
 
 canvas.style.touchAction = "none";
@@ -108,7 +108,8 @@ canvas.addEventListener("pointerdown", (e) => {
     if (r.onTap) touch.taps[e.pointerId] = r;
     return;
   }
-  // 3) 왼쪽 화면을 누르면 조이스틱
+  // 3) 왼쪽 화면을 누르면 조이스틱 (둘이 하기면 오른쪽은 2번 조이스틱: coop.js)
+  if (playing() && hookAny("touchJoyStart", e, x, y)) return;
   if (playing() && x < view.w * 0.55 && touch.joyId === null) {
     touch.joyId = e.pointerId;
     touch.joyX0 = touch.joyX = x;
@@ -118,7 +119,7 @@ canvas.addEventListener("pointerdown", (e) => {
 });
 
 canvas.addEventListener("pointermove", (e) => {
-  if (e.pointerId !== touch.joyId) return;
+  if (e.pointerId !== touch.joyId) { hookRun("touchMove", e); return; }
   let dx = e.clientX - touch.joyX0, dy = e.clientY - touch.joyY0;
   const d = Math.hypot(dx, dy);
   if (d > JOY_R) {
@@ -134,6 +135,7 @@ canvas.addEventListener("pointermove", (e) => {
 });
 
 function endPointer(e) {
+  hookRun("touchEnd", e);
   if (e.pointerId === touch.joyId) {
     touch.joyId = null;
     touch.moveX = touch.moveY = 0;

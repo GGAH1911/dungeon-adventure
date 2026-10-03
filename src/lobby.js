@@ -76,7 +76,7 @@ function nearestNpc(p) {
 
 // 지금 장면에서 말 걸 수 있는 것들
 function interactables() {
-  if (game.scene === "lobby") return npcs;
+  if (game.scene === "lobby") return [...npcs, ...hookFilter("lobbyInteractables", [])];
   return [...chestInteractables(), ...stairsInteractables(), ...(typeof keyHuntInteractables === "function" ? keyHuntInteractables() : [])];
 }
 
@@ -231,6 +231,7 @@ function lobbyThings(things) {
   for (const d of dummies) things.push({ depth: d.x + d.y, draw: () => drawDummy(d) });
   things.push({ depth: L.table.x + L.table.y, draw: drawMapTable });
   things.push({ depth: L.fire.x + L.fire.y, draw: drawCampfire });
+  hookRun("lobbyThings", things); // 다른 파일이 캠프에 물건을 더해요 (예: 트로피)
   things.push({ depth: L.well.x + L.well.y, draw: drawWell });
   things.push({ depth: L.wardrobe.x + L.wardrobe.y, draw: drawWardrobeProp });
   things.push({ depth: L.board.x + L.board.y, draw: drawBoard });

@@ -72,7 +72,8 @@ function startAttack(p) {
 }
 
 // 몬스터 + 연습용 허수아비
-function allTargets() {
+function allTargets() { return allTargetsBase().filter((o) => !hookAny("untargetable", o)); }
+function allTargetsBase() {
   const list = monsters.filter((m) => m.hp > 0 && m.appearTimer <= 0);
   if (game.scene === "lobby") for (const d of dummies) list.push(d);
   return list;

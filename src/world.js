@@ -339,7 +339,8 @@ function revealAround(x, y, r = 7) {
 }
 
 // 미니맵도 화면처럼 비스듬하게 그려요
-function drawMinimap(p, list) {
+function drawMinimap(p, list) { const r = drawMinimapBase(p, list); hookRun("minimapDraw", p, list); return r; }
+function drawMinimapBase(p, list) {
   if (!world.mini) return;
   const size = Math.min(260, view.w * 0.24, view.h * 0.42);
   const k = size / (world.W + world.H);

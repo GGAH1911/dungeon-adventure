@@ -19,7 +19,7 @@ const MONSTERS = {
     name: "좀비", shape: "human", behavior: "melee",
     hp: 3, speed: 1.7, damage: 1, xp: 3, emerald: 0.6,
     attackRange: 0.75, attackCooldown: 1.0, armsForward: true, windup: 0.3,
-    look: { skin: "#6fae5a", hair: "#3f6e34", shirt: "#7a5a3a", pants: "#4b4f63", eyes: "#1a1a1a" },
+    look: { skin: "#6fae5a", hair: "#3f6e34", shirt: "#7a5a3a", pants: "#4b4f63", eyes: "#1a1a1a", forearm: "#6fae5a" }, // 찢어진 소매: 아래팔은 초록 피부
   },
   spider: {
     name: "거미", shape: "spider", behavior: "pounce",

@@ -86,7 +86,9 @@ function migrateProfile(d) {
   return p;
 }
 
-function loadProfile() {
+// 저장을 읽은 뒤 다른 파일이 새 필드를 채워요 (hookOn("profileLoaded", (pr) => { pr.x = pr.x || ... }))
+function loadProfile() { const pr = loadProfileBase(); hookRun("profileLoaded", pr); return pr; }
+function loadProfileBase() {
   try {
     const data = JSON.parse(localStorage.getItem(SAVE_KEY));
     if (data && data.level) {

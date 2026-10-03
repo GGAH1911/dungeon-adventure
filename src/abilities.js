@@ -276,7 +276,8 @@ function onPhaseChange(m, idx) {
 }
 
 // 기술 시작 -> 예고 장판
-function castAbility(m, id, target) {
+function castAbility(m, id, target) { hookRun("castStart", m, id); const r = castAbilityBase(m, id, target); hookRun("castStarted", m, id); return r; }
+function castAbilityBase(m, id, target) {
   const ab = ABILITIES[id];
   const tune = abilityTuning();
   const tg = ab.telegraph;
@@ -328,16 +329,19 @@ function makeCast(m, ab, id, target, time, tune) {
     radius: (tg.radius || 0) * tune.size, inner: (tg.inner || 0) * tune.size,
     length: (tg.length || 0) * tune.size, width: (tg.width || 0) * tune.size, angle: (tg.angle || 0) * Math.min(1.25, tune.size),
   };
+  c.target = target && target.maxHp && !target.def ? target : null; // 노리는 주인공 (둘이 하기)
   if (tg.at === "target") { c.x = target.x; c.y = target.y; }
   if (tg.at === "front") { c.x = m.x + m.faceX * (tg.offset || 0.8); c.y = m.y + m.faceY * (tg.offset || 0.8); }
   return c;
 }
 
-function updateAbilities(dt) {
-  const p = game.player;
+function updateAbilities(dt) { const r = updateAbilitiesBase(dt); hookRun("abilitiesUpdated", dt); return r; }
+function updateAbilitiesBase(dt) {
+  const p0 = game.player;
   // 예고 진행
   for (const c of casts) {
     const m = c.m;
+    const p = c.target && c.target.hp > 0 ? c.target : (c.target = nearestPlayer(m.x, m.y)); // 노리는 주인공 (둘이 하기)
     if (m.hp <= 0 && c.ab.effect.type !== "rain") { c.dead = true; if (c.ownerLock) endCastState(m); continue; }
     c.t += dt;
     const tg = c.ab.telegraph;
@@ -356,22 +360,26 @@ function updateAbilities(dt) {
   for (const z of zones) {
     z.life -= dt;
     z.tickT -= dt;
-    if (!p || p.hp <= 0) continue;
-    const inside = Math.hypot(p.x - z.x, p.y - z.y) < z.radius;
-    if (z.kind === "web") { if (inside) p.abSlow = Math.max(p.abSlow || 0, 0.35); continue; }
-    if (inside && z.tickT <= 0) { z.tickT = z.tick; hurtPlayer(p, z.damage, { x: p.x, y: p.y }); }
+    let tick = false;
+    for (const p of allPlayers()) {
+      if (p.hp <= 0) continue;
+      const inside = Math.hypot(p.x - z.x, p.y - z.y) < z.radius;
+      if (z.kind === "web") { if (inside) p.abSlow = Math.max(p.abSlow || 0, 0.35); continue; }
+      if (inside && z.tickT <= 0) { tick = true; hurtPlayer(p, z.damage, { x: p.x, y: p.y }); }
+    }
+    if (tick) z.tickT = z.tick;
   }
   zones = zones.filter((z) => z.life > 0);
 
   // 돌진 중인 몬스터
   for (const m of monsters) {
-    if (m.charge) updateCharge(m, p, dt);
+    if (m.charge) updateCharge(m, nearestPlayer(m.x, m.y), dt);
     if (m.buffT > 0) { m.buffT -= dt; if (m.buffT <= 0) clearBuff(m); else if (Math.random() < dt * 8) addSparkle(m.x, m.y, Math.random(), { vz: 1, life: 0.4, size: 0.5, hue: 0 }); }
     if (m.shieldT > 0) { m.shieldT -= dt; if (m.shieldT <= 0) m.shieldHp = 0; }
   }
 
   // 주인공 상태 (불붙음, 느려짐)
-  if (p && p.hp > 0) {
+  for (const p of allPlayers()) if (p.hp > 0) {
     if (p.abSlow > 0) p.abSlow -= dt;
     if (p.abBurn > 0) {
       p.abBurn -= dt; p.abBurnTick -= dt;
@@ -410,7 +418,8 @@ function abilityDamage(c) {
 }
 
 // 예고가 끝나면 효과!
-function resolveCast(c, p) {
+function resolveCast(c, p) { const z0 = zones.length; if (!hookAny("resolveCast", c, p)) resolveCastBase(c, p); hookRun("castResolved", c, p, z0); }
+function resolveCastBase(c, p) {
   const ab = c.ab, e = ab.effect, m = c.m;
   const hitPlayer = p && p.hp > 0 && insideShape(c, p.x, p.y, p.r * 0.6);
   const dmg = abilityDamage(c);
@@ -599,17 +608,32 @@ function pathPoly(pts) {
   ctx.closePath();
 }
 
+// ----- 안내 색 규칙 (게임 전체 공통, docs/guide.md) -----
+//   빨강 = 아파요(피해)   보라 = 끌려가요·묶여요·순간이동   파랑 = 느려져요·얼음
+//   초록 = 독(남는 장판)  금색+흰 테두리 = 안전한 곳·해야 할 일 (guide.js)
+//   몬스터 쪽 효과(보호막·치유·강화·부하)는 흐린 흰색/주황이라 위험 색과 헷갈리지 않아요
+const GUIDE_COLORS = {
+  danger: [255, 50, 40], control: [190, 110, 255], slow: [90, 170, 255], poison: [80, 210, 70],
+  safe: [255, 214, 70], monster: [255, 150, 70], ally: [235, 235, 245],
+};
+const CONTROL_ABILITIES = ["jail", "b2_fearRune"]; // 묶거나 겁먹게 하는 기술 (보라)
+function zoneColorKind(kind) {
+  if (kind === "web" || kind === "frost" || kind === "ink" || kind === "slow") return "slow";
+  if (kind === "lava" || kind === "fire") return "danger";
+  return "poison";
+}
 function telegraphColor(c) {
-  const t = c.ab.effect.type;
-  if (["shield", "heal", "buffAllies", "enrage", "summon"].includes(t)) return t === "heal" ? [90, 230, 140] : t === "shield" ? [120, 210, 255] : [255, 120, 60];
-  if (t === "teleport" || t === "pull") return [190, 110, 255];
-  if (t === "zone" && c.ab.effect.kind === "web") return [200, 200, 230];
-  if (t === "zone") return [90, 220, 90];
-  if (t === "slow") return [120, 200, 255];
-  return [255, 50, 40];
+  const e = c.ab.effect, t = e.type;
+  if (["shield", "heal"].includes(t)) return GUIDE_COLORS.ally;
+  if (["buffAllies", "enrage", "summon"].includes(t)) return GUIDE_COLORS.monster;
+  if (t === "teleport" || t === "pull") return GUIDE_COLORS.control;
+  if (t === "zone") return GUIDE_COLORS[zoneColorKind(e.kind)];
+  if (t === "slow") return GUIDE_COLORS[CONTROL_ABILITIES.includes(c.id) || (c.ab.tags && c.ab.tags.includes("control")) ? "control" : "slow"];
+  return GUIDE_COLORS.danger;
 }
 
-function drawTelegraphs() {
+function drawTelegraphs() { const r = drawTelegraphsBase(); hookRun("drawTelegraphsAfter"); return r; }
+function drawTelegraphsBase() {
   ctx.save();
   // 남아 있는 장판
   for (const z of zones) {
@@ -618,9 +642,10 @@ function drawTelegraphs() {
     const pts = [];
     for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2; const wob = web ? 1 : 1 + 0.05 * Math.sin(a * 5 + game.time * 3); pts.push(toScreen(z.x + Math.cos(a) * z.radius * wob, z.y + Math.sin(a) * z.radius * wob, 0.02)); }
     ctx.beginPath(); pathPoly(pts);
-    ctx.fillStyle = web ? `rgba(230,230,245,${0.28 * k})` : `rgba(80,210,70,${(0.32 + 0.08 * Math.sin(game.time * 4)) * k})`;
+    const [zr, zg, zb] = GUIDE_COLORS[zoneColorKind(z.kind)];
+    ctx.fillStyle = `rgba(${zr},${zg},${zb},${(web ? 0.28 : 0.32 + 0.08 * Math.sin(game.time * 4)) * k})`;
     ctx.fill();
-    ctx.strokeStyle = web ? `rgba(255,255,255,${0.7 * k})` : `rgba(150,255,120,${0.7 * k})`;
+    ctx.strokeStyle = web ? `rgba(200,225,255,${0.8 * k})` : `rgba(${Math.min(255, zr + 70)},${Math.min(255, zg + 50)},${Math.min(255, zb + 50)},${0.7 * k})`;
     ctx.lineWidth = 2; ctx.stroke();
     if (web) {
       const c = toScreen(z.x, z.y, 0.02);
@@ -628,7 +653,7 @@ function drawTelegraphs() {
       for (let i = 0; i < 8; i++) { const p2 = pts[i * 4 % pts.length]; ctx.moveTo(c.x, c.y); ctx.lineTo(p2.x, p2.y); }
       ctx.strokeStyle = `rgba(255,255,255,${0.5 * k})`; ctx.lineWidth = 1; ctx.stroke();
     } else if (Math.random() < 0.3) {
-      addSparkle(z.x + (Math.random() - 0.5) * z.radius, z.y + (Math.random() - 0.5) * z.radius, 0.05, { vz: 0.6, life: 0.6, size: 0.5, hue: 110 });
+      addSparkle(z.x + (Math.random() - 0.5) * z.radius, z.y + (Math.random() - 0.5) * z.radius, 0.05, { vz: 0.6, life: 0.6, size: 0.5, hue: { poison: 110, slow: 210, danger: 15 }[zoneColorKind(z.kind)] });
     }
   }
   // 예고 중인 기술
@@ -707,63 +732,45 @@ function castPose(m, pose) {
   return pose;
 }
 
-// ===== 다른 함수들과 연결 (게임 파일이 다 읽힌 뒤에) =====
-window.addEventListener("load", () => {
-  // 장면 바뀔 때 예고·장판 지우기
-  if (typeof resetEffects === "function") {
-    const _reset = resetEffects;
-    resetEffects = function () { clearAbilities(); return _reset.apply(this, arguments); };
+// ===== 다른 함수들과 연결 (hooks.js 알림 지점) =====
+// 장면 바뀔 때 예고·장판 지우기
+hookOn("reset", () => clearAbilities(), 10);
+// 보호막 흡수 + 예고 끊기 (맞기 전)
+hookOn("monsterDamage", (h) => {
+  const m = h.m;
+  if (m.hp > 0 && m.shieldHp > 0 && h.dmg > 0) {
+    const take = Math.min(m.shieldHp, h.dmg);
+    m.shieldHp -= take; h.dmg -= take;
+    if (m.shieldHp <= 0) { m.shieldHp = 0; spawnBurst(m.x, m.y, ["#bfeaff", "#ffffff"], 14); addFloatText(m.x, m.y, "보호막 깨짐!", "#8fe0ff", 20); }
+    if (h.dmg <= 0) { m.flash = 0.06; addFloatText(m.x, m.y, "막힘", "#8fe0ff", 15); return true; }
   }
-  // 보호막 흡수 + 예고 끊기
-  if (typeof damageMonster === "function") {
-    const _dmg = damageMonster;
-    damageMonster = function (m, dmg, fromX, fromY, legendary, knock, opts) {
-      if (m.hp > 0 && m.shieldHp > 0 && dmg > 0) {
-        const take = Math.min(m.shieldHp, dmg);
-        m.shieldHp -= take; dmg -= take;
-        if (m.shieldHp <= 0) { m.shieldHp = 0; spawnBurst(m.x, m.y, ["#bfeaff", "#ffffff"], 14); addFloatText(m.x, m.y, "보호막 깨짐!", "#8fe0ff", 20); }
-        if (dmg <= 0) { m.flash = 0.06; addFloatText(m.x, m.y, "막힘", "#8fe0ff", 15); return; }
+  if (m.hp > 0 && m.state === "cast") {
+    const mine = casts.filter((c) => c.m === m && c.ab.interruptible);
+    if (mine.length) {
+      const ab = mine[0].ab;
+      const need = Math.max(1.5, m.maxHp * (ab.interruptAt || 0.06));
+      m.castDmg = (m.castDmg || 0) + h.dmg;
+      if (m.castDmg >= need) {
+        casts = casts.filter((c) => c.m !== m);
+        m.castDmg = 0;
+        m.state = "chase"; m.stunTimer = 0.7; m.knockX = 0; m.knockY = 0;
+        addFloatText(m.x, m.y, "끊김!", "#ffe27a", 24);
+        if (typeof sfx !== "undefined") sfx.block();
       }
-      if (m.hp > 0 && m.state === "cast") {
-        const mine = casts.filter((c) => c.m === m && c.ab.interruptible);
-        if (mine.length) {
-          const ab = mine[0].ab;
-          const need = Math.max(1.5, m.maxHp * (ab.interruptAt || 0.06));
-          m.castDmg = (m.castDmg || 0) + dmg;
-          if (m.castDmg >= need) {
-            casts = casts.filter((c) => c.m !== m);
-            m.castDmg = 0;
-            m.state = "chase"; m.stunTimer = 0.7; m.knockX = 0; m.knockY = 0;
-            addFloatText(m.x, m.y, "끊김!", "#ffe27a", 24);
-            if (typeof sfx !== "undefined") sfx.block();
-          }
-        }
-      }
-      if (m.state !== "cast") m.castDmg = 0;
-      return _dmg.call(this, m, dmg, fromX, fromY, legendary, knock, opts);
-    };
+    }
   }
-  // 주인공 느려짐 (거미줄, 얼음 숨결): 움직인 만큼 조금 되돌려요
-  if (typeof updatePlayer === "function") {
-    const _up = updatePlayer;
-    updatePlayer = function (p, dt) {
-      const x0 = p.x, y0 = p.y;
-      const r = _up.apply(this, arguments);
-      // 느려짐은 player.js 이동 속도에 들어 있어요 (p.abSlow)
-      return r;
-    };
-  }
-  // 기술 탄막 그림
-  if (typeof drawArrow === "function") {
-    const _draw = drawArrow;
-    drawArrow = function (a) {
-      if (!a.bolt) return _draw(a);
-      const c = toScreen(a.x, a.y, 0.6);
-      ctx.save(); ctx.globalCompositeOperation = "lighter";
-      const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 11 * ZOOM);
-      g.addColorStop(0, "rgba(255,255,255,0.95)"); g.addColorStop(0.45, a.color); g.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, 11 * ZOOM, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    };
-  }
-});
+  if (m.state !== "cast") m.castDmg = 0;
+  return false;
+}, 40);
+// 기술 탄막 그림
+hookOn("drawArrow", (a) => {
+  if (!a.bolt) return false;
+  const c = toScreen(a.x, a.y, 0.6);
+  ctx.save(); ctx.globalCompositeOperation = "lighter";
+  const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 11 * ZOOM);
+  g.addColorStop(0, "rgba(255,255,255,0.95)"); g.addColorStop(0.45, a.color); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, 11 * ZOOM, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  return true;
+}, 40);
+

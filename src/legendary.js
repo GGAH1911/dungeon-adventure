@@ -218,7 +218,8 @@ function drawArmorAuraBehind(p) {
 // 무지개 별빛 대검은 rig.js 가 손에 붙여서 그려요 (style "legend")
 
 // 바닥 충격파 (바닥 바로 위에 그려요)
-function drawLegendFloor() {
+function drawLegendFloor() { const r = drawLegendFloorBase(); hookRun("drawFloor"); return r; }
+function drawLegendFloorBase() {
   if (rings.length === 0) return;
   ctx.save();
   ctx.globalCompositeOperation = "lighter";

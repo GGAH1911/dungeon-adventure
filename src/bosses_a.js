@@ -445,11 +445,9 @@ function coverBetween(ax, ay, bx, by, type) {
   return false;
 }
 
-// ----- 예고 끝 -> 효과 (abilities.js 의 resolveCast 를 감싸요) -----
-const _resolveCastA = resolveCast;
-resolveCast = function (c, p) {
+// ----- 예고 끝 -> 효과 (기본 효과 뒤에, hooks.js "castResolved") -----
+hookOn("castResolved", (c, p) => {
   const ab = c.ab, e = ab.effect, m = c.m;
-  _resolveCastA(c, p);
   const inside = p && p.hp > 0 && insideShape(c, p.x, p.y, p.r * 0.6);
   const dmg = abilityDamage(c);
   const hit = () => {
@@ -517,31 +515,24 @@ resolveCast = function (c, p) {
     m.state = "chase";
   }
   if (ab.followUp && m.queue) { m.queue.unshift(ab.followUp); m.gap = 0.15; }
-};
+}, 20);
 
-// ----- 피해 받기: 무적·비틀거림 약점·석관·불 vs 얼음 보호막 -----
-window.addEventListener("load", () => {
-  const _dmg = damageMonster;
-  damageMonster = function (m, dmg, fromX, fromY, legendary, knock = 1, opts = {}) {
-    if (m.def && m.def.untargetable) return;
-    if (m.bossA) {
-      if (m.invuln > 0 || m.hidden) { if (!opts.dot) addFloatText(m.x, m.y, "무적!", "#bbbbbb", 16); return; }
-      if (m.stagger > 0) { dmg *= 1.5; if (!opts.dot && Math.random() < 0.3) addFloatText(m.x, m.y + 0.3, "약점!", "#ffe27a", 18); }
-      if (monsters.some((o) => o.type === "sarcophagus" && o.hp > 0 && o.owner === m)) dmg *= 0.5;
-      if (m.shieldHp > 0 && opts.effect === "burn") dmg *= 3;
-    }
-    _dmg(m, dmg, fromX, fromY, legendary, knock, opts);
-    if (m.bossA || m.immovable) { m.stunTimer = 0; m.knockX = 0; m.knockY = 0; }
-  };
-  // 손대지 못하는 물건은 자동 조준에서 빼요
-  if (typeof allTargets === "function") {
-    const _all = allTargets;
-    allTargets = function () { return _all().filter((o) => !(o.def && o.def.untargetable) && !o.hidden); };
+// ----- 피해 받기: 무적·비틀거림 약점·석관·불 vs 얼음 보호막 (hooks.js) -----
+hookOn("monsterDamage", (h) => {
+  const m = h.m;
+  if (m.def && m.def.untargetable) return true;
+  if (m.bossA) {
+    if (m.invuln > 0 || m.hidden) { if (!h.opts.dot) addFloatText(m.x, m.y, "무적!", "#bbbbbb", 16); return true; }
+    if (m.stagger > 0) { h.dmg *= 1.5; if (!h.opts.dot && Math.random() < 0.3) addFloatText(m.x, m.y + 0.3, "약점!", "#ffe27a", 18); }
+    if (monsters.some((o) => o.type === "sarcophagus" && o.hp > 0 && o.owner === m)) h.dmg *= 0.5;
+    if (m.shieldHp > 0 && h.opts.effect === "burn") h.dmg *= 3;
   }
-  // 떨어진 바위/기둥이 사라지면 길막이도 사라지게
-  const _reset = resetEffects;
-  resetEffects = function () { _reset(); };
-});
+  return false;
+}, 20);
+hookOn("monsterDamaged", (h) => { const m = h.m; if (m.bossA || m.immovable) { m.stunTimer = 0; m.knockX = 0; m.knockY = 0; } }, 20);
+// 손대지 못하는 물건은 자동 조준에서 빼요
+hookOn("untargetable", (o) => !!((o.def && o.def.untargetable) || o.hidden));
+
 
 // ===== 그리기: 블록을 쌓은 귀여운 거대 몸 =====
 // 부품: [앞(f), 옆(s), 바닥높이(z), 가로, 세로, 높이, 색]  (단위: 크기 1 기준)

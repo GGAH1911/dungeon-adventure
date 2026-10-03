@@ -73,6 +73,9 @@ const CONFIG = {
     "부품비": "materials",    // 모든 부품 20개씩
   },
 
+  // 효과 개수 상한 (태블릿이 버벅이지 않게, 넘치면 오래된 것부터 지워요: qol.js)
+  limits: { particles: 400, floatTexts: 40, projectiles: 150, sparkles: 300, zones: 60, impacts: 60 },
+
   colors: {
     player: { skin: "#f2c39b", hair: "#2b1d14", shirt: "#d94f45", pants: "#3b3f58", eyes: "#3b2a1a" }, // 주인공 색깔 (아들이 정해보세요!)
     merchant: { skin: "#c99a73", hair: "#5b3b22", shirt: "#6a4c9c", pants: "#57407f", eyes: "#2d6b2d" },

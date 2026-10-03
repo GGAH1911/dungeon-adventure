@@ -251,65 +251,53 @@ function giveUpToCamp() {
   enterLobby("열쇠는 그대로 있어요. 다음에 다시 도전해요!");
 }
 
-// ===== main.js 함수들에 이어 붙이기 =====
-const _khStartDungeon = startDungeon;
-startDungeon = function (def, level) {
-  _khStartDungeon(def, level);
-  if (game.mode === "dungeon") setupKeyHunt(def);
-};
+// ===== 다른 함수들과 연결 (hooks.js 알림 지점) =====
+hookOn("dungeonStarted", (def) => { if (game.mode === "dungeon") setupKeyHunt(def); }, 50);
 
-const _khResetEffects = resetEffects;
-resetEffects = function () {
+hookOn("reset", () => {
   const kh = game.keyhunt;
   if (kh && kh.dark && kh.ch && kh.ch.theme) world.theme = kh.ch.theme;
-  _khResetEffects();
   setBossZoom(false);
   if (!kh || !kh.keepOnReset) game.keyhunt = null;
-};
+}, 90);
 
-const _khEndRun = endRun;
-endRun = function (win) {
+hookOn("endRun", (win) => {
   const kh = game.keyhunt;
   if (game.mode === "dungeon" && kh) {
-    if (win && !kh.bossWon) return; // 몬스터를 다 잡아도 클리어가 아니에요. 보스를 물리쳐야 해요!
-    if (!win && !game.result && handlePlayerDown()) return;
+    if (win && !kh.bossWon) return true; // 몬스터를 다 잡아도 클리어가 아니에요. 보스를 물리쳐야 해요!
+    if (!win && !game.result && handlePlayerDown()) return true;
   }
-  return _khEndRun(win);
-};
+  return false;
+}, 50);
 
 // 매 프레임 (던전에서만 불리는 updateChests 뒤에)
-const _khUpdateChests = updateChests;
-updateChests = function (dt) {
-  _khUpdateChests(dt);
+hookOn("dungeonTick", (dt) => {
   const kh = game.keyhunt;
   if (game.mode !== "dungeon" || !kh || game.result) return;
   if (kh.enterT > 0) { kh.enterT -= dt; if (kh.enterT <= 0) enterBossRoom(); return; }
   if (kh.inBoss) updateBossRoom(game.player, dt);
   else updateKeyHunt(game.player, dt);
-};
+}, 50);
 
 // 그리기: 바닥 표시, 물건, 빛
-const _khDrawLegendFloor = drawLegendFloor;
-drawLegendFloor = function () { _khDrawLegendFloor(); keyHuntFloor(); };
-const _khStairsThings = stairsThings;
-stairsThings = function (things) { _khStairsThings(things); keyHuntThings(things); };
-const _khDrawDarkness = drawDarkness;
-drawDarkness = function (lights) { keyHuntLights(lights); _khDrawDarkness(lights); };
+hookOn("drawFloor", () => keyHuntFloor(), 50);
+hookOn("worldThings", (things) => keyHuntThings(things), 50);
+hookOn("lights", (lights) => keyHuntLights(lights), 50);
 
 // 다시 도전 화면 (결과창 자리를 빌려 써요)
-const _khUpdateResult = updateResult;
-updateResult = function () {
-  if (game.result && game.result.retry) {
-    if (wasPressed("Enter", "Space", "KeyR")) retryBoss();
-    else if (wasPressed("Escape")) giveUpToCamp();
-    return;
-  }
-  _khUpdateResult();
-};
-const _khDrawResult = drawResult;
-drawResult = function () {
+hookOn("resultUpdate", () => {
+  if (!(game.result && game.result.retry)) return false;
+  if (wasPressed("Enter", "Space", "KeyR")) retryBoss();
+  else if (wasPressed("Escape")) giveUpToCamp();
+  return true;
+}, 50);
+hookOn("resultDraw", () => {
   const r = game.result;
-  if (!r || !r.retry) return _khDrawResult();
+  if (!r || !r.retry) return false;
+  drawRetryScreen(r);
+  return true;
+}, 50);
+function drawRetryScreen(r) {
   const pw = Math.min(560, view.w - 24), ph = 300;
   const x0 = (view.w - pw) / 2, y0 = (view.h - ph) / 2, cx = view.w / 2;
   drawPanel(x0, y0, pw, ph);
@@ -317,14 +305,13 @@ drawResult = function () {
   text(r.mapName, cx, y0 + 94, 18, "#ddd", "center");
   text("열쇠는 그대로! 보스방 문 앞에서 다시 도전할 수 있어요", cx, y0 + 134, 16, "#ffd23f", "center");
   text("(메뉴의 하드모드를 켜면 쓰러질 때 처음부터 해요)", cx, y0 + 160, 13, "#aaa", "center");
+  if (typeof drawDeathCause === "function") drawDeathCause(cx, y0 + 194, pw); // 쓰러진 이유 (guide.js)
   drawButton(cx - 210, y0 + ph - 82, 200, 52, "다시 도전!", retryBoss, { color: "rgba(80,200,120,0.45)", size: 20 });
   drawButton(cx + 10, y0 + ph - 82, 200, 52, "캠프로 돌아가기", giveUpToCamp, { size: 17 });
-};
+}
 
 // HUD: 열쇠 아이콘, 보스 등장 글씨, 힌트
-const _khDrawHUD = drawHUD;
-drawHUD = function () {
-  _khDrawHUD();
+hookOn("hudDraw", () => {
   const kh = game.keyhunt;
   if (!kh || game.mode !== "dungeon") return;
   if (kh.hasKey && !kh.inBoss) {
@@ -347,14 +334,12 @@ drawHUD = function () {
   if (keyHuntHintOn() && Math.sin(game.time * 5) > -0.2) {
     text("힌트: 미니맵의 반짝이는 별을 따라가요", view.w / 2, view.h - 44, 16, "#ffe27a", "center");
   }
-};
+}, 50);
 
 // 미니맵: 보스방 문, 힌트 별
-const _khDrawMinimap = drawMinimap;
-drawMinimap = function (p, list) {
-  const out = _khDrawMinimap(p, list);
+hookOn("minimapDraw", (p, list) => {
   const kh = game.keyhunt;
-  if (!world.mini || !kh || game.mode !== "dungeon") return out;
+  if (!world.mini || !kh || game.mode !== "dungeon") return;
   const size = Math.min(260, view.w * 0.24, view.h * 0.42);
   const k = size / (world.W + world.H);
   const ox = view.w - 16 - world.W * k, oy = 96;
@@ -366,5 +351,5 @@ drawMinimap = function (p, list) {
   }
   const t = keyHuntHintOn() || kh.keyItem ? keyHuntTarget() : null;
   if (t && Math.sin(game.time * 8) > -0.3) { const s = M(t.x, t.y); drawStar(s.x, s.y, 7, "#ffe27a"); }
-  return out;
-};
+  return;
+}, 50);

@@ -381,44 +381,32 @@ function b2BossTick(m, p, dt) {
 }
 
 // ----- 데미지 막기·늘리기 (무적, 비행, 수정 보호막, 비틀거림) -----
-function b2WrapDamage() {
-  if (typeof damageMonster !== "function" || damageMonster.__b2) return;
-  const base = damageMonster;
-  damageMonster = function (m, dmg, fromX, fromY, legendary, knock, opts = {}) {
-    if (m && m.b2Boss) {
-      const p = game.player;
-      const fromPlayer = p && Math.hypot(fromX - p.x, fromY - p.y) < 0.6; // 칼(주인공 자리에서 온 공격)
-      if (m.invulnT > 0) { if (!opts.dot) addFloatText(m.x, m.y, "무적", "#ffe9a8", 15); return; }
-      if (m.crystalGuard) { if (!opts.dot) addFloatText(m.x, m.y, "수정 보호막!", "#9ff0ff", 15); return; }
-      if (m.flying && fromPlayer) { addFloatText(m.x, m.y, "닿지 않아요! 화살로!", "#ffb070", 15); return; }
-      if (m.staggerT > 0) dmg *= 1.5;
-      knock = Math.min(knock === undefined ? 1 : knock, 0.15);
-    }
-    if (m && m.b2Decoy && !opts.dot) { spawnBurst(m.x, m.y, ["#3a2458", "#c080ff"], 10); m.hp = 0; m.flash = 0.1; return; }
-    return base(m, dmg, fromX, fromY, legendary, knock, opts);
-  };
-  damageMonster.__b2 = true;
-}
-if (typeof window !== "undefined" && window.addEventListener) window.addEventListener("load", b2WrapDamage);
+hookOn("monsterDamage", (h) => {
+  const m = h.m;
+  if (m && m.b2Boss) {
+    const fromPlayer = allPlayers().some((p) => Math.hypot(h.fromX - p.x, h.fromY - p.y) < 0.6); // 칼(주인공 자리에서 온 공격, 둘 중 누구든)
+    if (m.invulnT > 0) { if (!h.opts.dot) addFloatText(m.x, m.y, "무적", "#ffe9a8", 15); return true; }
+    if (m.crystalGuard) { if (!h.opts.dot) addFloatText(m.x, m.y, "수정 보호막!", "#9ff0ff", 15); return true; }
+    if (m.flying && fromPlayer) { addFloatText(m.x, m.y, "닿지 않아요! 화살로!", "#ffb070", 15); return true; }
+    if (m.staggerT > 0) h.dmg *= 1.5;
+    h.knock = Math.min(h.knock === undefined ? 1 : h.knock, 0.15);
+  }
+  if (m && m.b2Decoy && !h.opts.dot) { spawnBurst(m.x, m.y, ["#3a2458", "#c080ff"], 10); m.hp = 0; m.flash = 0.1; return true; }
+  return false;
+}, 10);
 
 // ----- 새 기술 효과 + 끝난 기술 기록 -----
-if (typeof castAbility === "function") {
-  const baseCast = castAbility;
-  castAbility = function (m, id, target) {
-    m.lastCastId = id;
-    const r = baseCast(m, id, target);
-    // 꼬리 후려치기는 뒤쪽 부채꼴
-    if (ABILITIES[id] && ABILITIES[id].telegraph.back) for (const c of casts) if (c.m === m && c.id === id && !c.b2Flipped) { c.dirX = -c.dirX; c.dirY = -c.dirY; c.b2Flipped = true; }
-    return r;
-  };
-}
+hookOn("castStart", (m, id) => { m.lastCastId = id; }, 10);
+// 꼬리 후려치기는 뒤쪽 부채꼴
+hookOn("castStarted", (m, id) => {
+  if (ABILITIES[id] && ABILITIES[id].telegraph.back) for (const c of casts) if (c.m === m && c.id === id && !c.b2Flipped) { c.dirX = -c.dirX; c.dirY = -c.dirY; c.b2Flipped = true; }
+}, 10);
 let b2Spins = [];   // 회전 광선
 let b2Field = null; // 폭풍 고리 / 밀물
-if (typeof resolveCast === "function") {
-  const baseResolve = resolveCast;
-  resolveCast = function (c, p) {
+{
+  hookOn("resolveCast", (c, p) => {
     const e = c.ab.effect, m = c.m;
-    if (!e.type.startsWith("b2_")) return baseResolve(c, p);
+    if (!e.type.startsWith("b2_")) return false;
     const dmg = abilityDamage(c);
     const hurt = () => { if (p.rollTimer > 0) { addFloatText(p.x, p.y, "회피!", "#9be8ff", 18); return; } hurtPlayer(p, dmg, m); };
     switch (e.type) {
@@ -470,32 +458,45 @@ if (typeof resolveCast === "function") {
         break;
       }
     }
-  };
+    return true;
+  }, 10);
 }
 
 function b2UpdateFields(dt) {
-  const p = game.player;
+  const players = allPlayers(); // 둘이 하기: 두 사람 다 맞아요
   for (const s of b2Spins) {
     s.t += dt; s.hitT -= dt;
-    if (!p || p.hp <= 0 || s.m.hp <= 0) continue;
-    for (let i = 0; i < s.beams; i++) {
-      const a = s.base + (i / s.beams) * Math.PI * 2 + s.turn * s.t;
-      const dx = p.x - s.m.x, dy = p.y - s.m.y;
-      const along = dx * Math.cos(a) + dy * Math.sin(a), perp = Math.abs(-dx * Math.sin(a) + dy * Math.cos(a));
-      if (along > 0 && along < s.len && perp < 0.45 && s.hitT <= 0 && p.rollTimer <= 0) { s.hitT = 0.6; hurtPlayer(p, s.dmg, s.m); }
+    if (s.m.hp <= 0) continue;
+    s.hitP = s.hitP || new Map();
+    for (const p of players) {
+      if (p.hp <= 0) continue;
+      const ht = (s.hitP.get(p) || 0) - dt; s.hitP.set(p, ht);
+      for (let i = 0; i < s.beams; i++) {
+        const a = s.base + (i / s.beams) * Math.PI * 2 + s.turn * s.t;
+        const dx = p.x - s.m.x, dy = p.y - s.m.y;
+        const along = dx * Math.cos(a) + dy * Math.sin(a), perp = Math.abs(-dx * Math.sin(a) + dy * Math.cos(a));
+        if (along > 0 && along < s.len && perp < 0.45 && s.hitP.get(p) <= 0 && p.rollTimer <= 0) { s.hitP.set(p, 0.6); hurtPlayer(p, s.dmg, s.m); }
+      }
     }
   }
   b2Spins = b2Spins.filter((s) => s.t < s.dur && s.m.hp > 0);
-  if (b2Field && p) {
+  if (b2Field && players.length) {
     const f = b2Field;
     f.t += dt; f.tick -= dt;
+    let ticked = false;
     if (f.kind === "storm") {
       f.r = f.from + (f.to - f.from) * Math.min(1, f.t / f.time);
-      const out = Math.hypot(p.x - world.W / 2, p.y - world.H / 2) > f.r;
-      if (out && f.tick <= 0 && p.hp > 0) { f.tick = 0.9; hurtPlayer(p, f.dmg, { x: world.W / 2, y: world.H / 2 }); }
+      for (const p of players) {
+        const out = Math.hypot(p.x - world.W / 2, p.y - world.H / 2) > f.r;
+        if (out && f.tick <= 0 && p.hp > 0) { ticked = true; hurtPlayer(p, f.dmg, { x: world.W / 2, y: world.H / 2 }); }
+      }
+      if (ticked) f.tick = 0.9;
     } else if (f.kind === "tide") {
-      const safe = f.islands.some((s) => Math.hypot(p.x - s.x, p.y - s.y) < 1.7);
-      if (!safe) { p.abSlow = Math.max(p.abSlow || 0, 0.3); if (f.tick <= 0 && p.hp > 0) { f.tick = 1.0; hurtPlayer(p, f.dmg, { x: p.x, y: p.y }); } }
+      for (const p of players) {
+        const safe = f.islands.some((s) => Math.hypot(p.x - s.x, p.y - s.y) < 1.7);
+        if (!safe) { p.abSlow = Math.max(p.abSlow || 0, 0.3); if (f.tick <= 0 && p.hp > 0) { ticked = true; hurtPlayer(p, f.dmg, { x: p.x, y: p.y }); } }
+      }
+      if (ticked) f.tick = 1.0;
       if (f.t > f.dur) b2Field = null;
     }
   }
@@ -528,24 +529,12 @@ function b2DrawFields() {
   ctx.restore();
 }
 
-if (typeof updateAbilities === "function") {
-  const baseUA = updateAbilities;
-  updateAbilities = function (dt) {
-    baseUA(dt);
-    for (const m of monsters) if (m.b2Boss && m.hp > 0) b2BossTick(m, game.player, dt);
-    b2UpdateFields(dt);
-  };
-}
-if (typeof drawTelegraphs === "function") {
-  const baseDT = drawTelegraphs;
-  drawTelegraphs = function () { baseDT(); b2DrawFields(); };
-}
-if (typeof resetEffects === "function" && typeof window !== "undefined" && window.addEventListener) {
-  window.addEventListener("load", () => {
-    const baseRE = resetEffects;
-    resetEffects = function () { baseRE(); b2Spins = []; b2Field = null; };
-  });
-}
+hookOn("abilitiesUpdated", (dt) => {
+  for (const m of monsters) if (m.b2Boss && m.hp > 0) b2BossTick(m, nearestPlayer(m.x, m.y), dt);
+  b2UpdateFields(dt);
+}, 10);
+hookOn("drawTelegraphsAfter", () => b2DrawFields(), 10);
+hookOn("reset", () => { b2Spins = []; b2Field = null; }, 30);
 
 // ----- 보스 만들기 도우미 -----
 function b2MakeBoss(type, x, y, level, scale, extra = {}) {

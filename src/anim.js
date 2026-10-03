@@ -256,10 +256,11 @@ function monsterPose(m) {
   if (def.armsForward && !wpn) {
     // 좀비, 미라: 팔을 앞으로 쭉 (걸을 때 흔들흔들)
     const sway = Math.sin(m.walkTime * 6) * 0.04;
-    let f = 0.4, z = 0.63;
-    if (windK > 0) { f = 0.4 - 0.18 * windK; z = 0.63 + 0.3 * windK; pose.lean = -0.08 * windK; }
-    if (strikeK > 0) { f = 0.48; z = 0.5 + 0.1 * (1 - strikeK); pose.lean = 0.14 * strikeK; }
-    pose.rh = V(f, -0.13, z + sway); pose.lh = V(f, 0.13, z - sway);
+    // 예비동작: 팔을 앞으로 뻗은 채 위로 (얼굴 앞에 팔이 뭉치지 않게 앞으로 충분히, 양옆으로 벌려서)
+    let f = 0.42, z = 0.6, w = 0.16;
+    if (windK > 0) { f = 0.42 + 0.04 * windK; z = 0.6 + 0.08 * windK; w = 0.16 + 0.05 * windK; pose.lean = -0.12 * windK; }
+    if (strikeK > 0) { f = 0.5; z = 0.5 + 0.1 * (1 - strikeK); w = 0.13; pose.lean = 0.14 * strikeK; }
+    pose.rh = V(f, -w, z + sway); pose.lh = V(f, w, z - sway);
     pose.rhHint = V(0, -0.3, -1); pose.lhHint = V(0, 0.3, -1);
     return pose;
   }

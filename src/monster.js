@@ -29,7 +29,8 @@ function createMonster(type, x, y, level = 1) {
 }
 
 // 맵의 방마다 몬스터 배치 (첫 방은 비워둬요)
-function spawnMonsters(mapDef, level, rand) {
+function spawnMonsters(mapDef, level, rand) { const r = spawnMonstersBase(mapDef, level, rand); hookRun("monstersSpawned", mapDef, level, rand); return r; }
+function spawnMonstersBase(mapDef, level, rand) {
   monsters = [];
   const table = Object.entries(mapDef.monsters);
   const total = table.reduce((s, [, w]) => s + w, 0);
@@ -322,6 +323,7 @@ function explodeMonster(m, p) {
 // ----- 화살 -----
 function updateArrows(p, dt) {
   for (const a of arrows) {
+    if (a.orb) p = nearestPlayer(a.x, a.y); // 둘이 하기: 가까운 쪽으로
     if (a.orb && p.hp > 0) {
       // 마법 구슬은 주인공 쪽으로 살짝 휘어져요
       const want = Math.atan2(p.y - a.y, p.x - a.x);
@@ -334,21 +336,25 @@ function updateArrows(p, dt) {
     a.x += a.vx * dt; a.y += a.vy * dt;
     a.life -= dt;
     if (isWall(Math.floor(a.x), Math.floor(a.y))) { a.life = 0; spawnDust(a.x - a.vx * 0.02, a.y - a.vy * 0.02); continue; }
-    if (p.hp > 0 && Math.hypot(p.x - a.x, p.y - a.y) < 0.4) {
-      if (p.rollTimer > 0) continue; // 구르면 피해요!
-      a.life = 0;
-      hurtPlayer(p, a.damage, { x: a.x - a.vx, y: a.y - a.vy });
-    }
-    // 전설의 검을 휘두르면 화살도 부숴요
-    if (p.weapon.legendary && p.swingTimer > 0 && Math.hypot(p.x - a.x, p.y - a.y) < p.weapon.range) {
-      a.life = 0;
-      legendBurst(a.x, a.y);
+    for (const q of allPlayers()) {
+      if (a.life <= 0) break;
+      if (q.hp > 0 && Math.hypot(q.x - a.x, q.y - a.y) < 0.4) {
+        if (q.rollTimer > 0) continue; // 구르면 피해요!
+        a.life = 0;
+        hurtPlayer(q, a.damage, { x: a.x - a.vx, y: a.y - a.vy });
+      }
+      // 전설의 검을 휘두르면 화살도 부숴요
+      if (q.hp > 0 && q.weapon.legendary && q.swingTimer > 0 && Math.hypot(q.x - a.x, q.y - a.y) < q.weapon.range) {
+        a.life = 0;
+        legendBurst(a.x, a.y);
+      }
     }
   }
   arrows = arrows.filter((a) => a.life > 0);
 }
 
-function drawArrow(a) {
+function drawArrow(a) { if (hookAny("drawArrow", a)) return; return drawArrowBase(a); }
+function drawArrowBase(a) {
   if (a.orb) {
     const c = toScreen(a.x, a.y, 0.6);
     ctx.save();
@@ -378,6 +384,15 @@ function drawArrow(a) {
 
 // ----- 그리기 -----
 function drawMonster(m) {
+  hookRun("drawMonsterUnder", m);
+  const alpha = hookFilter("monsterAlpha", 1, m);
+  if (alpha < 1) { ctx.save(); ctx.globalAlpha *= alpha; }
+  const r = drawMonsterBase(m);
+  if (alpha < 1) ctx.restore();
+  hookRun("drawMonsterOver", m);
+  return r;
+}
+function drawMonsterBase(m) {
   const def = m.def;
   ctx.save();
   if (m.appearTimer > 0) ctx.globalAlpha = 1 - m.appearTimer / 0.6;

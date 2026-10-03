@@ -1,6 +1,7 @@
 // ===== 화면 정보 (하트, 레벨, 에메랄드, 미니맵, 터치 버튼) =====
 
-function drawHUD() {
+function drawHUD() { const r = drawHUDBase(); hookRun("hudDraw"); return r; }
+function drawHUDBase() {
   const W = view.w, H = view.h;
   const p = game.player;
   const pr = game.profile;
@@ -127,6 +128,7 @@ function drawTouchControls() {
     ctx.restore();
     text(b.label, b.x, b.y + 6, Math.max(12, b.r * 0.36), "#fff", "center");
   }
+  hookRun("touchDraw"); // 둘이 하기: 2번 조이스틱 (coop.js)
 }
 
 function drawTitle() {

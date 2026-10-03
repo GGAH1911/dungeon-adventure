@@ -35,7 +35,9 @@ function showMessage(str, time = 2, rainbowText = false, color = null) {
   game.messageColor = color;
 }
 
-function resetEffects() {
+// 장면이 바뀔 때 (다른 파일은 hookOn("reset") 으로 끼어들어요)
+function resetEffects() { resetEffectsBase(); hookRun("reset"); }
+function resetEffectsBase() {
   particles = []; pickups = []; floatTexts = []; arrows = []; monsters = []; shots = []; impacts = []; chests = [];
   stairs = null;
   clearLegendary();
@@ -49,6 +51,8 @@ function resetEffects() {
 function placePlayer() {
   const spot = findFreeSpot(world.start.x, world.start.y, 0.35) || world.start;
   game.player = createPlayer(spot.x, spot.y);
+  game.players = null;
+  hookRun("playerPlaced", game.player); // 둘이 하기: 친구도 옆에 (coop.js)
   camera.x = game.player.x;
   camera.y = game.player.y;
 }
@@ -68,7 +72,8 @@ function enterLobby(msg) {
   if (msg) showMessage(msg, 2);
 }
 
-function startDungeon(def, level) {
+function startDungeon(def, level) { const r = startDungeonBase(def, level); hookRun("dungeonStarted", def, level); return r; }
+function startDungeonBase(def, level) {
   resetEffects();
   const rand = generateDungeon(def);
   spawnMonsters(def, level, rand);
@@ -87,7 +92,16 @@ function startDungeon(def, level) {
 
 // ----- 싸우기 -----
 // knock: 밀려나는 정도   opts: { crit 치명타, melee 칼/화살, effect 특수효과, finisher 마무리, dot 지속피해 }
+// 몬스터 맞기: 맞기 전/뒤 알림 (보호막, 무적, 방패, 정예 속성 등은 각 파일에서)
 function damageMonster(m, dmg, fromX, fromY, legendary, knock = 1, opts = {}) {
+  if (!m) return;
+  const h = { m, dmg, fromX, fromY, legendary, knock, opts: opts || {} };
+  if (hookAny("monsterDamage", h)) return;
+  const r = damageMonsterBase(m, h.dmg, h.fromX, h.fromY, h.legendary, h.knock, h.opts);
+  hookRun("monsterDamaged", h);
+  return r;
+}
+function damageMonsterBase(m, dmg, fromX, fromY, legendary, knock = 1, opts = {}) {
   if (m.hp <= 0) return;
   if (m.def.armor) dmg *= 1 - m.def.armor; // 갑옷 입은 몬스터는 덜 아파요
   m.hp -= dmg;
@@ -114,7 +128,8 @@ function damageMonster(m, dmg, fromX, fromY, legendary, knock = 1, opts = {}) {
   if (m.hp <= 0) killMonster(m, legendary, opts);
 }
 
-function killMonster(m, legendary, opts = {}) {
+function killMonster(m, legendary, opts) { const r = killMonsterBase(m, legendary, opts); hookRun("monsterKilled", m, legendary, opts); return r; }
+function killMonsterBase(m, legendary, opts = {}) {
   const def = m.def;
   const pr = game.profile;
   if (game.run) game.run.kills++;
@@ -152,7 +167,8 @@ function killMonster(m, legendary, opts = {}) {
 }
 
 // 주인공이 맞았을 때
-function hurtPlayer(p, damage, from) {
+function hurtPlayer(p, damage, from) { const hp0 = p.hp; const r = hurtPlayerBase(p, damage, from); hookRun("playerHurt", p, damage, from, hp0); return r; }
+function hurtPlayerBase(p, damage, from) {
   if (p.rollTimer > 0 || p.hurtTimer > 0 || p.hp <= 0) return;
   const a = p.armor;
   const isMonster = from && from.def;
@@ -186,7 +202,7 @@ function hurtPlayer(p, damage, from) {
   armorRevenge(p, from);
   if (p.hp <= 0) {
     spawnBurst(p.x, p.y, [CONFIG.colors.player.shirt, CONFIG.colors.player.skin], 16);
-    endRun(false);
+    if (!hookAny("playerDown", p)) endRun(false); // 둘이 하기: 친구가 살아있으면 유령이 돼요
   }
 }
 
@@ -217,7 +233,8 @@ function giveMaterials(mats) {
   for (const id in mats) addMaterial(id, mats[id]);
 }
 
-function endRun(win) {
+function endRun(win) { if (hookAny("endRun", win)) return; return endRunBase(win); }
+function endRunBase(win) {
   if (game.result) return;
   const r = game.run;
   const pr = game.profile;
@@ -314,7 +331,9 @@ function onPickup(item) {
 }
 
 // ----- 매 프레임 계산 -----
-function update(dt) {
+// 화면 속도 (보스 쓰러짐 느린 화면 등): hookFilter("timeScale", dt)
+function update(dt) { return updateBase(hookFilter("timeScale", dt)); }
+function updateBase(dt) {
   game.time += dt;
   game.messageTimer -= dt;
   game.shake = Math.max(0, game.shake - dt);
@@ -323,6 +342,8 @@ function update(dt) {
 
   // 맞는 순간 잠깐 멈춤 (타격감)
   if (game.hitstop > 0) { game.hitstop -= dt; return; }
+  // 잠깐 느린 화면 (처음 보는 기믹 설명: guide.js). slowT 는 실제 시간으로 줄어요
+  if (game.slowT > 0) { game.slowT -= dt; dt *= game.slowK || 0.35; }
 
   if (wasPressed("KeyM")) {
     muted = !muted;
@@ -341,21 +362,28 @@ function update(dt) {
     case "records": updateRecords(); return;
     case "menu": updateMenu(); return;
     case "result": updateResult(); return;
+    default: if (game.overlay && hookAny("overlayUpdate", game.overlay, dt)) return; // 다른 파일이 만든 창
   }
   if (wasPressed("Escape")) { openMenu(); return; }
 
   const p = game.player;
-  if (p.hp > 0) updatePlayer(p, dt);
+  for (const q of allPlayers()) if (q.hp > 0) updatePlayer(q, dt); // 혼자면 1번만
   updateParticles(dt);
-  updatePickups(p, dt, onPickup);
+  for (const q of alivePlayers()) updatePickups(q, dt, onPickup); // 누가 주워도 같이 써요
+  hookRun("playersUpdated", dt); // 둘이 하기: 유령·부활·따라가기 (coop.js)
   updateFloatTexts(dt);
   updateLegendary(dt, p);
   updateImpacts(dt);
   updateShots(dt);
 
   // 말 걸기 / 상자 열기 / 계단
-  game.nearNpc = p.hp > 0 ? nearestNpc(p) : null;
-  if (game.nearNpc && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
+  // 둘이 할 때는 둘 중 누구든 가까이 가면 열 수 있어요 (1번 E, 2번 , 키 / 각자 터치 버튼)
+  game.nearNpc = null; game.nearWho = null;
+  for (const q of alivePlayers()) {
+    const n = nearestNpc(q);
+    if (n) { game.nearNpc = n; game.nearWho = q; break; }
+  }
+  if (game.nearNpc && wasPressed("KeyE", "TouchUse", "Comma", "NumpadAdd", "T2Use")) game.nearNpc.action();
 
   if (game.scene === "lobby") {
     updateLobby(p, dt);
@@ -363,9 +391,9 @@ function update(dt) {
   }
 
   // ----- 던전 / 탑 -----
-  if (game.mode !== "tower") revealAround(p.x, p.y);
+  if (game.mode !== "tower") for (const q of alivePlayers()) revealAround(q.x, q.y);
   updatePaths(p.x, p.y);
-  for (const m of monsters) updateMonster(m, p, dt);
+  for (const m of monsters) updateMonster(m, nearestPlayer(m.x, m.y), dt); // 가장 가까운 주인공을 쫓아요
   monsters = monsters.filter((m) => m.hp > 0);
   updateArrows(p, dt);
   if (typeof updateAbilities === "function") updateAbilities(dt);
@@ -383,7 +411,7 @@ function update(dt) {
 
   if (game.mode === "tower") {
     if (!game.result && p.hp > 0) updateTower(p, dt);
-  } else if (monsters.length === 0 && !game.result && p.hp > 0) {
+  } else if (monsters.length === 0 && !game.result && alivePlayers().length) {
     endRun(true);
   }
   if (game.result && game.endTimer > 0) {
@@ -397,7 +425,8 @@ const darkCanvas = document.createElement("canvas");
 const darkCtx = darkCanvas.getContext("2d");
 
 // 어둠은 부드러운 그림이라 절반 크기로 그려서 늘려도 티가 안 나요 (빠르게!)
-function drawDarkness(lights) {
+function drawDarkness(lights) { hookRun("lights", lights); return drawDarknessBase(lights); }
+function drawDarknessBase(lights) {
   const scale = 0.5;
   const w = Math.ceil(view.w * scale), h = Math.ceil(view.h * scale);
   if (darkCanvas.width !== w || darkCanvas.height !== h) { darkCanvas.width = w; darkCanvas.height = h; }
@@ -435,7 +464,9 @@ function draw() {
   const p = game.player;
   // 보스방에서는 보스가 같이 보이게 카메라를 보스 쪽으로 조금 당겨요
   const cb = typeof bossCameraBias === "function" ? bossCameraBias(p) : null;
-  const cx = cb ? cb.x : p.x, cy = cb ? cb.y : p.y;
+  let cx = cb ? cb.x : p.x, cy = cb ? cb.y : p.y;
+  const ct = hookFilter("cameraTarget", null, cx, cy); // 둘이 하기: 두 사람 가운데 (coop.js)
+  if (ct) { cx = ct.x; cy = ct.y; }
   camera.x += (cx - camera.x) * 0.12;
   camera.y += (cy - camera.y) * 0.12;
 
@@ -449,7 +480,7 @@ function draw() {
   drawLegendFloor();
   if (typeof drawTelegraphs === "function") drawTelegraphs();
 
-  if (p.hp > 0) drawShadow(p.x, p.y, p.r);
+  for (const q of allPlayers()) if (q.hp > 0) drawShadow(q.x, q.y, q.r);
   for (const m of monsters) if (onScreen(m.x, m.y)) drawShadow(m.x, m.y, m.r);
 
   // 뒤에 있는 것부터 그려야 앞에 있는 게 가려요
@@ -458,7 +489,7 @@ function draw() {
   if (game.scene !== "dungeon") lobbyThings(things);
   chestThings(things);
   stairsThings(things);
-  if (p.hp > 0) things.push({ depth: p.x + p.y, draw: () => drawPlayer(p) });
+  for (const q of allPlayers()) if (q.hp > 0) things.push({ depth: q.x + q.y, draw: () => drawPlayer(q) });
   for (const m of monsters) if (onScreen(m.x, m.y)) things.push({ depth: m.x + m.y, draw: () => drawMonster(m) });
   for (const e of pickups) things.push({ depth: e.x + e.y, draw: () => drawPickup(e) });
   for (const a of arrows) things.push({ depth: a.x + a.y, draw: () => drawArrow(a) });
@@ -471,6 +502,7 @@ function draw() {
   // 어둠 (빛이 있는 곳만 밝아요)
   const lights = [{ x: p.x, y: p.y, radius: p.armor.legendary ? CONFIG.light.legendLight : CONFIG.light.playerLight }];
   if (p.weapon.legendary) lights.push({ x: p.x, y: p.y, radius: CONFIG.light.playerLight + 2, power: 0.6 });
+  for (const q of allPlayers()) if (q !== p) lights.push({ x: q.x, y: q.y, radius: CONFIG.light.playerLight, power: q.hp > 0 ? 1 : 0.5 });
   if (game.scene !== "dungeon") lights.push(...lobbyLights());
   for (const c of chests) if (!c.open) lights.push({ x: c.x, y: c.y, radius: 1.6, power: 0.5 });
   if (stairs && stairs.open) lights.push({ x: stairs.x, y: stairs.y, radius: 3.5, power: 0.8 });
@@ -503,6 +535,7 @@ function draw() {
       case "records": drawRecords(); break;
       case "menu": drawMenu(); break;
       case "result": drawResult(); break;
+      default: hookAny("overlayDraw", game.overlay);
     }
     endUIScale();
   }

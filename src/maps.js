@@ -134,7 +134,9 @@ function levelRange(map) {
 
 // 내 레벨과 비교해서 어려운 정도
 function difficultyLabel(L) {
-  const d = L - game.profile.level;
+  // 몬스터 세기는 장비 강화에 맞춰져 있어서, 장비로 계산한 추천 레벨과 비교해요 (qol.js)
+  const base = typeof qolRecommendedLevel === "function" ? qolRecommendedLevel() : game.profile.level;
+  const d = L - base;
   if (d <= -4) return { text: "아주 쉬움", color: "#9be8ff" };
   if (d <= -2) return { text: "쉬움", color: "#7dffb0" };
   if (d <= 1) return { text: "알맞음", color: "#ffe27a" };

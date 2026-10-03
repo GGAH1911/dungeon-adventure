@@ -58,7 +58,9 @@ function placeOf(m) {
 function selectMap(i) {
   mapSel.index = i;
   const r = levelRange(MAPS[i]);
-  mapSel.level = Math.max(r.min, Math.min(r.max, game.profile.level)); // 처음엔 내 레벨
+  // 처음엔 내 장비에 맞는 추천 레벨 (qol.js), 없으면 내 레벨
+  const want = typeof qolRecommendedLevel === "function" ? qolRecommendedLevel() : game.profile.level;
+  mapSel.level = Math.max(r.min, Math.min(r.max, want));
 }
 
 function changeLevel(delta) {
@@ -77,6 +79,8 @@ function openMapSelect() {
   // 가장 최근에 열린 맵(탑 말고)을 골라서 가운데로
   let last = 0;
   for (let i = 0; i < MAPS.length; i++) if (mapUnlocked(i) && MAPS[i].type !== "tower") last = i;
+  const recMap = typeof qolRecommendedMap === "function" ? qolRecommendedMap() : -1;
+  if (recMap >= 0) last = recMap; // 추천 맵을 먼저 보여줘요
   selectMap(last);
   layoutMapArea();
   const p = placeOf(MAPS[last]);
@@ -646,6 +650,17 @@ function drawRoads() {
   ctx.restore();
 }
 
+// 추천 맵 리본 (금색)
+function drawRecRibbon(x, y, s) {
+  const w = 46 * s, h = 18 * s;
+  ctx.save();
+  ctx.fillStyle = "#d4a017";
+  ctx.beginPath(); ctx.moveTo(x - w / 2, y - h / 2); ctx.lineTo(x + w / 2, y - h / 2); ctx.lineTo(x + w / 2 - 5 * s, y); ctx.lineTo(x + w / 2, y + h / 2); ctx.lineTo(x - w / 2, y + h / 2); ctx.lineTo(x - w / 2 + 5 * s, y); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "#7a5a08"; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+  text("추천", x, y + 5 * s, Math.round(12 * s), "#fff8d0", "center");
+}
+
 // ===== 그리기 =====
 function drawMapSelect() {
   layoutMapArea();
@@ -670,6 +685,7 @@ function drawMapSelect() {
   mapSel.hits = [];
   const s = Math.max(0.75, Math.min(1.6, 0.55 + c.z * 0.7)) * (Math.min(W, H) < 450 ? 0.85 : 1);
   const order = MAPS.map((m, i) => i).sort((i, j) => placeOf(MAPS[i]).y - placeOf(MAPS[j]).y);
+  const recIdx = typeof qolRecommendedMap === "function" ? qolRecommendedMap() : -1;
   for (const i of order) {
     const m = MAPS[i];
     const p = placeOf(m);
@@ -687,6 +703,7 @@ function drawMapSelect() {
     drawPlaceIcon(m, P.x, P.y, s, !open);
     const cleared = m.type === "tower" ? pr.towerBest > 0 : pr.cleared.includes(m.id);
     if (cleared) drawStar(P.x - 22 * s, P.y - 36 * s, 9 * s, "#ffd23f");
+    if (i === recIdx) drawRecRibbon(P.x + 20 * s, P.y - 44 * s, s);
     const fs = Math.round(Math.max(11, Math.min(17, 13 * s)));
     placeLabel(m.name, P.x, P.y + 22 * s, fs, open ? "#3a2210" : "#6a6a6a", sel ? "rgba(255,236,170,0.95)" : open ? "rgba(245,232,200,0.9)" : "rgba(210,205,195,0.85)");
     let sub = null;
@@ -774,7 +791,12 @@ function drawMapInfoPanel() {
   if (lx2 + 60 < x0 + pw) text(label.text, lx2, y + 30, 17, label.color);
   y += btn + 22;
   text(`고를 수 있는 레벨 ${r.min}~${r.max}`, ix, y, 13, "#aaa");
-  if (L !== pr.level && pr.level >= r.min && pr.level <= r.max) {
+  const recL = typeof qolRecommendedLevel === "function" ? Math.max(r.min, Math.min(r.max, qolRecommendedLevel())) : null;
+  if (recL !== null && L !== recL) {
+    drawButton(ix + iw - 118, y - 22, 118, 32, `★ 추천 Lv ${recL}`, () => { mapSel.level = recL; }, { size: 14, color: "rgba(255,200,60,0.4)" });
+  } else if (recL !== null) {
+    text("★ 내 장비에 딱 맞아요", ix + iw, y, 13, "#ffd23f", "right");
+  } else if (L !== pr.level && pr.level >= r.min && pr.level <= r.max) {
     drawButton(ix + iw - 118, y - 22, 118, 32, `내 레벨(${pr.level})`, () => { mapSel.level = pr.level; }, { size: 14 });
   }
   y += 24;

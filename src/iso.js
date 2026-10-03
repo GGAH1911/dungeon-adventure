@@ -39,7 +39,7 @@ function resizeCanvas() {
 
   // 작은 화면은 조금 작게, 큰 화면은 크게
   // zoomMul: 보스방처럼 넓게 봐야 할 때 조금 멀리서 봐요 (bossroom.js)
-  const zm = typeof zoomMul === "number" ? zoomMul : 1;
+  const zm = (typeof zoomMul === "number" ? zoomMul : 1) * (typeof coopZoomMul === "number" ? coopZoomMul : 1); // coopZoomMul: 둘이 멀어지면 (coop.js)
   ZOOM = Math.max(1.0 * Math.min(1, zm), Math.min(1.8, Math.min(view.w / 1100, view.h / 700) * 1.6 * zm));
   TILE_W = 64 * ZOOM;
   TILE_H = 32 * ZOOM;

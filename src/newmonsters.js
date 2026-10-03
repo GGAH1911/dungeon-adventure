@@ -196,8 +196,7 @@ const EXTRA_SHAPES = {
 };
 
 // ----- 투사체 그림: 곡괭이, 바람 구슬 -----
-const _drawArrowBase = drawArrow;
-drawArrow = function (a) {
+hookOn("drawArrow", (a) => {
   if (a.pick) {
     a.spin = (a.spin || 0) + 0.35;
     const c = toScreen(a.x, a.y, 0.6);
@@ -211,7 +210,7 @@ drawArrow = function (a) {
     ctx.moveTo(c.x + ca * L - sa * 9 * ZOOM, c.y + sa * L + ca * 9 * ZOOM);
     ctx.quadraticCurveTo(c.x + ca * L * 1.25, c.y + sa * L * 1.25, c.x + ca * L + sa * 9 * ZOOM, c.y + sa * L - ca * 9 * ZOOM);
     ctx.stroke();
-    return;
+    return true;
   }
   if (a.wind) {
     const c = toScreen(a.x, a.y, 0.65);
@@ -226,14 +225,13 @@ drawArrow = function (a) {
     ctx.strokeStyle = "rgba(230,255,250,0.8)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(c.x, c.y, 9 * ZOOM, game.time * 9, game.time * 9 + 4); ctx.stroke();
     ctx.restore();
-    return;
+    return true;
   }
-  _drawArrowBase(a);
-};
+  return false;
+}, 50);
 
 // ----- 그림자 기사 순간이동 예고: 도착할 자리에 보라색 연기 원 -----
-const _drawMonsterBase = drawMonster;
-drawMonster = function (m) {
+hookOn("drawMonsterUnder", (m) => {
   if (m.state === "blinkWarn" && m.blinkTo) {
     const k = 1 - Math.max(0, m.stateTimer) / (m.def.blinkWarn || 0.75);
     const c = toScreen(m.blinkTo.x, m.blinkTo.y, 0.02);
@@ -247,29 +245,8 @@ drawMonster = function (m) {
     ctx.fill();
     ctx.restore();
   }
-  if (m.state === "blinkWarn") { ctx.save(); ctx.globalAlpha *= 0.55 + 0.45 * Math.sin(game.time * 30); _drawMonsterBase(m); ctx.restore(); return; }
-  // 곡괭이 드는 예고는 anim.js 의 자세(머리 위로 들기)로 보여줘요
-  _drawMonsterBase(m);
-};
+}, 50);
+hookOn("monsterAlpha", (a, m) => (m.state === "blinkWarn" ? a * (0.55 + 0.45 * Math.sin(game.time * 30)) : a), 50);
+// 곡괭이 드는 예고는 anim.js 의 자세(머리 위로 들기)로 보여줘요
 
-// ----- 맵 보스: 시작 방에서 가장 먼 방에 1마리 -----
-const _spawnMonstersBase = spawnMonsters;
-spawnMonsters = function (mapDef, level, rand) {
-  _spawnMonstersBase(mapDef, level, rand);
-  if (true) return; // 맵 보스는 이제 보스방에서 나와요 (bossroom.js)
-  if (!mapDef.boss || !world.rooms.length) return;
-  const start = world.rooms[0];
-  let far = world.rooms[world.rooms.length - 1], best = -1;
-  for (const r of world.rooms.slice(1)) {
-    const d = Math.hypot(r.cx - start.cx, r.cy - start.cy);
-    if (d > best) { best = d; far = r; }
-  }
-  const b = createMonster(mapDef.boss, far.cx, far.cy, level + 2);
-  makeBoss(b);
-  b.aggro = false; // 가까이 가야 깨어나요
-  b.appearTimer = 0;
-  const free = typeof findFreeSpot === "function" ? findFreeSpot(b.x, b.y, b.r) : null;
-  if (free) { b.x = free.x; b.y = free.y; }
-  b.bossRoom = far;
-  monsters.push(b);
-};
+// 맵 보스는 이제 보스방에서 나와요 (bossroom.js, BOSS_DEFS)

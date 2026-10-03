@@ -310,7 +310,7 @@ const ELITE_AFFIXES = {
     desc: "가끔 제자리에 빛 기둥을 세워 광선 2줄을 천천히 돌려요. 1초 전에 도는 방향을 보여줘요.", counter: "광선과 같은 방향으로 함께 돌며 피하기, 구르면 통과",
     update(m, dt) {
       m.beamT = (m.beamT === undefined ? 3 + Math.random() * 3 : m.beamT) - dt;
-      if (m.beamT <= 0 && game.player && Math.hypot(game.player.x - m.x, game.player.y - m.y) < 7) {
+      if (m.beamT <= 0 && game.player && Math.hypot(nearestPlayer(m.x, m.y).x - m.x, nearestPlayer(m.x, m.y).y - m.y) < 7) {
         m.beamT = 10;
         const t = abilityTuning();
         addHazard({ kind: "spinBeam", x: m.x, y: m.y, angle: Math.random() * Math.PI * 2, dir: Math.random() < 0.5 ? 1 : -1, speed: 0.65 / Math.max(0.7, t.telegraph), len: 4.2 * t.size, warn: Math.max(0.8, 1.0 * t.telegraph), life: 5.5, tick: 0.5, owner: m, dmgMul: 0.8 });
@@ -459,25 +459,25 @@ function segDist(px, py, ax, ay, bx, by) {
 }
 
 function updateHazards(dt) {
-  const p = game.player;
   for (const h of hazards) {
     h.t += dt; h.life -= dt; h.tickT -= dt;
     if (h.owner && h.owner.hp <= 0) h.life = 0; // 주인이 쓰러지면 사라져요
-    if (!p || p.hp <= 0 || h.life <= 0) continue;
-    let inside = false;
-    if (h.kind === "fire") inside = Math.hypot(p.x - h.x, p.y - h.y) < h.radius + p.r * 0.4;
-    if (h.kind === "spinBeam") {
-      if (h.t < h.warn) continue;
-      h.angle += h.dir * h.speed * dt;
-      for (const k of [0, Math.PI]) {
-        const ex = h.x + Math.cos(h.angle + k) * h.len, ey = h.y + Math.sin(h.angle + k) * h.len;
-        if (segDist(p.x, p.y, h.x, h.y, ex, ey) < 0.32 + p.r * 0.5) inside = true;
+    if (h.life <= 0) continue;
+    if (h.kind === "spinBeam") { if (h.t < h.warn) continue; h.angle += h.dir * h.speed * dt; }
+    let ticked = false;
+    for (const p of allPlayers()) { // 둘이 하기: 두 사람 다
+      if (p.hp <= 0) continue;
+      let inside = false;
+      if (h.kind === "fire") inside = Math.hypot(p.x - h.x, p.y - h.y) < h.radius + p.r * 0.4;
+      if (h.kind === "spinBeam") {
+        for (const k of [0, Math.PI]) {
+          const ex = h.x + Math.cos(h.angle + k) * h.len, ey = h.y + Math.sin(h.angle + k) * h.len;
+          if (segDist(p.x, p.y, h.x, h.y, ex, ey) < 0.32 + p.r * 0.5) inside = true;
+        }
       }
+      if (inside && h.tickT <= 0 && p.rollTimer <= 0) { ticked = true; hurtPlayer(p, (h.owner ? h.owner.damage : 1) * h.dmgMul, { x: h.x, y: h.y }); }
     }
-    if (inside && h.tickT <= 0 && p.rollTimer <= 0) {
-      h.tickT = h.tick;
-      hurtPlayer(p, (h.owner ? h.owner.damage : 1) * h.dmgMul, { x: h.x, y: h.y });
-    }
+    if (ticked) h.tickT = h.tick;
   }
   hazards = hazards.filter((h) => h.life > 0);
 }
@@ -502,7 +502,7 @@ function drawHazards() {
         ctx.lineCap = "round";
         if (warn) {
           ctx.setLineDash([6, 6]);
-          ctx.strokeStyle = `rgba(200,120,255,${0.5 + 0.4 * Math.sin(game.time * 20)})`; ctx.lineWidth = 3;
+          ctx.strokeStyle = `rgba(255,70,50,${0.5 + 0.4 * Math.sin(game.time * 20)})`; ctx.lineWidth = 3; // 아파요 = 빨강
           ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
           ctx.setLineDash([]);
           // 도는 방향 화살표
@@ -541,7 +541,7 @@ function drawEliteUnder(m) {
 }
 
 function drawEliteLabel(m) {
-  const p = game.player;
+  const p = nearestPlayer(m.x, m.y);
   if (!p || Math.hypot(p.x - m.x, p.y - m.y) > 9) return;
   const S = (m.def.size || 1) * (m.scaleMul || 1);
   const s = toScreen(m.x, m.y, (m.def.shape === "human" ? 1.45 : 0.95) * S + 0.15);
@@ -558,133 +558,111 @@ function drawEliteLabel(m) {
   });
 }
 
-// ===================== 7) 다른 함수들과 연결 (게임 파일이 다 읽힌 뒤에) =====================
-window.addEventListener("load", () => {
-  // 몬스터 배치 뒤: 보물 고블린은 맵당 1마리, 정예 정하기
-  const _spawn = spawnMonsters;
-  spawnMonsters = function (mapDef, level, rand) {
-    const r = _spawn.apply(this, arguments);
-    let thieves = 0;
-    for (const m of monsters) if (m.type === "thief" && ++thieves > 1) { m.hp = 0; m.escaped = true; }
-    monsters = monsters.filter((m) => m.hp > 0);
-    assignElites(mapDef);
-    return r;
-  };
+// ===================== 7) 다른 함수들과 연결 (hooks.js 알림 지점) =====================
+// 몬스터 배치 뒤: 보물 고블린은 맵당 1마리, 정예 정하기
+hookOn("monstersSpawned", (mapDef) => {
+  let thieves = 0;
+  for (const m of monsters) if (m.type === "thief" && ++thieves > 1) { m.hp = 0; m.escaped = true; }
+  monsters = monsters.filter((m) => m.hp > 0);
+  assignElites(mapDef);
+}, 30);
 
-  // 장면이 바뀌면 정예 장판도 지우기
-  const _reset = resetEffects;
-  resetEffects = function () { hazards = []; return _reset.apply(this, arguments); };
+// 장면이 바뀌면 정예 장판도 지우기
+hookOn("reset", () => { hazards = []; }, 20);
 
-  // 매 프레임 (기술 엔진 다음에)
-  const _upAb = updateAbilities;
-  updateAbilities = function (dt) {
-    const r = _upAb.apply(this, arguments);
-    for (const m of monsters) {
-      if (!m.elite || m.hp <= 0) continue;
-      for (const id of m.affixes) if (ELITE_AFFIXES[id].update) ELITE_AFFIXES[id].update(m, dt);
+// 매 프레임 (기술 엔진 다음에)
+hookOn("abilitiesUpdated", (dt) => {
+  for (const m of monsters) {
+    if (!m.elite || m.hp <= 0) continue;
+    for (const id of m.affixes) if (ELITE_AFFIXES[id].update) ELITE_AFFIXES[id].update(m, dt);
+  }
+  updateHazards(dt);
+}, 30);
+
+// 바닥 장판 그리기 (기술 예고와 같은 층)
+hookOn("drawTelegraphsAfter", () => drawHazards(), 30);
+
+// 기술 장판(독·거미줄)에 주인 표시 -> 정예가 쓰러지면 같이 사라져요
+hookOn("castResolved", (c, p, z0) => { for (let i = z0; i < zones.length; i++) zones[i].owner = c.m; }, 30);
+
+// 몬스터가 맞을 때: 분신은 한 방에, 방패병 정면 막기, 정예 속성(번개·분신)
+hookOn("monsterDamage", (h) => {
+  const m = h.m, opts = h.opts;
+  if (m.hp <= 0) return true;
+  if (m.clone && h.dmg > 0) {
+    m.hp = 0;
+    spawnBurst(m.x, m.y, ["#d0d0ff", "#ffffff"], 10);
+    addFloatText(m.x, m.y, "가짜!", "#d0d0ff", 18);
+    return true;
+  }
+  if (m.def.frontShield && !opts.dot && h.dmg > 0) {
+    const ax = h.fromX - m.x, ay = h.fromY - m.y, al = Math.hypot(ax, ay) || 1;
+    if ((ax * m.faceX + ay * m.faceY) / al > 0.35) {
+      m.flash = 0.05;
+      addFloatText(m.x, m.y, "방패!", "#d9c27a", 16);
+      if (typeof sfx !== "undefined") sfx.block();
+      return true;
     }
-    updateHazards(dt);
-    return r;
-  };
+  }
+  if (m.def.behavior === "lurker" && m.hidden) m.hidden = false;
+  if (m.def.behavior === "thief" && !m.fleeing) { m.fleeing = true; m.fleeLeft = THIEF_TIME[(game.profile && game.profile.difficulty) || "normal"] || 14; }
+  return false;
+}, 30);
+hookOn("monsterDamaged", (h) => {
+  const m = h.m;
+  if (m.elite && m.hp > 0 && !h.opts.dot) for (const id of m.affixes) if (ELITE_AFFIXES[id].onHit) ELITE_AFFIXES[id].onHit(m);
+}, 10);
 
-  // 바닥 장판 그리기 (기술 예고와 같은 층)
-  const _drawTg = drawTelegraphs;
-  drawTelegraphs = function () { const r = _drawTg.apply(this, arguments); drawHazards(); return r; };
+// 쓰러질 때: 정예 보상·유언, 독버섯 웅덩이, 보물 고블린 보물
+hookOn("monsterKilled", (m) => {
+  if (m.elite) {
+    for (const id of m.affixes) if (ELITE_AFFIXES[id].onDeath) ELITE_AFFIXES[id].onDeath(m);
+    zones = zones.filter((z) => z.owner !== m);
+    hazards = hazards.filter((h) => h.owner !== m);
+    const tier = rewardTier(game.mapLevel || 1);
+    dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier], count: 1 + m.affixes.length });
+    for (let i = 0; i < 3; i++) dropPickup("emerald", m.x, m.y);
+    addFloatText(m.x, m.y, "정예 처치!", "#ffd84a", 22);
+  }
+  if (m.def.deathPool) zones.push({ x: m.x, y: m.y, radius: 1.1, life: 4, max: 4, tick: 0.8, tickT: 0.6, damage: m.damage * 0.4, kind: "poison" });
+  if (m.def.treasure) {
+    const tier = rewardTier(game.mapLevel || 1);
+    dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier], count: 3 });
+    if (tier < MATERIAL_ORDER.length - 1) dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier + 1], count: 1 });
+    showMessage("보물 고블린을 잡았어요! 보물이 쏟아져요", 2.5, true);
+  }
+}, 30);
 
-  // 기술 장판(독·거미줄)에 주인 표시 -> 정예가 쓰러지면 같이 사라져요
-  const _resolve = resolveCast;
-  resolveCast = function (c, p) {
-    const before = zones.length;
-    const r = _resolve.apply(this, arguments);
-    for (let i = before; i < zones.length; i++) zones[i].owner = c.m;
-    return r;
-  };
+// 흡혈 정예: 때리면 회복
+hookOn("playerHurt", (p, damage, from, hp0) => {
+  if (from && from.elite && p.hp < hp0) for (const id of from.affixes) if (ELITE_AFFIXES[id].onHurtPlayer) ELITE_AFFIXES[id].onHurtPlayer(from);
+}, 30);
 
-  // 몬스터가 맞을 때: 분신은 한 방에, 방패병 정면 막기, 정예 속성(번개·분신)
-  const _dmg = damageMonster;
-  damageMonster = function (m, dmg, fromX, fromY, legendary, knock, opts = {}) {
-    if (m.hp <= 0) return;
-    if (m.clone && dmg > 0) {
-      m.hp = 0;
-      spawnBurst(m.x, m.y, ["#d0d0ff", "#ffffff"], 10);
-      addFloatText(m.x, m.y, "가짜!", "#d0d0ff", 18);
-      return;
+// 그리기: 정예 빛·이름표, 숨은 도마뱀, 분신, 북치기 강화 빔
+hookOn("drawMonsterUnder", (m) => { if (m.elite) drawEliteUnder(m); }, 30);
+hookOn("monsterAlpha", (a, m) => {
+  if (m.def.behavior === "lurker" && m.hidden) {
+    const easy = game.profile && game.profile.difficulty === "easy";
+    return a * ((easy ? 0.32 : 0.14) + 0.05 * Math.sin(game.time * 6 + m.x));
+  }
+  if (m.clone) return a * 0.75;
+  return a;
+}, 30);
+hookOn("drawMonsterOver", (m) => {
+  if (m.def.behavior === "lurker" && m.hidden) return;
+  if (m.clone) return;
+  if (m.elite) drawEliteLabel(m);
+  if (m.type === "drummer" && m.hp > 0) {
+    // 강해진 동료에게 빨간 빛줄기
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    const a = toScreen(m.x, m.y, 0.8);
+    for (const o of monsters) {
+      if (o === m || !o._buff || o.hp <= 0 || Math.hypot(o.x - m.x, o.y - m.y) > 6) continue;
+      const b = toScreen(o.x, o.y, 0.7);
+      ctx.strokeStyle = `rgba(255,80,60,${0.35 + 0.2 * Math.sin(game.time * 10)})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
     }
-    if (m.def.frontShield && !opts.dot && dmg > 0) {
-      const ax = fromX - m.x, ay = fromY - m.y, al = Math.hypot(ax, ay) || 1;
-      if ((ax * m.faceX + ay * m.faceY) / al > 0.35) {
-        m.flash = 0.05;
-        addFloatText(m.x, m.y, "방패!", "#d9c27a", 16);
-        if (typeof sfx !== "undefined") sfx.block();
-        return;
-      }
-    }
-    if (m.def.behavior === "lurker" && m.hidden) m.hidden = false;
-    if (m.def.behavior === "thief" && !m.fleeing) { m.fleeing = true; m.fleeLeft = THIEF_TIME[(game.profile && game.profile.difficulty) || "normal"] || 14; }
-    const r = _dmg.apply(this, [m, dmg, fromX, fromY, legendary, knock, opts]);
-    if (m.elite && m.hp > 0 && !opts.dot) for (const id of m.affixes) if (ELITE_AFFIXES[id].onHit) ELITE_AFFIXES[id].onHit(m);
-    return r;
-  };
+    ctx.restore();
+  }
+}, 30);
 
-  // 쓰러질 때: 정예 보상·유언, 독버섯 웅덩이, 보물 고블린 보물
-  const _kill = killMonster;
-  killMonster = function (m, legendary, opts) {
-    const r = _kill.apply(this, arguments);
-    if (m.elite) {
-      for (const id of m.affixes) if (ELITE_AFFIXES[id].onDeath) ELITE_AFFIXES[id].onDeath(m);
-      zones = zones.filter((z) => z.owner !== m);
-      hazards = hazards.filter((h) => h.owner !== m);
-      const tier = rewardTier(game.mapLevel || 1);
-      dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier], count: 1 + m.affixes.length });
-      for (let i = 0; i < 3; i++) dropPickup("emerald", m.x, m.y);
-      addFloatText(m.x, m.y, "정예 처치!", "#ffd84a", 22);
-    }
-    if (m.def.deathPool) zones.push({ x: m.x, y: m.y, radius: 1.1, life: 4, max: 4, tick: 0.8, tickT: 0.6, damage: m.damage * 0.4, kind: "poison" });
-    if (m.def.treasure) {
-      const tier = rewardTier(game.mapLevel || 1);
-      dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier], count: 3 });
-      if (tier < MATERIAL_ORDER.length - 1) dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier + 1], count: 1 });
-      showMessage("보물 고블린을 잡았어요! 보물이 쏟아져요", 2.5, true);
-    }
-    return r;
-  };
-
-  // 흡혈 정예: 때리면 회복
-  const _hurt = hurtPlayer;
-  hurtPlayer = function (p, damage, from) {
-    const hp0 = p.hp;
-    const r = _hurt.apply(this, arguments);
-    if (from && from.elite && p.hp < hp0) for (const id of from.affixes) if (ELITE_AFFIXES[id].onHurtPlayer) ELITE_AFFIXES[id].onHurtPlayer(from);
-    return r;
-  };
-
-  // 그리기: 정예 빛·이름표, 숨은 도마뱀, 북치기 강화 빔
-  const _drawM = drawMonster;
-  drawMonster = function (m) {
-    if (m.elite) drawEliteUnder(m);
-    if (m.def.behavior === "lurker" && m.hidden) {
-      ctx.save();
-      const easy = game.profile && game.profile.difficulty === "easy";
-      ctx.globalAlpha = (easy ? 0.32 : 0.14) + 0.05 * Math.sin(game.time * 6 + m.x);
-      const r = _drawM.apply(this, arguments);
-      ctx.restore();
-      return r;
-    }
-    if (m.clone) { ctx.save(); ctx.globalAlpha = 0.75; const r = _drawM.apply(this, arguments); ctx.restore(); return r; }
-    const r = _drawM.apply(this, arguments);
-    if (m.elite) drawEliteLabel(m);
-    if (m.type === "drummer" && m.hp > 0) {
-      // 강해진 동료에게 빨간 빛줄기
-      ctx.save(); ctx.globalCompositeOperation = "lighter";
-      const a = toScreen(m.x, m.y, 0.8);
-      for (const o of monsters) {
-        if (o === m || !o._buff || o.hp <= 0 || Math.hypot(o.x - m.x, o.y - m.y) > 6) continue;
-        const b = toScreen(o.x, o.y, 0.7);
-        ctx.strokeStyle = `rgba(255,80,60,${0.35 + 0.2 * Math.sin(game.time * 10)})`; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-      }
-      ctx.restore();
-    }
-    return r;
-  };
-});

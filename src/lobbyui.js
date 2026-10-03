@@ -76,6 +76,12 @@ function drawSmith() {
   drawEmeraldIcon(x0 + pw - 150, y0 + 30, 12);
   text(`${pr.emeralds}`, x0 + pw - 132, y0 + 39, 22);
   drawButton(x0 + pw - 58, y0 + 12, 42, 38, "✕", closeOverlay, { size: 20 });
+  // 추천 강화 (qol.js): 지금 할 수 있는 강화 중 가장 좋은 부위
+  const rec = smith.tab === "upgrade" && typeof qolRecommendSlot === "function" ? qolRecommendSlot() : null;
+  if (rec) {
+    const nm = GEAR_SLOTS.find((s) => s.id === rec).name;
+    drawButton(x0 + 378, y0 + 14, Math.min(190, pw - 600), 36, `★ 추천: ${nm}`, () => { smith.row = GEAR_SLOTS.findIndex((s) => s.id === rec); doUpgrade(rec); }, { size: 15, color: "rgba(255,200,60,0.45)" });
+  }
 
   // 가진 부품
   let mx = x0 + 22;
@@ -99,6 +105,7 @@ function drawSmith() {
       const tier = TIERS[tierIndex(L)];
       ctx.fillStyle = slot.id === "weapon" || slot.id === "bow" ? tier.color : L > 0 ? tier.armor.body : "#555"; ctx.fillRect(x0 + 30, ry + 12, 22, 22);
       text(slot.name, x0 + 62, ry + 22, 13, "#aaa");
+      if (rec === slot.id) { drawStar(x0 + 30, ry + 12, 9, "#ffd23f"); text("추천!", x0 + 62 + 40, ry + 22, 13, "#ffd23f"); }
       text(gearLabel(slot.id), x0 + 62, ry + 42, 17, "#fff");
       // 레벨 막대 (5칸씩 단계 색)
       const bx = x0 + 300, bw = Math.min(260, pw - 640);
@@ -192,17 +199,73 @@ function drawWardrobe() {
 }
 
 // ----- 기록판 -----
-function openRecords() { game.overlay = "records"; sfx.equip(); }
-function updateRecords() { if (wasPressed("Escape", "KeyE", "Enter", "Space")) closeOverlay(); }
+// 쪽: "basic" 나의 기록, "boss" 보스 기록 (qol.js 의 플레이 기록)
+const records = { tab: "basic" };
+function openRecords() { game.overlay = "records"; records.tab = "basic"; sfx.equip(); }
+function updateRecords() {
+  if (wasPressed("Tab", "ArrowLeft", "ArrowRight", "KeyA", "KeyD")) records.tab = records.tab === "basic" ? "boss" : "basic";
+  if (wasPressed("Escape", "KeyE", "Enter", "Space")) closeOverlay();
+}
+
+function fmtSec(sec) {
+  if (!sec) return "-";
+  const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+  return m ? `${m}분 ${s}초` : `${s}초`;
+}
 
 function drawRecords() {
-  const pr = game.profile, st = pr.stats;
   const W = view.w, H = view.h;
-  const pw = Math.min(620, W - 24), ph = Math.min(560, H - 24);
+  const pw = Math.min(records.tab === "boss" ? 820 : 620, W - 24), ph = Math.min(560, H - 24);
   const x0 = (W - pw) / 2, y0 = (H - ph) / 2;
   drawPanel(x0, y0, pw, ph);
   text("나의 기록", x0 + 24, y0 + 42, 28, "#ffe27a");
+  drawButton(x0 + 170, y0 + 14, 80, 36, "기본", () => { records.tab = "basic"; }, { selected: records.tab === "basic", size: 15 });
+  drawButton(x0 + 256, y0 + 14, 110, 36, "보스 기록", () => { records.tab = "boss"; }, { selected: records.tab === "boss", size: 15 });
+  if (typeof qolSummary === "function") drawButton(x0 + pw - 186, y0 + 14, 120, 38, "기록 복사", () => qolCopy(JSON.stringify(qolSummary(), null, 1), "플레이 기록 (개발자에게 보내 주세요)", "기록을 복사했어요! 아빠에게 보내 주세요"), { size: 15, color: "rgba(80,160,220,0.4)" });
   drawButton(x0 + pw - 58, y0 + 14, 42, 38, "✕", closeOverlay, { size: 20 });
+  if (records.tab === "boss" && typeof qolLog === "function") return drawBossRecords(x0, y0, pw, ph);
+  drawBasicRecords(x0, y0, pw, ph);
+}
+
+function drawBossRecords(x0, y0, pw, ph) {
+  const L = qolLog();
+  const ids = MAPS.filter((m) => m.type !== "tower").map((m) => m.id);
+  const cols = [x0 + 30, x0 + pw * 0.42, x0 + pw * 0.52, x0 + pw * 0.62, x0 + pw * 0.72, x0 + pw * 0.86];
+  let y = y0 + 80;
+  ["보스", "도전", "이김", "쓰러짐", "가장 빨리", "단계"].forEach((h, i) => text(h, cols[i] + (i ? 0 : 26), y, 13, "#aaa", i ? "center" : "left"));
+  const rowH = Math.min(26, (ph - 200) / ids.length);
+  y += 8;
+  for (const id of ids) {
+    y += rowH;
+    const b = L.bosses[id];
+    const def = typeof BOSS_DEFS !== "undefined" && BOSS_DEFS[id];
+    const name = (b && b.name) || (def ? def.name : (MAPS.find((m) => m.id === id) || {}).name);
+    const seen = !!b && b.tries > 0;
+    ctx.fillStyle = def && def.material ? def.material.color : "#777";
+    ctx.globalAlpha = seen ? 1 : 0.35; ctx.fillRect(cols[0], y - 14, 16, 16); ctx.globalAlpha = 1;
+    text(seen ? name : "???", cols[0] + 26, y, 14, seen ? "#fff" : "#666");
+    if (!seen) continue;
+    text(`${b.tries}`, cols[1], y, 15, "#ddd", "center");
+    text(`${b.wins}`, cols[2], y, 15, b.wins ? "#7dffb0" : "#888", "center");
+    text(`${b.deaths}`, cols[3], y, 15, b.deaths ? "#ff9090" : "#888", "center");
+    text(fmtSec(b.best), cols[4], y, 14, "#ffe27a", "center");
+    for (let k = 0; k < 3; k++) {
+      ctx.fillStyle = k < b.maxPhase ? "#ffd23f" : "#444";
+      ctx.beginPath(); ctx.arc(cols[5] - 14 + k * 14, y - 5, 5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // 많이 쓰러진 공격 TOP3
+  y += 34;
+  text("나를 가장 많이 쓰러뜨린 공격", x0 + 30, y, 16, "#ffb070");
+  const top = qolCauseTop(qolAllBossCauses(), 3);
+  if (!top.length) text("아직 없어요! 보스방에서 쓰러지면 여기에 나와요", x0 + 30, y + 26, 14, "#999");
+  top.forEach(([k, n], i) => text(`${i + 1}. ${k} · ${n}번`, x0 + 30 + i * ((pw - 60) / 3), y + 26, 15, "#fff"));
+  const min = Math.round(L.playSec / 60);
+  text(`모두 ${Math.floor(min / 60)}시간 ${min % 60}분 놀았어요 · 오늘 ${Math.round((L.days[qolToday()] || 0) / 60)}분`, x0 + 30, y0 + ph - 18, 13, "#999");
+}
+
+function drawBasicRecords(x0, y0, pw, ph) {
+  const pr = game.profile, st = pr.stats;
   const lines = [
     [`레벨`, `${pr.level}`],
     [`물리친 몬스터`, `${st.kills}마리`],

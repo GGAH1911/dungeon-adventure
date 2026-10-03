@@ -15,6 +15,33 @@ function maxHpFor(armor) {
   return playerMaxHp(game.profile.level) + (armor.hearts || 0);
 }
 
+// ===== 주인공 여러 명 (둘이 하기: coop.js) =====
+// game.player 는 늘 1번 주인공 (카메라·기존 코드). game.players 가 있으면 둘이 하는 중이에요.
+function allPlayers() { return game.players && game.players.length ? game.players : game.player ? [game.player] : []; }
+function alivePlayers() { return allPlayers().filter((q) => q.hp > 0); }
+// 가장 가까운 살아있는 주인공 (모두 쓰러졌으면 1번)
+function nearestPlayer(x, y) {
+  let best = null, bd = Infinity;
+  for (const q of allPlayers()) { if (q.hp <= 0) continue; const d = Math.hypot(q.x - x, q.y - y); if (d < bd) { bd = d; best = q; } }
+  return best || game.player;
+}
+
+// 조작 읽기: 혼자면 지금 그대로, 둘이면 coop.js 가 사람마다 나눠요 (hookFilter "playerInput")
+function playerInput(p) {
+  const inp = {
+    sx: touch.moveX, sy: touch.moveY,
+    attackPressed: wasPressed("Space", "KeyJ", "TouchAttack"), attackHeld: isDown("Space", "KeyJ", "TouchAttack"),
+    rollPressed: wasPressed("ShiftLeft", "ShiftRight", "KeyK", "TouchRoll"),
+    bowHeld: isDown("KeyL", "TouchBow"), arrowTypePressed: wasPressed("Tab", "TouchArrowType"),
+    potionPressed: wasPressed("KeyQ", "TouchPotion"),
+  };
+  if (isDown("KeyA", "ArrowLeft")) inp.sx -= 1;
+  if (isDown("KeyD", "ArrowRight")) inp.sx += 1;
+  if (isDown("KeyW", "ArrowUp")) inp.sy -= 1;
+  if (isDown("KeyS", "ArrowDown")) inp.sy += 1;
+  return hookFilter("playerInput", inp, p);
+}
+
 function createPlayer(x, y) {
   const armor = currentArmor();
   const maxHp = maxHpFor(armor);
@@ -35,14 +62,14 @@ function createPlayer(x, y) {
 
 // 강화하거나 종류를 바꾸면 주인공 장비를 다시 계산해요 (저장도 같이)
 function refreshGear() {
-  const p = game.player;
-  if (p) {
+  for (const p of allPlayers()) {
     p.weapon = currentWeapon();
     p.bow = currentBow();
     p.armor = currentArmor();
     p.move = null;
     const old = p.maxHp;
     p.maxHp = maxHpFor(p.armor);
+    if (p.hp <= 0 && p !== game.player) continue; // 쓰러진 친구(유령)는 되살리지 않아요
     p.hp = Math.max(1, Math.min(p.maxHp, p.hp + Math.max(0, p.maxHp - old)));
   }
   saveProfile();
@@ -65,11 +92,8 @@ function updatePlayer(p, dt) {
   p.bowAge = (p.bowAge || 0) + dt;
 
   // 화면 기준 방향 (오른쪽 +, 아래 +) : 키보드 + 터치 조이스틱
-  let sx = touch.moveX, sy = touch.moveY;
-  if (isDown("KeyA", "ArrowLeft")) sx -= 1;
-  if (isDown("KeyD", "ArrowRight")) sx += 1;
-  if (isDown("KeyW", "ArrowUp")) sy -= 1;
-  if (isDown("KeyS", "ArrowDown")) sy += 1;
+  const inp = playerInput(p);
+  const sx = inp.sx, sy = inp.sy;
   // 화면 방향 -> 세상 방향 (비스듬한 시점이라 바꿔줘야 해요)
   let wx = sx + sy, wy = -sx + sy;
   const len = Math.hypot(wx, wy);
@@ -102,14 +126,14 @@ function updatePlayer(p, dt) {
   // 칼 공격 (연달아 누르면 연속기, 누르고 있어도 이어져요)
   // 조금 일찍 눌러도 기억해뒀다가 바로 다음 동작으로 이어줘요
   p.attackBuffer = (p.attackBuffer || 0) - dt;
-  if (wasPressed("Space", "KeyJ", "TouchAttack")) p.attackBuffer = 0.35;
-  if ((p.attackBuffer > 0 || isDown("Space", "KeyJ", "TouchAttack")) && p.attackTimer <= 0) {
+  if (inp.attackPressed) p.attackBuffer = 0.35;
+  if ((p.attackBuffer > 0 || inp.attackHeld) && p.attackTimer <= 0) {
     p.attackBuffer = 0;
     startAttack(p);
   }
 
   // 구르기 (방향키를 누르고 있으면 그쪽으로)
-  if (wasPressed("ShiftLeft", "ShiftRight", "KeyK", "TouchRoll") && p.rollCooldown <= 0) {
+  if (inp.rollPressed && p.rollCooldown <= 0) {
     p.rollTimer = cfg.rollTime;
     p.rollCooldown = rollCooldownFor(p);
     if (p.moving) { p.faceX = wx; p.faceY = wy; }
@@ -120,11 +144,11 @@ function updatePlayer(p, dt) {
   }
 
   // 활 쏘기 (누르고 있으면 계속)
-  if (isDown("KeyL", "TouchBow") && p.bowCooldown <= 0 && p.swingTimer <= 0) fireBow(p);
-  if (wasPressed("Tab", "TouchArrowType")) cycleArrowType();
+  if (inp.bowHeld && p.bowCooldown <= 0 && p.swingTimer <= 0) fireBow(p);
+  if (inp.arrowTypePressed) cycleArrowType();
 
   // 물약 마시기
-  if (wasPressed("KeyQ", "TouchPotion") && game.scene !== "lobby") drinkPotion(p);
+  if (inp.potionPressed && game.scene !== "lobby") drinkPotion(p);
 }
 
 function drinkPotion(p) {
@@ -143,7 +167,8 @@ function drinkPotion(p) {
 }
 
 // 갑옷에 따라 옷 색깔이 바뀌어요 (천 옷이면 옷장에서 고른 색)
-function playerLook(p) {
+function playerLook(p) { return hookFilter("playerLook", playerLookBase(p), p); }
+function playerLookBase(p) {
   const base = { ...CONFIG.colors.player, ...(game.profile.look || {}) };
   const a = game.profile.look && game.profile.look.hideArmor ? {} : p.armor;
   return {

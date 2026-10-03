@@ -28,6 +28,7 @@ function menuItems() {
   items.push({ label: muted ? "소리 켜기" : "소리 끄기", act: () => { muted = !muted; } });
   if (canFullscreen()) items.push({ label: isFullscreen() ? "전체 화면 끄기" : "전체 화면", act: () => { toggleFullscreen(); closeOverlay(); } });
   items.push({ label: "치트", act: () => { closeOverlay(); openCheat(); } });
+  hookRun("menuItems", items); // 다른 파일이 메뉴 항목을 더해요 (예: 목소리 안내, 저장 코드)
   if (game.scene === "lobby") items.push({ label: "처음 화면으로", act: () => { closeOverlay(); game.scene = "title"; } });
   return items;
 }
@@ -41,23 +42,40 @@ function updateMenu() {
   const items = menuItems();
   if (wasPressed("ArrowUp", "KeyW")) menu.index = (menu.index + items.length - 1) % items.length;
   if (wasPressed("ArrowDown", "KeyS")) menu.index = (menu.index + 1) % items.length;
+  const L = menuLayout(items.length);
+  if (L.cols === 2 && wasPressed("ArrowRight", "KeyD", "ArrowLeft", "KeyA")) menu.index = (menu.index + L.rows) % (L.rows * 2) % items.length;
   if (wasPressed("Enter", "Space")) items[menu.index].act();
   else if (wasPressed("Escape")) closeOverlay();
 }
 
+// 항목이 많으면 (휴대폰 화면에서 넘치면) 두 줄(열)로 나눠요
+function menuLayout(n) {
+  const H = view.h - 24, W = view.w - 24;
+  const one = 80 + n * 56;
+  const cols = one > H && W >= 640 ? 2 : 1;
+  const rows = Math.ceil(n / cols);
+  const bh = Math.max(34, Math.min(48, (H - 80) / rows - 8));
+  const colW = cols === 2 ? Math.min(330, (W - 72) / 2) : 332;
+  const pw = cols * colW + (cols - 1) * 16 + 48;
+  const ph = 72 + rows * (bh + 8);
+  return { cols, rows, bh, colW, pw, ph };
+}
+
 function drawMenu() {
   const items = menuItems();
-  const pw = 380, bh = 48, ph = 80 + items.length * (bh + 8);
-  const x0 = (view.w - pw) / 2, y0 = (view.h - ph) / 2;
-  drawPanel(x0, y0, pw, ph);
-  text("메뉴", view.w / 2, y0 + 44, 26, "#ffe27a", "center");
+  const L = menuLayout(items.length);
+  const x0 = (view.w - L.pw) / 2, y0 = Math.max(8, (view.h - L.ph) / 2);
+  drawPanel(x0, y0, L.pw, L.ph);
+  text("메뉴", view.w / 2, y0 + 40, 24, "#ffe27a", "center");
   items.forEach((it, i) => {
-    drawButton(x0 + 24, y0 + 64 + i * (bh + 8), pw - 48, bh, it.label, it.act, { selected: menu.index === i, size: 17 });
+    const c = Math.floor(i / L.rows), r = i % L.rows;
+    drawButton(x0 + 24 + c * (L.colW + 16), y0 + 58 + r * (L.bh + 8), L.colW, L.bh, it.label, it.act, { selected: menu.index === i, size: L.bh < 42 ? 15 : 17 });
   });
 }
 
 // ----- 던전 결과 (클리어 / 쓰러짐) -----
-function updateResult() {
+function updateResult() { if (hookAny("resultUpdate")) return; return updateResultBase(); }
+function updateResultBase() {
   if (wasPressed("Enter", "Space", "KeyR", "Escape")) finishResult();
 }
 
@@ -67,7 +85,8 @@ function finishResult() {
   enterLobby();
 }
 
-function drawResult() {
+function drawResult() { if (hookAny("resultDraw")) return; return drawResultBase(); }
+function drawResultBase() {
   const r = game.result;
   const pw = Math.min(620, view.w - 24), ph = 370;
   const x0 = (view.w - pw) / 2, y0 = (view.h - ph) / 2;

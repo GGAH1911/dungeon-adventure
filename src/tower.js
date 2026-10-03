@@ -178,7 +178,8 @@ function nextFloor() {
   showMessage(TOWER.bosses[T.floor] ? `${T.floor}층 · 보스 층!` : `${T.floor}층`, 2.5, false, TOWER.bosses[T.floor] ? "#ff8080" : "#ffe27a");
 }
 
-function stairsThings(things) {
+function stairsThings(things) { const r = stairsThingsBase(things); hookRun("worldThings", things); return r; }
+function stairsThingsBase(things) {
   if (!stairs) return;
   things.push({ depth: stairs.x + stairs.y, draw: drawStairs });
 }

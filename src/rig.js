@@ -142,8 +142,15 @@ function buildRigItems(e, look, pose, opts = {}) {
 
 // 무기 조각들. grip = 손 위치, dir = 칼끝 방향
 function addWeaponItems(items, grip, w) {
-  const dir = vnorm(w.dir);
+  let dir = vnorm(w.dir);
   const L = w.len;
+  // 칼끝이 바닥 밑으로 가면 (그림에서 바닥에 눌려 칼이 휘어 보여요) 칼을 곧게 둔 채 살짝 들어 올려요
+  const minZ = 0.05;
+  if (grip.z + dir.z * L < minZ) {
+    const nz = Math.max(-1, Math.min(1, (minZ - grip.z) / L));
+    const h = Math.hypot(dir.f, dir.s), nh = Math.sqrt(Math.max(0, 1 - nz * nz));
+    dir = h > 1e-4 ? V(dir.f / h * nh, dir.s / h * nh, nz) : V(nh, 0, nz);
+  }
   const style = w.style;
   const color = w.color;
   const pieces = Math.max(2, Math.round(L / 0.22));
@@ -268,7 +275,9 @@ function drawRig(e, look, pose, opts = {}) {
         bh = hv; bw = Math.max(bw, hw); bd = Math.max(bd, hw * 0.9);
       }
       if (X.curl > 0) bh *= 1 - 0.3 * X.curl;
-      list.push({ it, w, bw: bw * X.S, bd: bd * X.S, bh: bh * X.S * X.squash, depth: w.x + w.y, z: w.z });
+      // 머리는 몸통 위에 얹혀 있어서, 몸을 뒤로 젖혀도 몸통보다 먼저 그려지면 안 돼요 (얼굴이 갈색 상자에 가려져요)
+      const bias = it.tag === "head" ? 0.14 * X.S : 0;
+      list.push({ it, w, bw: bw * X.S, bd: bd * X.S, bh: bh * X.S * X.squash, depth: w.x + w.y + bias, z: w.z });
     } else if (it.type === "seg") {
       const a = X.world(it.a), b = X.world(it.b);
       list.push({ it, a, b, depth: (a.x + a.y + b.x + b.y) / 2 + 0.001, z: (a.z + b.z) / 2 });

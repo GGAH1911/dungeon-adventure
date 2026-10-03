@@ -72,7 +72,8 @@ function chestLoot(c) {
   }
 }
 
-function updateChests(dt) {
+function updateChests(dt) { const r = updateChestsBase(dt); hookRun("dungeonTick", dt); return r; }
+function updateChestsBase(dt) {
   for (const c of chests) if (c.open) c.openT += dt;
 }
 
