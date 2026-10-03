@@ -10,6 +10,7 @@ function menuItems() {
   const items = [{ label: "계속하기", act: closeOverlay }];
   if (game.scene === "dungeon") items.push({ label: "로비로 돌아가기", act: () => { closeOverlay(); enterLobby("로비로 돌아왔어요"); } });
   items.push({ label: muted ? "소리 켜기" : "소리 끄기", act: () => { muted = !muted; } });
+  if (canFullscreen()) items.push({ label: isFullscreen() ? "전체 화면 끄기" : "전체 화면", act: () => { toggleFullscreen(); closeOverlay(); } });
   items.push({ label: "치트", act: () => { closeOverlay(); openCheat(); } });
   if (game.scene === "lobby") items.push({ label: "처음 화면으로", act: () => { closeOverlay(); game.scene = "title"; } });
   return items;

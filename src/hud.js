@@ -50,14 +50,16 @@ function drawHUD() {
 
   // 메뉴 버튼 (오른쪽 위)
   drawButton(W - 58, 12, 44, 40, "≡", openMenu, { size: 24 });
+  // 전체 화면 버튼 (터치 기기에서 아직 전체 화면이 아닐 때)
+  if (touch.show && canFullscreen() && !isFullscreen()) drawButton(W - 112, 12, 44, 40, "⛶", enterFullscreen, { size: 22 });
 
   // 장소 정보
   if (game.scene === "dungeon") {
-    text(game.mapDef.name, W - 70, 40, 20, "#ffe27a", "right");
+    text(game.mapDef.name, W - 124, 40, 20, "#ffe27a", "right");
     const bottom = drawMinimap(p, monsters);
     text(`남은 몬스터 ${monsters.length}`, W - 16, (bottom || 200) + 26, 17, monsters.length <= 3 ? "#ff8080" : "#fff", "right");
   } else if (game.scene === "lobby") {
-    text("캠프", W - 70, 40, 20, "#ffe27a", "right");
+    text("캠프", W - 124, 40, 20, "#ffe27a", "right");
   }
 
   // 가운데 메시지
@@ -121,7 +123,7 @@ function drawTitle() {
   text("(게임 이름은 아들이 지어주세요!)", W / 2, H / 2 - 78, 18, "#ddd", "center");
   const pr = game.profile;
   const hasSave = pr.level > 1 || pr.emeralds > 0 || pr.cleared.length > 0;
-  drawButton(W / 2 - 130, H / 2 - 40, 260, 60, hasSave ? `이어하기 (Lv ${pr.level})` : "시작하기", () => enterLobby(), { color: "rgba(80,200,120,0.4)", size: 24 });
+  drawButton(W / 2 - 130, H / 2 - 40, 260, 60, hasSave ? `이어하기 (Lv ${pr.level})` : "시작하기", () => { if (touch.show) enterFullscreen(); enterLobby(); }, { color: "rgba(80,200,120,0.4)", size: 24 });
   if (hasSave) {
     const label = game.confirmReset ? "정말 지울까요? 한 번 더 누르세요" : "기록 지우고 처음부터";
     drawButton(W / 2 - 150, H / 2 + 36, 300, 42, label, () => {
@@ -131,6 +133,9 @@ function drawTitle() {
   }
   if (touch.show) {
     text("왼쪽 화면: 이동 · 오른쪽 버튼: 공격, 구르기", W / 2, H / 2 + 130, 18, "#fff", "center");
+    if (canFullscreen() && !isFullscreen()) {
+      drawButton(W / 2 - 90, H / 2 + 150, 180, 40, "⛶ 전체 화면", enterFullscreen, { size: 16 });
+    }
   } else {
     text("이동 WASD/방향키 · 공격 스페이스/J · 구르기 Shift/K", W / 2, H / 2 + 120, 18, "#fff", "center");
     text("말 걸기 E · 물약 Q · 메뉴 ESC · 엔터로 시작", W / 2, H / 2 + 148, 18, "#fff", "center");
