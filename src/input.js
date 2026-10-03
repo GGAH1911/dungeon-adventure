@@ -71,16 +71,16 @@ function touchButtons() {
   const s = touchScale();
   const p = game.player;
   const list = [
-    { code: "TouchAttack", label: "공격", x: W - 110 * s, y: H - 110 * s, r: 64 * s, color: "#e25555" },
-    { code: "TouchRoll", label: "구르기", x: W - 255 * s, y: H - 62 * s, r: 44 * s, color: "#4aa3df" },
+    { code: "TouchAttack", icon: "sword", label: "공격", x: W - 110 * s, y: H - 110 * s, r: 64 * s, color: "#e25555" },
+    { code: "TouchRoll", icon: "roll", label: "구르기", x: W - 255 * s, y: H - 62 * s, r: 44 * s, color: "#4aa3df" },
   ];
   const type = currentArrowType();
   const at = arrowTypeById(type);
   const bowLabel = p.bow.infinite || game.scene === "lobby" ? "활 ∞" : `활 ${arrowCount(type)}`;
-  list.push({ code: "TouchBow", label: bowLabel, x: W - 235 * s, y: H - 190 * s, r: 46 * s, color: p.bow.legendary ? rainbow(game.time * 200, 50) : "#b07a2a" });
-  list.push({ code: "TouchArrowType", label: "화살", x: W - 318 * s, y: H - 238 * s, r: 26 * s, color: at.color, dark: type === "normal" || type === "ice" });
-  if (game.scene === "dungeon") list.push({ code: "TouchPotion", label: `물약 ${game.profile.potions}`, x: W - 72 * s, y: H - 245 * s, r: 36 * s, color: "#c64fa0" });
-  if (game.nearNpc) list.push({ code: "TouchUse", label: game.nearNpc.short, x: W - 160 * s, y: H - 300 * s, r: 46 * s, color: "#3fbf6f" });
+  list.push({ code: "TouchBow", icon: "bow", label: bowLabel, x: W - 235 * s, y: H - 190 * s, r: 46 * s, color: p.bow.legendary ? rainbow(game.time * 200, 50) : "#b07a2a" });
+  list.push({ code: "TouchArrowType", icon: "arrow_" + type, label: "화살", x: W - 318 * s, y: H - 238 * s, r: 26 * s, color: at.color, dark: type === "normal" || type === "ice" });
+  if (game.scene === "dungeon") list.push({ code: "TouchPotion", icon: "potion", label: `물약 ${game.profile.potions}`, x: W - 72 * s, y: H - 245 * s, r: 36 * s, color: "#c64fa0" });
+  if (game.nearNpc) list.push({ code: "TouchUse", icon: "use", label: game.nearNpc.short, x: W - 160 * s, y: H - 300 * s, r: 46 * s, color: "#3fbf6f" });
   return hookFilter("touchButtons", list, s); // 둘이 하기: 양쪽 배치 (coop.js)
 }
 

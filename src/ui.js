@@ -98,3 +98,24 @@ function josa(word, withFinal, withoutFinal) {
   if (code < 0 || code > 11171) return withoutFinal;
   return code % 28 !== 0 ? withFinal : withoutFinal;
 }
+
+// ----- 받침에 맞는 조사 붙이기: josa("분노", "이/가") -> "분노가", josa("집중", "이/가") -> "집중이" -----
+// 쓸 수 있는 짝: "이/가", "을/를", "은/는", "과/와", "으로/로", "이에요/예요"
+function hasBatchim(word) {
+  const s = String(word).trim();
+  if (!s) return false;
+  const ch = s[s.length - 1], code = ch.charCodeAt(0);
+  if (code >= 0xac00 && code <= 0xd7a3) return (code - 0xac00) % 28 !== 0;
+  if (/[0-9]/.test(ch)) return "0136784".includes(ch); // 영·일·삼·육·칠·팔 받침 있음 (2이 4사 5오 9구 없음)
+  return false;
+}
+function josa(word, pair) {
+  const [withB, withoutB] = pair.split("/");
+  const s = String(word);
+  if (withB === "으로") {
+    const last = s.trim().slice(-1), code = last.charCodeAt(0);
+    const rieul = code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 === 8; // ㄹ 받침은 "로"
+    return s + (hasBatchim(s) && !rieul ? "으로" : "로");
+  }
+  return s + (hasBatchim(s) ? withB : withoutB);
+}

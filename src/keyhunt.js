@@ -656,33 +656,49 @@ const KEY_CHALLENGES = {
       ch.ped = { x: r.cx + 2.6, y: r.cy + 2.6 };
       world.solids.push({ x: ch.ped.x, y: ch.ped.y, r: 0.3 });
       const len = { easy: 3, normal: 4, hard: 5, nightmare: 6 }[game.profile.difficulty] || 4;
-      ch.seq = Array.from({ length: len }, () => Math.floor(Math.random() * 9));
-      for (let i = 1; i < len; i++) if (ch.seq[i] === ch.seq[i - 1]) ch.seq[i] = (ch.seq[i] + 4) % 9;
+      // 다음 타일은 늘 위·아래·왼쪽·오른쪽 옆 칸 (대각선으로 가다 다른 타일을 밟지 않게)
+      ch.seq = [Math.floor(Math.random() * 9)];
+      while (ch.seq.length < len) {
+        const cur = ch.seq[ch.seq.length - 1], cx = cur % 3, cy = Math.floor(cur / 3), prev = ch.seq[ch.seq.length - 2];
+        const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [cx + dx, cy + dy]).filter(([x, y]) => x >= 0 && x < 3 && y >= 0 && y < 3).map(([x, y]) => y * 3 + x);
+        const pick = nb.filter((t) => t !== prev);
+        const from = pick.length ? pick : nb;
+        ch.seq.push(from[Math.floor(Math.random() * from.length)]);
+      }
       ch.phase = "idle"; ch.t = 0; ch.k = 0; ch.last = -1; ch.flash = null;
       return true;
     },
+    // 타일 가운데 쪽에 들어가야 밟은 걸로 쳐요 (가장자리 0.18칸은 안 쳐요)
     tileAt(ch, x, y) {
-      const tx = Math.floor(x) - ch.gx, ty = Math.floor(y) - ch.gy;
-      return tx >= 0 && tx < 3 && ty >= 0 && ty < 3 ? ty * 3 + tx : -1;
+      const fx = x - ch.gx, fy = y - ch.gy, tx = Math.floor(fx), ty = Math.floor(fy);
+      if (tx < 0 || tx >= 3 || ty < 0 || ty >= 3) return -1;
+      const ix = fx - tx, iy = fy - ty, m = 0.18;
+      if (ix < m || ix > 1 - m || iy < m || iy > 1 - m) return -1;
+      return ty * 3 + tx;
     },
     update(ch, p, dt) {
       ch.t += dt;
       if (ch.flash) { ch.flash.t -= dt; if (ch.flash.t <= 0) ch.flash = null; }
+      // 보는 중·밟는 중에는 가까이 (멀리 가면 원래대로)
+      const near = Math.hypot(p.x - (ch.gx + 1.5), p.y - (ch.gy + 1.5)) < 6;
+      easeFocusZoom((ch.phase === "show" || ch.phase === "input") && near ? 1.35 : 1, dt);
       const step = 0.75 * Math.max(0.7, ktune().time);
-      if (ch.phase === "show" && ch.t > ch.seq.length * step + 0.3) { ch.phase = "input"; ch.k = 0; ch.last = this.tileAt(ch, p.x, p.y); showMessage("이제 같은 순서로 밟아요!", 2); }
+      if (ch.phase === "show" && ch.t > ch.seq.length * step + 0.3) { ch.phase = "input"; ch.k = 0; ch.last = this.tileAt(ch, p.x, p.y); showMessage("이제 같은 순서로 밟아요! (첫 타일부터)", 2); }
       if (ch.phase !== "input") return;
       const tile = this.tileAt(ch, p.x, p.y);
       if (tile !== ch.last && tile >= 0) {
         if (tile === ch.seq[ch.k]) {
           ch.k++; ch.flash = { tile, ok: true, t: 0.4 }; sfx.coin(); game.keyhunt.hint = 0;
-          if (ch.k === ch.seq.length) khStepDone({ x: ch.ped.x - 0.8, y: ch.ped.y - 0.8 });
+          if (ch.k === ch.seq.length) { ch.phase = "done"; khZoomBack(); khStepDone({ x: ch.ped.x - 0.8, y: ch.ped.y - 0.8 }); }
+        } else if (ch.k === 0) {
+          // 첫 타일을 밟기 전에는 가는 길에 지나간 타일을 틀린 걸로 치지 않아요 (받침대가 타일 밖에 있어서)
         } else {
           ch.flash = { tile, ok: false, t: 0.6 }; ch.phase = "idle"; sfx.denied();
           showMessage("틀렸어요! 받침대를 눌러 다시 봐요", 2.5, false, "#ff8080");
           khSpawn(2, ch.room.cx, ch.room.cy);
         }
       }
-      ch.last = tile;
+      if (tile >= 0) ch.last = tile; // 가장자리·밖에 있을 땐 마지막 타일을 기억해요 (같은 타일을 두 번 친 걸로 안 쳐요)
     },
     floor(ch) {
       const step = 0.75 * Math.max(0.7, ktune().time);
@@ -714,6 +730,12 @@ const KEY_CHALLENGES = {
     target(ch) { return ch.ped; },
   },
 };
+
+// 기억 타일 등에서 가까이 본 화면을 원래대로 (성공·실패·장면 바뀜)
+let khZoomT = 0;
+function khZoomBack() { khZoomT = 1.2; }
+hookOn("dungeonTick", (dt) => { if (khZoomT > 0) { khZoomT -= dt; easeFocusZoom(1, dt * 2); if (khZoomT <= 0) easeFocusZoom(1, 99); } }, 60);
+hookOn("reset", () => { khZoomT = 0; if (typeof easeFocusZoom === "function") easeFocusZoom(1, 99); }, 95);
 
 function khLight(ch, t) {
   if (t.lit) return;

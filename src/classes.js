@@ -7,25 +7,25 @@
 const CLASS_ORDER = ["warrior", "hunter", "mage", "druid"];
 const CLASS_DEFS = {
   warrior: {
-    name: "전사", color: "#e25555", icon: "⚔", hpMul: 1.0, speed: 0, dmgMul: 1.2,
+    name: "전사", color: "#e25555", icon: "sword", hpMul: 1.0, speed: 0, dmgMul: 1.2,
     desc: "앞에서 부딪치는 힘! 무기 연속기와 회오리 베기",
     res: { name: "분노", color: "#ff5a4a", rule: "때리거나 맞으면 차요 · 가만히 있으면 줄어요" },
     style: null,
   },
   hunter: {
-    name: "사냥꾼", color: "#4caf50", icon: "➶", hpMul: 0.92, speed: 0.08, dmgMul: 0.7,
+    name: "사냥꾼", color: "#4caf50", icon: "bow", hpMul: 0.92, speed: 0.08, dmgMul: 0.7,
     desc: "멀리서 피하며 쏘기! 공격 버튼이 활이에요 (보통 화살 무한)",
     res: { name: "집중", color: "#7ddc5a", rule: "저절로 빨리 차요 · 서 있으면 더 빨리" },
     style: "dagger",
   },
   mage: {
-    name: "마법사", color: "#4f7dff", icon: "✦", hpMul: 0.85, speed: 0, dmgMul: 0.72,
+    name: "마법사", color: "#4f7dff", icon: "orb", hpMul: 0.85, speed: 0, dmgMul: 0.72,
     desc: "큰 마법 한 방! 몸은 조금 약해요",
     res: { name: "마나", color: "#5aa8ff", rule: "저절로 천천히 차요 · 구슬이 맞으면 조금 더" },
     style: "staff", orb: "#9fd0ff",
   },
   druid: {
-    name: "드루이드", color: "#8bc34a", icon: "❦", hpMul: 0.97, speed: 0, dmgMul: 0.75,
+    name: "드루이드", color: "#8bc34a", icon: "staff", hpMul: 0.97, speed: 0, dmgMul: 0.75,
     desc: "동물 친구와 함께! 늑대를 부르고 큰 곰으로 변신",
     res: { name: "기운", color: "#b6e35a", rule: "지팡이로 때리면 차요 · 저절로 조금" },
     style: "staff", orb: "#9be86a",
@@ -35,44 +35,44 @@ const CLASS_DEFS = {
 // 기술 표 (check.mjs 가 검사하고 gen-docs 가 docs/classes.md 를 만들어요)
 // slot: basic / s1 / s2 / ult · unlock: 필요한 레벨 · cost: 힘 막대 · cooldown: 초 · dmg: W 배수(설명용)
 const PLAYER_SKILLS = {
-  w_basic: { cls: "warrior", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "무기 연속기", ref: "Bash / Frenzy", dmg: "1.0~1.9W", desc: "고른 무기의 3단 연속기 (지금 칼 공격 그대로)", kidText: "공격 버튼을 연달아 눌러요!" },
-  w_whirl: { cls: "warrior", slot: "s1", unlock: 3, cost: 18, costPerSec: true, cooldown: 0, name: "회오리 베기", ref: "Whirlwind", dmg: "0.5W / 0.25초",
+  w_basic: { cls: "warrior", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "연속 베기", short: "공격", icon: "sword", ref: "Bash / Frenzy", dmg: "1.0~1.9W", desc: "고른 무기의 3단 연속기 (지금 칼 공격 그대로)", kidText: "공격 버튼을 연달아 눌러요!" },
+  w_whirl: { cls: "warrior", slot: "s1", unlock: 3, cost: 18, costPerSec: true, cooldown: 0, name: "회오리 베기", short: "회오리", icon: "whirl", ref: "Whirlwind", dmg: "0.5W / 0.25초",
     desc: "누르고 있는 동안 빙글빙글 돌며 걸어요. 둘레 1.6칸 모두 맞아요", kidText: "누르고 있으면 빙글빙글!",
     mods: { A: { name: "빨아들이는 바람", desc: "몬스터를 살짝 끌어당겨요" }, B: { name: "불꽃 자국", desc: "지나간 자리에 불꽃이 남아요" } } },
-  w_leap: { cls: "warrior", slot: "s2", unlock: 8, cost: 25, cooldown: 8, name: "도약 내려찍기", ref: "Leap Attack", dmg: "2.0W",
+  w_leap: { cls: "warrior", slot: "s2", unlock: 8, cost: 25, cooldown: 8, name: "점프 찍기", short: "점프", icon: "leap", ref: "Leap Attack", dmg: "2.0W",
     desc: "적 무리로 뛰어올라 쿵! 공중에선 안 맞고, 둘레 2칸이 1초 기절", kidText: "점프해서 쿵!",
     mods: { A: { name: "두 번 쿵", desc: "착지 충격파가 두 번" }, B: { name: "빠른 점프", desc: "쿨다운 6초, 범위 조금 작게" } } },
-  w_shout: { cls: "warrior", slot: "ult", unlock: 15, cost: 0, cooldown: 40, name: "용기의 함성", ref: "Battle Cry / War Cry", dmg: "-",
+  w_shout: { cls: "warrior", slot: "ult", unlock: 15, cost: 0, cooldown: 40, name: "함성", short: "함성", icon: "shout", ref: "Battle Cry / War Cry", dmg: "-",
     desc: "우리 편 하트 30% 회복 + 8초 공격력 +30%, 둘레 몬스터는 겁먹고 밀려나요", kidText: "와아아! 힘이 솟아요" },
 
-  h_basic: { cls: "hunter", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "연사", ref: "Hungering Arrow", dmg: "1.0W", desc: "가까운 적을 자동으로 겨냥해 화살을 계속 쏴요. 보통 화살 무한", kidText: "누르고 있으면 계속 쏴요!" },
-  h_multi: { cls: "hunter", slot: "s1", unlock: 3, cost: 25, cooldown: 0, name: "부채꼴 화살", ref: "Multishot", dmg: "0.75W x7",
+  h_basic: { cls: "hunter", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "활 쏘기", short: "쏘기", icon: "bow", ref: "Hungering Arrow", dmg: "1.0W", desc: "가까운 적을 자동으로 겨냥해 화살을 계속 쏴요. 보통 화살 무한", kidText: "누르고 있으면 계속 쏴요!" },
+  h_multi: { cls: "hunter", slot: "s1", unlock: 3, cost: 25, cooldown: 0, name: "여러 발 쏘기", short: "여러 발", icon: "multi", ref: "Multishot", dmg: "0.75W x7",
     desc: "부채꼴로 화살 7발, 한 마리씩 뚫어요", kidText: "화살 7발 펑!",
     mods: { A: { name: "불화살", desc: "모두 불화살 (불붙음)" }, B: { name: "얼음 화살", desc: "모두 얼음 화살 (느려짐)" } } },
-  h_vault: { cls: "hunter", slot: "s2", unlock: 8, cost: 0, cooldown: 6, name: "공중제비 + 가시 덫", ref: "Vault, Spike Trap", dmg: "1.2W",
+  h_vault: { cls: "hunter", slot: "s2", unlock: 8, cost: 0, cooldown: 6, name: "공중제비", short: "공중제비", icon: "vault", ref: "Vault, Spike Trap", dmg: "1.2W",
     desc: "뒤로 3칸 공중제비(안 맞아요), 떠난 자리에 가시 덫 (최대 3개)", kidText: "휙! 뒤로 피하고 덫 깔기",
     mods: { A: { name: "덫 두 개", desc: "덫이 2개씩" }, B: { name: "두 번 공중제비", desc: "2번까지 연속으로" } } },
-  h_rain: { cls: "hunter", slot: "ult", unlock: 15, cost: 0, cooldown: 40, name: "화살비", ref: "Rain of Vengeance", dmg: "0.5W x12",
+  h_rain: { cls: "hunter", slot: "ult", unlock: 15, cost: 0, cooldown: 40, name: "화살비", short: "화살비", icon: "rain", ref: "Rain of Vengeance", dmg: "0.5W x12",
     desc: "적 무리 위에 3초 동안 화살비 12번", kidText: "하늘에서 화살이 쏟아져요!" },
 
-  m_basic: { cls: "mage", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "마법 구슬", ref: "Magic Missile", dmg: "0.9W", desc: "적을 살짝 따라가는 마법 구슬", kidText: "반짝 구슬 발사!" },
-  m_fire: { cls: "mage", slot: "s1", unlock: 3, cost: 20, cooldown: 0, name: "불덩이", ref: "Fireball", dmg: "2.2W",
+  m_basic: { cls: "mage", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "마법 구슬", short: "구슬", icon: "orb", ref: "Magic Missile", dmg: "0.9W", desc: "적을 살짝 따라가는 마법 구슬", kidText: "반짝 구슬 발사!" },
+  m_fire: { cls: "mage", slot: "s1", unlock: 3, cost: 20, cooldown: 0, name: "불덩이", short: "불덩이", icon: "fireball", ref: "Fireball", dmg: "2.2W",
     desc: "날아가 터지는 불덩이, 둘레 1.6칸 + 불붙음", kidText: "불덩이 펑!",
     mods: { A: { name: "세 갈래", desc: "작은 불덩이 3개" }, B: { name: "큰 폭발", desc: "폭발 범위 2.4칸" } } },
-  m_blink: { cls: "mage", slot: "s2", unlock: 8, cost: 15, cooldown: 5, name: "순간이동 + 얼음 고리", ref: "Teleport, Frost Nova", dmg: "0.6W",
+  m_blink: { cls: "mage", slot: "s2", unlock: 8, cost: 15, cooldown: 5, name: "순간이동", short: "순간이동", icon: "blink", ref: "Teleport, Frost Nova", dmg: "0.6W",
     desc: "4칸 순간이동, 떠난 자리 둘레 2칸을 얼려요 (보스는 느려짐)", kidText: "슝! 얼음 고리",
     mods: { A: { name: "양쪽 고리", desc: "도착한 자리에도 얼음 고리" }, B: { name: "빠른 순간이동", desc: "쿨다운 3초, 고리 없음" } } },
-  m_meteor: { cls: "mage", slot: "ult", unlock: 15, cost: 0, cooldown: 40, name: "운석", ref: "Meteor", dmg: "6W",
+  m_meteor: { cls: "mage", slot: "ult", unlock: 15, cost: 0, cooldown: 40, name: "운석", short: "운석", icon: "meteor", ref: "Meteor", dmg: "6W",
     desc: "금색 원 1초 뒤 운석 쿵! 둘레 3칸 + 불타는 땅", kidText: "하늘에서 큰 돌이 쿵!" },
 
-  d_basic: { cls: "druid", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "지팡이 + 가시 덩굴", ref: "Maul / Earth Spike", dmg: "1.0~1.4W", desc: "지팡이 연속기, 3번째는 앞으로 가시 덩굴이 솟아요", kidText: "세 번째엔 덩굴이 쑥!" },
-  d_wolf: { cls: "druid", slot: "s1", unlock: 3, cost: 40, cooldown: 0, name: "늑대 친구", ref: "Summon Spirit Wolf", dmg: "0.35W / 물기",
+  d_basic: { cls: "druid", slot: "basic", unlock: 1, cost: 0, cooldown: 0, name: "덩굴 지팡이", short: "공격", icon: "staff", ref: "Maul / Earth Spike", dmg: "1.0~1.4W", desc: "지팡이 연속기, 3번째는 앞으로 가시 덩굴이 솟아요", kidText: "세 번째엔 덩굴이 쑥!" },
+  d_wolf: { cls: "druid", slot: "s1", unlock: 3, cost: 40, cooldown: 0, name: "늑대 부르기", short: "늑대", icon: "wolf", ref: "Summon Spirit Wolf", dmg: "0.35W / 물기",
     desc: "늑대 친구들을 불러요(변형 A 3마리, B 2마리). 이미 있으면 '덮쳐!' (기운 15)", kidText: "늑대야 도와줘!",
     mods: { A: { name: "늑대 셋", desc: "늑대 3마리 (조금 약해요)" }, B: { name: "고마운 늑대", desc: "늑대가 물면 내 하트가 조금 차요" } } },
-  d_tornado: { cls: "druid", slot: "s2", unlock: 8, cost: 25, cooldown: 0, name: "회오리바람", ref: "Tornado", dmg: "0.3W / 0.2초",
+  d_tornado: { cls: "druid", slot: "s2", unlock: 8, cost: 25, cooldown: 0, name: "회오리바람", short: "바람", icon: "tornado", ref: "Tornado", dmg: "0.3W / 0.2초",
     desc: "앞으로 구불구불 가는 회오리, 몬스터를 살짝 끌어당겨요", kidText: "회오리야 가라!",
     mods: { A: { name: "회오리 둘", desc: "회오리 2개" }, B: { name: "머무는 회오리", desc: "제자리에서 3초 머물러요" } } },
-  d_bear: { cls: "druid", slot: "ult", unlock: 15, cost: 0, cooldown: 45, name: "큰 곰 변신", ref: "Werebear", dmg: "1.6배",
+  d_bear: { cls: "druid", slot: "ult", unlock: 15, cost: 0, cooldown: 45, name: "곰 변신", short: "곰", icon: "bear", ref: "Werebear", dmg: "1.6배",
     desc: "12초 동안 통통한 큰 곰! 하트 +50%, 공격이 1.6배", kidText: "으르렁! 곰이 됐어요" },
 };
 const SKILL_SLOTS = ["s1", "s2", "ult"];
@@ -270,9 +270,9 @@ function skillBlocked(p, s) {
   if (!skillUnlocked(s, p)) return `Lv ${s.unlock}에 열려요`;
   if (p.cd[s.slot] > 0) return "준비 중";
   const cost = skillCost(p, s);
-  if (!s.costPerSec && cost > 0 && p.res < cost) return `${CLASS_DEFS[s.cls].res.name}이 모자라요`;
+  if (!s.costPerSec && cost > 0 && p.res < cost) return `${josa(CLASS_DEFS[s.cls].res.name, "이/가")} 모자라요`;
   // 누르고 있는 기술(회오리 베기)은 막대가 조금이라도 있어야 해요
-  if (s.costPerSec && p.res <= 1) return `${CLASS_DEFS[s.cls].res.name}이 모자라요 (몬스터를 때려서 모아요)`;
+  if (s.costPerSec && p.res <= 1) return `${josa(CLASS_DEFS[s.cls].res.name, "이/가")} 모자라요 (몬스터를 때려서 모아요)`;
   return null;
 }
 function skillCost(p, s) {
@@ -788,8 +788,9 @@ hookOn("hudDraw", () => {
     ctx.strokeStyle = slot === "ult" ? "#ffd84a" : def.color; ctx.lineWidth = 2; ctx.strokeRect(x, y, 40, 40);
     if (!lock && cd > 0) { ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(x, y, 40, 40 * Math.min(1, cd / tot)); }
     if (!lock && !s.costPerSec && p.res < skillCost(p, s)) { ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(x, y, 40, 40); }
-    text(lock ? `Lv${s.unlock}` : s.name.slice(0, 3), x + 20, y + 24, 11, lock ? "#888" : "#fff", "center");
-    text(["U", "I", "O"][i], x + 34, y + 12, 10, "#aaa", "center");
+    drawIcon(lock ? "lock" : s.icon, x + 20, y + 18, 28, { gray: lock });
+    text(lock ? `Lv${s.unlock}` : s.short || s.name, x + 20, y + 52, 10, lock ? "#888" : "#ddd", "center");
+    text(["U", "I", "O"][i], x + 35, y + 11, 10, "#fff", "center");
   });
 }, 60);
 
@@ -804,14 +805,15 @@ hookOn("touchButtons", (list, s) => {
   for (const b of list) {
     if (cls === "hunter" && b.code === "TouchBow") continue; // 사냥꾼은 공격 버튼이 활이에요
     const q = pos[b.code];
-    out.push(q ? { ...b, x: W0 - q[0] * s, y: H - q[1] * s, r: q[2] * s, label: b.code === "TouchAttack" && cls === "hunter" ? "활 쏘기" : b.code === "TouchAttack" && cls === "mage" ? "구슬" : b.label } : b);
+    const atk = b.code === "TouchAttack";
+    out.push(q ? { ...b, x: W0 - q[0] * s, y: H - q[1] * s, r: q[2] * s, icon: atk ? def.icon : b.icon, label: atk ? classSkill(cls, "basic").short : b.label } : b);
   }
   const sp = { s1: ["TouchSkill1", 215, 152, 38], s2: ["TouchSkill2", 168, 235, 36], ult: ["TouchUlt", 75, 248, 36] };
   for (const slot of SKILL_SLOTS) {
     const sk = classSkill(cls, slot), [code, dx, dy, r] = sp[slot];
     const lock = !skillUnlocked(sk);
     const cd = p.cd[slot], tot = skillCooldown(p, sk) || 1;
-    out.push({ code, label: lock ? `Lv${sk.unlock}` : sk.name.length > 4 ? sk.name.slice(0, 4) : sk.name, x: W0 - dx * s, y: H - dy * s, r: r * s,
+    out.push({ code, icon: sk.icon, label: lock ? `Lv${sk.unlock}` : sk.short || sk.name, x: W0 - dx * s, y: H - dy * s, r: r * s,
       color: lock ? "#555" : slot === "ult" ? "#b8901a" : def.color, dark: false, cd: lock ? 0 : Math.min(1, cd / tot), lowRes: !lock && !sk.costPerSec && p.res < skillCost(p, sk), locked: lock });
   }
   return out;
@@ -861,7 +863,7 @@ function chooseClass(c) {
   for (const p of allPlayers()) if (!p.pid || p.pid === 1) { p.cls = undefined; p._cls = null; refreshGear(); clsPrepare(p); }
   allies = allies.filter((w) => w.owner !== game.player);
   spawnBurst(game.player.x, game.player.y, [CLASS_DEFS[c].color, "#ffffff"], 18);
-  showMessage(`${CLASS_DEFS[c].name}이 되었어요!`, 2, true);
+  showMessage(`${josa(CLASS_DEFS[c].name, "이/가")} 되었어요!`, 2, true);
   sfx.levelUp();
 }
 function toggleMod(c, slot) { const m = game.profile.skillMods[c]; m[slot] = m[slot] === "A" ? "B" : "A"; saveProfile(); sfx.equip(); }
@@ -888,7 +890,9 @@ hookOn("overlayDraw", (name) => {
   const gap = 10, cw = (pw - 40 - gap * 3) / 4;
   CLASS_ORDER.forEach((c, i) => {
     const d = CLASS_DEFS[c], cx = x0 + 20 + i * (cw + gap), cy = y0 + 62, sel = picker.idx === i, ch = 56;
-    drawButton(cx, cy, cw, ch, `${d.icon} ${d.name}`, () => { picker.idx = i; }, { selected: sel, size: 19, color: pr.cls === c ? "rgba(80,200,120,0.35)" : undefined });
+    drawButton(cx, cy, cw, ch, `   ${d.name}`, () => { picker.idx = i; }, { selected: sel, size: 19, color: pr.cls === c ? "rgba(80,200,120,0.35)" : undefined });
+    ctx.font = `bold 19px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+    drawIcon(d.icon, cx + cw / 2 - ctx.measureText(d.name).width / 2 - 12, cy + ch / 2, 30);
   });
   const c = CLASS_ORDER[picker.idx], d = CLASS_DEFS[c];
   let y = y0 + 150;
@@ -900,6 +904,7 @@ hookOn("overlayDraw", (name) => {
     roundRectPath(x0 + 18, ry, pw - 36, rh - 6, 8); ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fill();
     const tag = { basic: "기본 공격", s1: "기술 1 (U)", s2: "기술 2 (I)", ult: "궁극기 (O)" }[slot];
     text(tag, x0 + 30, ry + 22, 13, slot === "ult" ? "#ffd84a" : "#aaa");
+    drawIcon(open ? s.icon : "lock", x0 + 62, ry + 46, 34, { gray: !open });
     text(s.name + (open ? "" : `  (Lv ${s.unlock}에 열려요)`), x0 + 130, ry + 22, 17, open ? "#fff" : "#888");
     const cost = s.cost ? `${d.res.name} ${s.cost}${s.costPerSec ? "/초" : ""}` : "";
     const cool = s.cooldown ? `쿨다운 ${s.cooldown}초` : "";

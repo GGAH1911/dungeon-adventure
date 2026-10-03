@@ -28,7 +28,7 @@ function doUpgrade(slot) {
   const cost = upgradeCost(slot);
   if (!cost) return smithNote("최고 레벨이에요!", "#ffe27a");
   const have = pr.materials[cost.mat] || 0;
-  if (have < cost.count) { sfx.denied(); return smithNote(`${MATERIALS[cost.mat].name}이 ${cost.count - have}개 모자라요 (맵을 깨면 받아요)`, "#ff8080"); }
+  if (have < cost.count) { sfx.denied(); return smithNote(`${josa(MATERIALS[cost.mat].name, "이/가")} ${cost.count - have}개 모자라요 (맵을 깨면 받아요)`, "#ff8080"); }
   if (pr.emeralds < cost.emeralds) { sfx.denied(); return smithNote(`에메랄드가 ${cost.emeralds - pr.emeralds}개 모자라요`, "#ff8080"); }
   const before = tierIndex(gearLevel(slot));
   pr.materials[cost.mat] = have - cost.count;

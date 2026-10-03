@@ -65,7 +65,7 @@ function shopAction() {
   }
   if (e.kind === "arrows") {
     const it = e.item, max = CONFIG.player.maxArrows;
-    if (arrowCount(it.id) >= max) return shopNote(`${it.name}은 ${max}개까지만 가질 수 있어요`, "#ddd");
+    if (arrowCount(it.id) >= max) return shopNote(`${josa(it.name, "은/는")} ${max}개까지만 가질 수 있어요`, "#ddd");
     if (pr.emeralds < it.price) return notEnough(it.price);
     pr.emeralds -= it.price;
     if (it.id === "normal") pr.arrows = Math.min(max, pr.arrows + it.pack);
@@ -183,7 +183,7 @@ function sellItem(e, all) {
   if (needConfirm && shop.confirm !== key) {
     shop.confirm = key;
     const n = all ? Math.floor(e.count / e.unit) : 1;
-    return shopNote(`한 번 더 누르면 ${e.name}${n > 1 ? ` ${n * e.unit}개` : ""}를 팔아요 (+${n * e.price})`, "#ffe27a");
+    return shopNote(`한 번 더 누르면 ${josa(e.name + (n > 1 ? ` ${n * e.unit}개` : ""), "을/를")} 팔아요 (+${n * e.price})`, "#ffe27a");
   }
   shop.confirm = null;
   const packs = all ? Math.floor(e.count / e.unit) : 1;
@@ -196,7 +196,7 @@ function sellItem(e, all) {
   pr.emeralds += gain;
   if (e.kind === "weaponType" || e.kind === "bowType") refreshGear(); else saveProfile();
   sfx.buy();
-  shopNote(`${e.name}${qty > 1 ? ` ${qty}개` : ""}를 팔았어요! 에메랄드 +${gain}`, "#7dffb0");
+  shopNote(`${josa(e.name + (qty > 1 ? ` ${qty}개` : ""), "을/를")} 팔았어요! 에메랄드 +${gain}`, "#7dffb0");
   hookRun("itemSold", e, qty, gain);
   const n = sellEntries().length;
   shop.sel = Math.max(0, Math.min(n - 1, shop.sel));

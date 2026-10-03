@@ -3,6 +3,24 @@
 // 그걸 화면에 비스듬히 내려다보는 것처럼 바꿔서 그려요.
 
 let zoomMul = 1;     // 보스방에서는 0.78
+let focusZoomMul = 1; // 기억 타일처럼 가까이 봐야 할 때 1보다 크게 (keyhunt.js)
+
+// 화면 크기에 맞는 기본 크기 x 배수들 (캔버스는 그대로, 그리는 크기만 바꿔요)
+function applyZoom() {
+  const base = Math.max(1.0, Math.min(1.8, Math.min(view.w / 1100, view.h / 700) * 1.6));
+  // zoomMul: 보스방처럼 넓게 봐야 할 때 (bossroom.js) · coopZoomMul: 둘이 멀어지면 (coop.js) · focusZoomMul: 가까이 볼 때
+  const zm = (typeof zoomMul === "number" ? zoomMul : 1) * (typeof coopZoomMul === "number" ? coopZoomMul : 1) * focusZoomMul;
+  ZOOM = base * zm;
+  TILE_W = 64 * ZOOM;
+  TILE_H = 32 * ZOOM;
+  BLOCK_H = 36 * ZOOM;
+}
+// 부드럽게 가까이/멀리 (매 프레임 불러요)
+function easeFocusZoom(want, dt) {
+  if (Math.abs(focusZoomMul - want) < 0.002) { if (focusZoomMul !== want) { focusZoomMul = want; applyZoom(); } return; }
+  focusZoomMul += (want - focusZoomMul) * Math.min(1, dt * 5);
+  applyZoom();
+}
 let ZOOM = 1.6;       // 화면 크기에 맞춰 자동으로 바뀌어요
 let TILE_W = 64 * ZOOM;   // 바닥 한 칸의 화면 가로 크기
 let TILE_H = 32 * ZOOM;   // 바닥 한 칸의 화면 세로 크기
@@ -38,12 +56,7 @@ function resizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   // 작은 화면은 조금 작게, 큰 화면은 크게
-  // zoomMul: 보스방처럼 넓게 봐야 할 때 조금 멀리서 봐요 (bossroom.js)
-  const zm = (typeof zoomMul === "number" ? zoomMul : 1) * (typeof coopZoomMul === "number" ? coopZoomMul : 1); // coopZoomMul: 둘이 멀어지면 (coop.js)
-  ZOOM = Math.max(1.0 * Math.min(1, zm), Math.min(1.8, Math.min(view.w / 1100, view.h / 700) * 1.6 * zm));
-  TILE_W = 64 * ZOOM;
-  TILE_H = 32 * ZOOM;
-  BLOCK_H = 36 * ZOOM;
+  applyZoom();
 }
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 200));
