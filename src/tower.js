@@ -205,10 +205,9 @@ function updateTower(p, dt) {
 
 function floorCleared() {
   const T = game.tower;
-  const p = game.player;
   T.cleared = true;
   const pr = game.profile;
-  towerSetBest(curTower(), T.floor);
+  recShared("tower", { id: curTower().id, floor: T.floor }); // 최고 층 (같이 하기: 친구도, records.js)
   if (T.floor >= curTower().floors) {
     const last = towerBossAt(T.floor);
     if (last && typeof towerBossReward === "function") towerBossReward(last.mapId, towerLevel(T.floor));
@@ -226,7 +225,7 @@ function floorCleared() {
   else curAdd("emerald", 3);
   const tb = towerBossAt(T.floor);
   if (tb && typeof towerBossReward === "function") towerBossReward(tb.mapId, tl);
-  p.hp = Math.min(p.maxHp, p.hp + 3);
+  for (const q of allPlayers()) if (q.hp > 0) q.hp = Math.min(q.maxHp, q.hp + 3); // 같이 하는 친구도 하트 +3
   stairs.open = true;
   sfx.clear();
   showMessage(`${T.floor}층 클리어! 에메랄드 +${bonus} · 계단이 열렸어요`, 3, false, "#7dffb0");
@@ -244,16 +243,20 @@ function stairsInteractables() {
 
 function nextFloor() {
   const T = game.tower;
-  const p = game.player;
   T.floor++;
   T.cleared = false;
   T.waveDelay = 1.5;
   T.boss = null; T.bossDown = false;
-  const hp = p.hp;
+  // 하트는 층을 올라가도 그대로 (같이 하는 친구도 똑같이: 새로 세워도 전에 있던 하트로. 쓰러져 있던 친구는 하트 반으로 일어나요)
+  const hps = new Map(allPlayers().map((q, i) => [q.remote ? "r" + q.pid : "l" + i, q.hp]));
   resetEffects();
   buildArenaFloor(T.floor);
   placePlayer();
-  game.player.hp = hp;
+  allPlayers().forEach((q, i) => {
+    const hp = hps.get(q.remote ? "r" + q.pid : "l" + i);
+    if (hp === undefined) return;
+    q.hp = hp > 0 ? Math.min(q.maxHp, hp) : Math.max(1, Math.round(q.maxHp * 0.5 * 2) / 2);
+  });
   game.fade = 0.6;
   sfx.stairs();
   const nb = towerBossAt(T.floor);

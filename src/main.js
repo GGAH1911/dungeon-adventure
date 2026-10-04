@@ -136,20 +136,21 @@ function killMonsterBase(m, legendary, opts = {}) {
   const def = m.def;
   const pr = game.profile;
   if (game.run) game.run.kills++;
-  pr.stats.kills++;
+  recShared("kill", { type: m.type, skip: typeof codexSkipMonster === "function" ? codexSkipMonster(m) : true }); // 팀 처치 수·도감 (같이 하기: 친구도, records.js)
   const colors = def.look ? [def.look.skin, def.look.shirt, def.look.pants] : [def.color, shade(def.color, 0.6), "#ffffff"];
   spawnBurst(m.x, m.y, colors, m.boss ? 40 : 14);
   if (legendary) legendBurst(m.x, m.y);
   if (m.boss) { game.shake = 0.5; flashScreen(0.2); hitStop(0.15); addRing(m.x, m.y, { speed: 8, life: 0.6, gold: true }); }
   sfx.kill();
   gainXp(Math.max(1, Math.round(def.xp * rewardMul(game.mapLevel) * (m.boss ? 8 : 1))));
-  const w = game.player.weapon;
+  const killer = opts.by && opts.by.weapon ? opts.by : game.player; // 잡은 사람의 무기·장신구로 (같이 하기: 친구가 잡으면 친구 것)
+  const w = killer.weapon;
   if (w.effect === "heal" && opts.melee) {
-    const p = game.player;
+    const p = killer;
     p.hp = Math.min(p.maxHp, p.hp + 0.5);
     addFloatText(p.x, p.y, "+0.5", "#c08aff", 15);
   }
-  const extra = (w.effect === "emerald" && opts.melee ? 0.25 : 0) + Math.min(0.5, (game.player.armor.luck || 0)); // 행운: 황금 칼·행운 장신구
+  const extra = (w.effect === "emerald" && opts.melee ? 0.25 : 0) + Math.min(0.5, (killer.armor.luck || 0)); // 행운: 황금 칼·행운 장신구
   const drops = (def.emeraldCount || 1) * (m.boss ? 8 : 1);
   for (let i = 0; i < drops; i++) if (Math.random() < def.emerald + extra) dropPickup("emerald", m.x, m.y);
   if (Math.random() < CONFIG.monster.appleChance) dropPickup("apple", m.x, m.y);
@@ -233,19 +234,17 @@ function endRunBase(win) {
     pr.emeralds += bonus;
     const key = `${game.mapDef.id}:${pr.difficulty}`;
     const first = !pr.firstClears[key];
-    pr.firstClears[key] = true;
     // 맵을 깨면 받는 화폐 (currency.js)
     for (const [id, n] of Object.entries(stageCoins(game.mapLevel, first))) curAdd(id, n);
     mats = r.mats && Object.keys(r.mats).length ? { ...r.mats } : null; // 보스 부품
-    pr.stats.clears++;
-    if (!pr.cleared.includes(game.mapDef.id)) pr.cleared.push(game.mapDef.id);
-    const best = pr.best[game.mapDef.id] || 0;
-    if (game.mapLevel > best) pr.best[game.mapDef.id] = game.mapLevel;
+    // 깬 맵·최고 레벨·첫 클리어·통계·모험 기록 (같이 하기: 친구 저장에도 똑같이, records.js)
+    const kh = game.keyhunt;
+    recShared("clear", { map: game.mapDef.id, level: game.mapLevel, dungeon: !!(game.mode === "dungeon" && kh && kh.bossWon), runSec: typeof qolRun !== "undefined" ? qolRun.t : 0 });
     sfx.clear();
     showMessage(game.mode === "tower" ? `${curTower().name} 정복!` : "던전 클리어!", 2, true);
     for (let i = 0; i < 3; i++) addRing(game.player.x, game.player.y, { speed: 6, life: 0.6, hue: i * 120, delay: i * 0.15 });
   } else {
-    pr.stats.deaths++;
+    recShared("lose"); // 다 같이 쓰러짐 (같이 하기: 친구 기록에도, records.js)
   }
   const where = game.mode === "tower" ? `${curTower().name} Lv ${game.mapLevel} · ${game.tower.floor}층` : `${game.mapDef.name} Lv ${game.mapLevel}`;
   if (!win) mats = r.mats || null;

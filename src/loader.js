@@ -23,7 +23,7 @@ var daLoader = (function () {
   const STEPS = [
     [/^(hooks|errlog|config|items|currency|loot|loot_w2)$/, "가방 챙기는 중"],
     [/^(monsters|maps|iso|rig|anim|sound|world|terrain)$/, "던전 짓는 중"],
-    [/^(fullscreen|input|save|chars|ui|icons|player|combat)$/, "주인공 깨우는 중"],
+    [/^(screenmode|input|save|chars|ui|icons|player|combat)$/, "주인공 깨우는 중"],
     [/^(monster|newmonsters|abilities|mobs_extra|mobs_w2)$/, "몬스터 깨우는 중"],
     [/^(bosses_a|bosses_b|bosses_c|towerboss|bossroom)$/, "보스 깨우는 중"],
     [/^(bow|effects|legendary|chest|tower)$/, "보물 숨기는 중"],
@@ -93,7 +93,7 @@ var daLoader = (function () {
     failed = true;
     build();
     if (!warnEl) return;
-    warnEl.textContent = `파일(${name})을 못 받았어요. 인터넷을 확인하고 새로고침 해 주세요`;
+    warnEl.textContent = `파일(${name})을 못 받았어요. 인터넷을 확인하고 새로고침 해 주세요 (광고 차단 확장이 막았을 수도 있어요: 이 사이트는 꺼 주세요)`;
     if (!root.querySelector || !root.querySelector("button")) {
       const b = el("button", { font: "inherit", fontSize: "18px", padding: "10px 22px", borderRadius: "10px", border: "none", background: "#3fbf6f", color: "#fff", cursor: "pointer" }, "새로고침");
       b.addEventListener("click", () => location.reload());

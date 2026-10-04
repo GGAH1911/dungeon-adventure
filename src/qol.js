@@ -65,7 +65,7 @@ hookOn("dungeonStarted", (def, level) => {
   const r = qolMapRec(def.id);
   r.runs++;
   // 지난번에 찾은 열쇠가 있으면: 시작하자마자 문으로 가는 포털
-  qolPortal = null; qolSteps = null;
+  qolClearPortal();
   if (kh && kh.hasKey && kh.door) qolMakePortal(game.player.x + 1.2, game.player.y + 0.4);
 }, 60);
 
@@ -73,10 +73,10 @@ hookOn("dungeonStarted", (def, level) => {
 hookOn("resolveCast", (c) => { qolRun.castId = c.id; return false; }, 0);
 hookOn("castResolved", () => { qolRun.castId = null; }, 99);
 
-function qolCauseName(from) {
-  // 안내(guide.js)가 이번에 기록한 쓰러진 이유가 있으면 같은 이름을 써요 (화면 표시와 기록이 같게)
-  const g = typeof guideDeathCause === "function" ? guideDeathCause() : null;
-  if (g && g.name && game.player && game.player.hp <= 0) return g.name;
+function qolCauseName(from, p) {
+  // 안내(guide.js)가 이번에 기록한 쓰러진 이유가 있으면 같은 이름을 써요 (화면 표시와 기록이 같게). 친구 주인공 것은 친구 기기에 있어요
+  const g = typeof guideDeathCause === "function" && !(p && p.remote) ? guideDeathCause() : null;
+  if (g && g.name && p && p.hp <= 0) return g.name;
   if (qolRun.castId && ABILITIES[qolRun.castId]) return ABILITIES[qolRun.castId].name;
   if (from && from.def) return `${from.def.name || from.type} 공격`;
   return "바닥 장판·탄";
@@ -85,34 +85,54 @@ function qolCauseName(from) {
 hookOn("playerHurt", (p, damage, from, hp0) => {
   if (!(hp0 > 0 && p.hp <= 0)) return;
   const kh = game.keyhunt;
-  const cause = qolCauseName(from);
-  if (game.mode === "dungeon" && kh && kh.inBoss && qolRun.mapId) {
-    const b = qolBossRec(qolRun.mapId);
-    b.deaths++;
-    qolAddCause(b.causes, cause);
-  } else {
-    qolAddCause(qolLog().deathsOther, cause);
-  }
+  const cause = qolCauseName(from, p);
+  const boss = game.mode === "dungeon" && kh && kh.inBoss && qolRun.mapId ? qolRun.mapId : null;
+  if (p.remote) recShared("downCause", { map: boss, cause }, { pid: p.pid }); // 친구 주인공: 친구 기록에 (records.js)
+  else qolRecDown(boss, cause);
 }, 60);
+// 쓰러진 이유 기록 (보스방이면 그 보스 기록에)
+function qolRecDown(mapId, cause) {
+  cause = String(cause || "").slice(0, 24) || "?";
+  if (mapId) { const b = qolBossRec(mapId); b.deaths++; qolAddCause(b.causes, cause); }
+  else qolAddCause(qolLog().deathsOther, cause);
+}
 
 // 이긴 판 (보스방 쪽에서 막지 않고 통과한 endRun(true))
 hookOn("endRun", (win) => {
   const kh = game.keyhunt;
   if (!win || !kh || !kh.bossWon || !qolRun.mapId || qolRun.won) return false;
-  qolRun.won = true;
-  const b = qolBossRec(qolRun.mapId), m = qolMapRec(qolRun.mapId);
+  qolRun.won = true; // 기록은 보스를 쓰러뜨릴 때("bossWin")·맵을 깰 때("clear") records.js 가 남겨요 (친구 저장에도)
+  return false;
+}, 60);
+// ----- 모험 기록 남기기 (records.js 가 불러요: 방장·친구 기기 모두 같은 식으로) -----
+function qolRecBossWin(mapId, sec) {
+  const b = qolBossRec(mapId);
   b.wins++;
-  b.last = qolRound(qolRun.bossT);
+  b.last = qolRound(sec);
   if (!b.best || b.last < b.best) b.best = b.last;
   b.maxPhase = Math.max(b.maxPhase, 3);
+}
+function qolRecClear(mapId, runSec) {
+  const m = qolMapRec(mapId);
   m.clears++;
-  m.lastClear = qolRound(qolRun.t);
+  m.lastClear = qolRound(runSec);
   if (!m.bestClear || m.lastClear < m.bestClear) m.bestClear = m.lastClear;
   const d = (game.profile && game.profile.difficulty) || "normal";
   m.diffs[d] = (m.diffs[d] || 0) + 1;
-  saveProfile();
-  return false;
-}, 60);
+}
+function qolRecBossTry(mapId, name, retry) {
+  const b = qolBossRec(mapId);
+  b.tries++;
+  if (name) b.name = name;
+  if (retry) qolMapRec(mapId).retries++;
+}
+function qolRecKeyStep(mapId, step, sec) {
+  const kt = qolMapRec(mapId).keyTimes;
+  const rec = (kt[step] = kt[step] || { best: 0, last: 0, n: 0 });
+  rec.last = qolRound(sec); rec.n++;
+  if (!rec.best || rec.last < rec.best) rec.best = rec.last;
+}
+function qolRecBossPhase(mapId, phase) { const b = qolBossRec(mapId); b.maxPhase = Math.max(b.maxPhase, phase); }
 
 function qolBossPhase(boss) {
   for (const k of ["phaseIndex", "phase", "phaseIdx"]) if (typeof boss[k] === "number") return boss[k];
@@ -127,34 +147,26 @@ hookOn("dungeonTick", (dt) => {
   // 열쇠 찾기 도전 시간 (도전 하나를 깰 때마다)
   if (kh.index !== qolRun.stepIndex) {
     const id = kh.steps[qolRun.stepIndex];
-    if (id && kh.index > qolRun.stepIndex) {
-      const kt = qolMapRec(qolRun.mapId).keyTimes;
-      const rec = (kt[id] = kt[id] || { best: 0, last: 0, n: 0 });
-      rec.last = qolRound(qolRun.stepT); rec.n++;
-      if (!rec.best || rec.last < rec.best) rec.best = rec.last;
-    }
+    if (id && kh.index > qolRun.stepIndex) recShared("keyStep", { map: qolRun.mapId, step: id, sec: qolRun.stepT });
     qolRun.stepIndex = kh.index; qolRun.stepT = 0;
   } else if (!kh.hasKey) qolRun.stepT += dt;
   // 보스방 들어감 / 나옴(다시 도전)
   if (kh.inBoss && !qolRun.inBoss) {
-    qolRun.inBoss = true; qolRun.bossT = 0; qolRun.won = false;
-    const b = qolBossRec(qolRun.mapId);
-    b.tries++;
-    if (kh.boss && kh.boss.name) b.name = kh.boss.name;
-    if (qolRun.bossTries > 0) qolMapRec(qolRun.mapId).retries++;
+    qolRun.inBoss = true; qolRun.bossT = 0; qolRun.won = false; qolRun.phaseSent = 0;
+    recShared("bossTry", { map: qolRun.mapId, name: kh.boss && kh.boss.name, retry: qolRun.bossTries > 0 });
     qolRun.bossTries = (qolRun.bossTries || 0) + 1;
-    qolPortal = null; qolSteps = null;
+    qolClearPortal();
   } else if (!kh.inBoss && qolRun.inBoss) {
     qolRun.inBoss = false;
   }
   if (kh.inBoss && kh.boss) {
     qolRun.bossT += dt;
-    const b = qolBossRec(qolRun.mapId);
-    b.maxPhase = Math.max(b.maxPhase, qolBossPhase(kh.boss) + 1);
+    const ph = qolBossPhase(kh.boss) + 1;
+    if (ph > (qolRun.phaseSent || 0)) { qolRun.phaseSent = ph; recShared("bossPhase", { map: qolRun.mapId, phase: ph }); }
   }
   // 열쇠를 막 주웠어요 -> 문으로 가는 포털 + 발자국
   if (kh.hasKey && !qolRun.hadKey && !kh.inBoss) {
-    const p = game.player;
+    const p = (kh.keyBy && allPlayers().find((q) => (q.pid || 1) === kh.keyBy)) || game.player; // 열쇠를 주운 사람 옆에
     qolMakePortal(p.x, p.y);
   }
   qolRun.hadKey = kh.hasKey;
@@ -453,18 +465,22 @@ function qolRecommendedMap() {
 }
 
 // ===== 열쇠 -> 보스방 문 포털, 발자국 =====
-let qolPortal = null;  // { x, y, t, armed }
-let qolSteps = null;   // { t, dist(문까지 거리 지도) }
+// 포털은 game.keyhunt.portal 에 있어요: 같이 하기 친구 기기에도 그대로 가고(netplay 열쇠 찾기 상태), 주인공 누구나 탈 수 있어요.
+// 발자국(qolSteps)은 기기마다 내 주인공 발밑에서 문까지 그려요.
+let qolSteps = null;   // { until, dist(문까지 거리 지도), id }
 const QOL_STEP_TIME = 10;
-
+const qolPortalArmed = new Set(); // 포털 자리에서 한 번 떨어진 주인공 pid (방장 기기)
+let qolPortalSeq = 0, qolStepsFor = 0;
+function qolPortalNow() { const kh = game.keyhunt; return kh && !kh.inBoss && kh.portal && typeof kh.portal === "object" ? kh.portal : null; }
 function qolMakePortal(x, y) {
   const kh = game.keyhunt;
   if (!kh || !kh.door) return;
   const s = findFreeSpot(x, y, 0.4, 3) || { x, y };
-  qolPortal = { x: s.x, y: s.y, t: 0, armed: false };
-  qolSteps = { t: QOL_STEP_TIME, dist: qolDistFrom(doorFront()) };
+  kh.portal = { x: s.x, y: s.y, t: 0, id: ++qolPortalSeq + Math.floor(Math.random() * 1e6) };
+  qolPortalArmed.clear();
   showMessage("보스방 문으로 가는 빛 포털이 열렸어요! (걸어가도 돼요: 금색 발자국)", 3.2, false, "#ffd23f");
 }
+function qolClearPortal() { const kh = game.keyhunt; if (kh) kh.portal = null; qolSteps = null; qolPortalArmed.clear(); }
 
 // 문에서부터 모든 칸까지 걸음 수 (발자국 길 찾기용)
 function qolDistFrom(t) {
@@ -486,31 +502,46 @@ function qolDistFrom(t) {
   return dist;
 }
 
+// 방장 기기: 주인공 누구든 포털에 들어가면 그 주인공을 문 앞으로 (친구는 순간이동으로 친구 기기에 가요)
 function qolUpdatePortal(dt) {
-  const kh = game.keyhunt, p = game.player;
-  if (qolSteps) { qolSteps.t -= dt; if (qolSteps.t <= 0) qolSteps = null; }
-  if (!qolPortal || !kh || kh.inBoss || !p) return;
-  qolPortal.t += dt;
-  const d = Math.hypot(p.x - qolPortal.x, p.y - qolPortal.y);
-  if (!qolPortal.armed) { if (d > 1.3) qolPortal.armed = true; return; } // 만들어진 자리에서 한 번 떨어진 뒤에 탈 수 있어요
-  if (d < 0.6 && p.hp > 0) qolUsePortal();
+  const P = qolPortalNow();
+  if (!P) return;
+  P.t += dt;
+  for (const p of allPlayers()) {
+    if (!p || p.hp <= 0) continue;
+    const id = p.pid || 1, d = Math.hypot(p.x - P.x, p.y - P.y);
+    if (!qolPortalArmed.has(id)) { if (d > 1.3) qolPortalArmed.add(id); continue; } // 만들어진 자리에서 한 번 떨어진 뒤에 탈 수 있어요
+    if (d < 0.6) qolUsePortal(p);
+  }
 }
-function qolUsePortal() {
-  const p = game.player;
-  const s = doorFront();
+function qolUsePortal(p) {
+  p = p || game.player;
+  const s0 = doorFront(), s = findFreeSpot(s0.x, s0.y, p.r || 0.35, 2) || s0;
   for (let i = 0; i < 24; i++) addSparkle(p.x, p.y, Math.random(), { vz: 2 + Math.random() * 2, life: 0.8, size: 0.8, gold: true });
   p.x = s.x; p.y = s.y; p.move = null; p.rollTimer = 0;
-  camera.x = p.x; camera.y = p.y;
-  if (typeof pathFrom !== "undefined") pathFrom = { x: -1, y: -1 };
-  game.fade = 0.6;
+  qolPortalArmed.delete(p.pid || 1);
+  if (p === game.player) {
+    camera.x = p.x; camera.y = p.y;
+    if (typeof pathFrom !== "undefined") pathFrom = { x: -1, y: -1 };
+    game.fade = 0.6;
+    qolSteps = null;
+  }
   sfx.stairs && sfx.stairs();
-  qolPortal = null; qolSteps = null;
   showMessage("보스방 문 앞이에요! 열쇠로 열어요", 2.5, false, "#ffd23f");
 }
+// 기기마다: 내 주인공이 포털로 문 앞에 왔으면(친구 기기: 방장이 옮겨 줌) 화면도 따라가요, 새 포털이면 발자국
+hookOn("hudDraw", () => {
+  const P = game.scene === "dungeon" ? qolPortalNow() : null;
+  if (!P) { if (qolSteps && !(game.keyhunt && game.keyhunt.portal)) qolSteps = null; return; }
+  if (P.id !== qolStepsFor) { qolStepsFor = P.id; qolSteps = { until: game.time + QOL_STEP_TIME, dist: qolDistFrom(doorFront()) }; }
+  if (qolSteps && game.time > qolSteps.until) qolSteps = null;
+  const p = game.player, kh = game.keyhunt;
+  if (qolSteps && p && kh.door && Math.hypot(p.x - kh.door.x, p.y - kh.door.y) < 2.2) qolSteps = null; // 문에 왔어요
+}, 61);
 
 hookOn("worldThings", (things) => {
-  if (game.scene !== "dungeon" || !qolPortal || (game.keyhunt && game.keyhunt.inBoss)) return;
-  const P = qolPortal;
+  const P = game.scene === "dungeon" ? qolPortalNow() : null;
+  if (!P) return;
   things.push({ depth: P.x + P.y, x: P.x, y: P.y, draw: () => qolDrawPortal(P) });
 }, 60);
 
@@ -526,7 +557,7 @@ function qolDrawPortal(P) {
   ctx.globalCompositeOperation = "lighter";
   const r = (0.42 + 0.05 * Math.sin(t * 5)) * TILE_W * 0.5;
   const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r * 1.6);
-  g.addColorStop(0, `rgba(255,250,210,${P.armed ? 0.95 : 0.6})`); g.addColorStop(0.5, "rgba(255,210,80,0.55)"); g.addColorStop(1, "rgba(255,180,40,0)");
+  g.addColorStop(0, `rgba(255,250,210,${(P.t || 0) > 0.8 ? 0.95 : 0.6})`); g.addColorStop(0.5, "rgba(255,210,80,0.55)"); g.addColorStop(1, "rgba(255,180,40,0)");
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.ellipse(c.x, c.y, r * 0.8, r * 1.6, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
@@ -538,7 +569,7 @@ hookOn("drawFloor", () => {
   const p = game.player, D = qolSteps.dist, W = world.W;
   let x = Math.floor(p.x), y = Math.floor(p.y);
   if (D[y * W + x] < 0) return;
-  const a = Math.min(1, qolSteps.t / 2) * (0.6 + 0.25 * Math.sin(game.time * 6));
+  const a = Math.min(1, (qolSteps.until - game.time) / 2) * (0.6 + 0.25 * Math.sin(game.time * 6));
   ctx.save();
   ctx.fillStyle = `rgba(255,214,70,${a})`;
   for (let n = 0; n < 14; n++) {

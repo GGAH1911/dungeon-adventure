@@ -100,7 +100,7 @@ BOSS_LEGENDS.seatower = "L_seaTower";
 function seaTowerReward(L) {
   const pr = game.profile, got = [];
   const first = !pr.seaTowerCrown;
-  pr.seaTowerCrown = (pr.seaTowerCrown || 0) + 1;
+  recShared("crown", { id: "seatower" }); // 정복 기록 (같이 하기: 친구도, records.js)
   curAdd("gold", 4 + coinCount(2));
   curAdd("diamond", first ? 3 : Math.random() < 0.5 ? 1 : 0);
   if (first || Math.random() < 0.25) { const it = makeLegend("seatower", L); if (it) { giveItem(it); got.push(it); } }

@@ -171,7 +171,7 @@ hookOn("lights", (lights) => {
   if (game.scene !== "dungeon" || !game.mapDef || mapWorld(game.mapDef) !== 2) return;
   const per = {};
   for (const c of casts) {
-    if (c.m === game.player || (c.m && c.m.ally)) continue;
+    if (c.m && (c.m.pid || c.m === game.player || c.m.ally)) continue; // 주인공들(친구 포함)·동료 기술은 빼요
     per[c.id] = (per[c.id] || 0) + 1; if (per[c.id] > 3) continue;
     const sh = c.ab.telegraph.shape;
     if (sh === "line") for (const t of [0, 0.5, 1]) lights.push({ x: c.x + c.dirX * c.length * t, y: c.y + c.dirY * c.length * t, radius: c.width / 2 + 1.0, power: 0.75 });

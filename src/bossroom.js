@@ -175,9 +175,9 @@ function updateBossRoom(p, dt) {
       addMaterial(def.material.id, n);
       if (game.run) { game.run.mats = game.run.mats || {}; game.run.mats[def.material.id] = (game.run.mats[def.material.id] || 0) + n; }
     }
-    pr.stats.bosses = (pr.stats.bosses || 0) + 1;
     if (typeof bossRoomLoot === "function") bossRoomLoot(kh.mapId); // 장비·전설·화폐 (loot.js)
-    delete pr.keys[kh.mapId];
+    // 보스 통계·열쇠 씀·트로피·도감·모험 기록 (같이 하기: 친구 저장에도 똑같이, records.js)
+    recShared("bossWin", { map: kh.mapId, sec: typeof SHOW !== "undefined" ? Math.round(SHOW.bossT * 10) / 10 : 0 });
     kh.bossWon = true;
     endRun(true);
   }
@@ -200,8 +200,8 @@ function bossRoomThings(list) {
 function handlePlayerDown() {
   const pr = game.profile, kh = game.keyhunt;
   if (!kh) return false;
-  if (pr.hardMode) { delete pr.keys[kh.mapId]; return false; }
-  pr.stats.deaths++;
+  if (pr.hardMode) { recShared("keyLost", { map: kh.mapId }); return false; } // 하드모드: 열쇠도 잃어요 (같이 하기: 모두)
+  recShared("lose"); // 다 같이 쓰러짐 (같이 하기: 친구 기록에도, records.js)
   if (kh.inBoss) {
     const r = game.run || {};
     game.result = { retry: true, win: false, mapName: `${game.mapDef.name} 보스방`, kills: r.kills || 0, emeralds: r.emeralds || 0, xp: r.xp || 0, levels: r.levels || 0, bonus: 0, mats: null };

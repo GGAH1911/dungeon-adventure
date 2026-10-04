@@ -856,8 +856,8 @@ function updateKeyHunt(p0, dt) {
     const taker = ps.find((q) => Math.hypot(q.x - kh.keyItem.x, q.y - kh.keyItem.y) < 0.75);
     if (taker) {
       const p = taker;
-      kh.keyItem = null; kh.hasKey = true; kh.hint = 0;
-      game.profile.keys[kh.mapId] = true; saveProfile();
+      kh.keyItem = null; kh.hasKey = true; kh.hint = 0; kh.keyBy = p.pid || 1; // 주운 사람 (포털이 그 옆에 열려요, qol.js)
+      recShared("key", { map: kh.mapId }); // 열쇠 기억 (같이 하기: 친구도)
       sfx.levelUp();
       showMessage("보스방 열쇠를 찾았다!", 3, true);
       for (let i = 0; i < 30; i++) addSparkle(p.x, p.y, Math.random(), { vz: 2 + Math.random() * 2, life: 1, size: 0.9, gold: true });

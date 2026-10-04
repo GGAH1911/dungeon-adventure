@@ -54,7 +54,7 @@ function towerBossReward(mapId, L) {
   if (mapId !== "tower" && TOWER_MASTERS[mapId] && TOWER_MASTERS[mapId].reward) return TOWER_MASTERS[mapId].reward(L); // 다른 탑의 주인 (seatower.js)
   if (mapId === "tower") {
     const first = !pr.towerCrown;
-    pr.towerCrown = (pr.towerCrown || 0) + 1;
+    recShared("crown", { id: "tower" }); // 정복 기록 (같이 하기: 친구도, records.js)
     curAdd("gold", 3 + coinCount(2));
     curAdd("diamond", first ? 2 : Math.random() < 0.5 ? 1 : 0);
     if (first || Math.random() < 0.25) { const it = makeLegend("tower", L); if (it) { giveItem(it); got.push(it); } }

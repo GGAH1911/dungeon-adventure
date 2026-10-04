@@ -292,9 +292,15 @@ hookOn("playerHurt", (p, damage, from, hp0) => {
   } else {
     name = "함정"; tip = "바닥을 잘 보고 피해요";
   }
-  guide.lastHit = { id, name, tip, by: from && from.name, t: game.time, damage };
-  if (p.hp <= 0) { guide.death = { ...guide.lastHit, map: game.mapDef && game.mapDef.name }; guide.deathHidden = false; }
+  const info = { id, name, tip, by: from && from.name, damage, dead: p.hp <= 0 };
+  // 같이 하기 친구 주인공: 그 친구 기기에 (결과창의 "쓰러진 이유"는 그 사람 것, records.js)
+  if (p.remote) { recShared("hurtInfo", info, { pid: p.pid }); return; }
+  guideApplyHit(info);
 }, 10);
+function guideApplyHit(info) {
+  guide.lastHit = { id: info.id, name: info.name, tip: info.tip, by: info.by, t: game.time, damage: info.damage };
+  if (info.dead) { guide.death = { ...guide.lastHit, map: game.mapDef && game.mapDef.name }; guide.deathHidden = false; }
+}
 hookOn("castStarted", (m) => { if (m) m._gLastCastAt = game.time; }, 10);
 
 // 다시 도전 화면 / 결과창에서 써요

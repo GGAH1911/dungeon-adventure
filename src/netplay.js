@@ -655,6 +655,7 @@ function netOnMessageGuestBody(msg) {
   if (msg.t === "explore") { if (msg.key === netplay.guestSceneKey && game.scene === "dungeon") netUnpackExplored(msg.d, msg.w, msg.h); return; }
   if (msg.t === "result") {
     const r = netCleanResult(msg.r); if (!r) return;
+    netGuestOwnResult(r);
     game.result = r; game.endTimer = netNum(msg.et, 0.1, 10, 1);
     return;
   }
@@ -889,6 +890,7 @@ function netGuestEvent(ev) {
   if (!Array.isArray(ev)) return;
   const [kind, args, src] = ev;
   if (kind === "xp") { const n = netCleanXp(args); if (n) gainXp(n); return; }
+  if (kind === "rec") { if (typeof recFromHost === "function") recFromHost(args); return; } // 함께 쌓는 기록 (records.js)
   const a = netDec(args);
   if (!Array.isArray(a)) return;
   const X = (v) => netNum(v, -1000, 1000, 0), col = (c) => (typeof c === "string" && NP_COLOR_RE.test(c) ? c : undefined);
@@ -919,6 +921,21 @@ function netCleanMsg(t) {
 function netCleanXp(n) { return typeof n === "number" && Number.isFinite(n) && n > 0 ? Math.min(100000, n) : 0; }
 const NP_DIFFS = ["easy", "normal", "hard", "nightmare"];
 // 결과창: 아는 칸만, 숫자는 0 이상 정수
+// 친구 결과창: 처치 수·맵 이름·클리어 보너스는 방장 것(팀 기록), 얻은 것(에메랄드·경험치·레벨·화폐·장비·부품)은 내 것
+//   방장이 보낸 보상이 결과창보다 조금 늦게 와도 맞게, 그릴 때마다 내 이번 판 기록(game.run)을 읽어요
+function netGuestOwnResult(r) {
+  const run = game.run;
+  if (!run) return;
+  const bonus = r.bonus || 0;
+  Object.defineProperties(r, {
+    emeralds: { get: () => Math.max(0, (run.emeralds || 0) - bonus), enumerable: true },
+    xp: { get: () => run.xp || 0, enumerable: true },
+    levels: { get: () => run.levels || 0, enumerable: true },
+    money: { get: () => ({ ...(run.money || {}) }), enumerable: true },
+    items: { get: () => (run.items || []).slice(), enumerable: true },
+    mats: { get: () => (run.mats && Object.keys(run.mats).length ? { ...run.mats } : null), enumerable: true },
+  });
+}
 function netCleanResult(r) {
   if (!r || typeof r !== "object" || Array.isArray(r)) return null;
   const n = (v) => (typeof v === "number" ? Math.round(netNum(v, 0, 1e7, 0)) : 0);
@@ -966,7 +983,7 @@ function netGuestReward(d) {
   if (d.emeralds) { pr.emeralds += d.emeralds; if (game.run) game.run.emeralds = (game.run.emeralds || 0) + d.emeralds; }
   if (d.arrows) pr.arrows = Math.min(max, pr.arrows + d.arrows);
   if (d.potions) pr.potions = Math.min(CONFIG.player.maxPotions, pr.potions + d.potions);
-  for (const [id, n] of Object.entries(d.materials || {})) addMaterial(id, n);
+  for (const [id, n] of Object.entries(d.materials || {})) { addMaterial(id, n); if (game.run && game.scene !== "lobby") { game.run.mats = game.run.mats || {}; game.run.mats[id] = (game.run.mats[id] || 0) + n; } }
   for (const [id, n] of Object.entries(d.special || {})) pr.special[id] = Math.min(max, (pr.special[id] || 0) + n);
   for (const [id, n] of Object.entries(d.money || {})) curAdd(id, n);
   for (const x of d.items || []) {

@@ -126,7 +126,7 @@ function resolveMove(p, mv) {
     const dmg = base * (crit ? CONFIG.player.critDamage : 1);
     const knock = (mv.finisher ? 1.6 : 1) * (crit ? 1.3 : 1);
     if (m.dummy) hitDummy(m, dmg, crit, p);
-    else damageMonster(m, dmg, p.x, p.y, w.legendary, knock, { crit, melee: true, effect: w.effect, finisher: mv.finisher });
+    else damageMonster(m, dmg, p.x, p.y, w.legendary, knock, { crit, melee: true, effect: w.effect, finisher: mv.finisher, by: p });
   }
 
   // 충격파 (안 맞아도 보여요)

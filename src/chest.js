@@ -37,7 +37,7 @@ function openChest(c) {
   if (c.open) return;
   c.open = true;
   c.openT = 0;
-  game.profile.stats.chests++;
+  recShared("chest"); // 열린 상자 수 (같이 하기: 친구도, records.js)
   sfx.chest();
   game.shake = Math.max(game.shake, 0.12);
   for (let i = 0; i < (c.gold ? 30 : 16); i++) {

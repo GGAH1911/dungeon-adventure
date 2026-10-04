@@ -268,9 +268,10 @@ hookOn("dungeonTick", (dt) => {
   }
   for (const m of monsters) if (m.w2Clam && !(m.stunTimer > 0)) m.w2Clam = 0;
   // 물살 띠 위의 얼음 같은 건 없어요. 덫 조개 가르치기
-  const p = game.player;
-  if (p && (E.clams || []).some((c) => Math.hypot(p.x - c.x, p.y - c.y) < 3)) w2Teach("clam", "덫 조개! 몬스터를 데려오면 꽉 물어요", "#ff9ad6");
-  if (p && (E.pipes || []).some((q) => Math.hypot(p.x - q.a.x, p.y - q.a.y) < 3 || Math.hypot(p.x - q.b.x, p.y - q.b.y) < 3)) w2Teach("pipe", "물 파이프! 같은 색 파이프로 슝 이어져요", "#9fe6ff");
+  // 주인공 누구든 가까이 가면 알려줘요 (같이 하기: 친구가 먼저 가도, 메시지는 모두에게)
+  const near = (x, y) => allPlayers().some((p) => p && p.hp > 0 && Math.hypot(p.x - x, p.y - y) < 3);
+  if ((E.clams || []).some((c) => near(c.x, c.y))) w2Teach("clam", "덫 조개! 몬스터를 데려오면 꽉 물어요", "#ff9ad6");
+  if ((E.pipes || []).some((q) => near(q.a.x, q.a.y) || near(q.b.x, q.b.y))) w2Teach("pipe", "물 파이프! 같은 색 파이프로 슝 이어져요", "#9fe6ff");
 }, 62);
 // 물기둥은 몬스터가 아니라서 친구 기기·자동 조준·피해 계산에서 빼요
 hookOn("untargetable", (o) => !!o.w2Geyser, 50);

@@ -63,12 +63,10 @@ function startBossDying(kh) {
   for (let i = 0; i < 3; i++) addRing(b.x, b.y, { speed: 5, life: 0.7, gold: true, delay: i * 0.2 });
   // 트로피 기록
   const pr = game.profile;
-  const t = pr.trophies[kh.mapId] || (pr.trophies[kh.mapId] = { wins: 0, best: 0 });
-  t.wins++;
+  // 트로피 횟수·가장 빠른 시간은 보스를 쓰러뜨릴 때 이미 남겼어요 (bossroom.js -> records.js "bossWin")
+  const t = (pr.trophies && pr.trophies[kh.mapId]) || { wins: 0, best: 0 };
   const sec = Math.round(SHOW.bossT * 10) / 10;
-  SHOW.newRecord = !t.best || sec < t.best;
-  if (SHOW.newRecord) t.best = sec;
-  pr.codex.bossSeen[kh.mapId] = true;
+  SHOW.newRecord = !!t.best && t.best === sec;
   // 받을 보스 부품 (bossroom.js 가 이미 넣었어요)
   const mats = game.run && game.run.mats;
   if (def && def.material) SHOW.mat = { ...def.material, n: (mats && mats[def.material.id]) || 1 };
@@ -97,9 +95,8 @@ hookOn("timeScale", (dt) => {
   if (game.scene !== "dungeon" || !kh) { SHOW.dying = null; return dt; }
   if (game.overlay) return dt;
   d.t += dt;
-  const p = game.player;
-  // 연출 중엔 안 다쳐요 (무적 시간을 조금 걸어 둬요. 이 값이면 깜빡이지 않아요: player.js 의 깜빡임 계산)
-  if (p) p.hurtTimer = Math.max(p.hurtTimer || 0, 1.5 / 14);
+  // 연출 중엔 안 다쳐요 (무적 시간을 조금 걸어 둬요. 이 값이면 깜빡이지 않아요: player.js 의 깜빡임 계산). 같이 하는 친구도
+  for (const p of allPlayers()) p.hurtTimer = Math.max(p.hurtTimer || 0, 1.5 / 14);
   arrows = []; // 몬스터 화살·탄 (주인공 화살은 shots)
   if (typeof hazards !== "undefined") hazards = [];
   const k = d.t / d.dur;
@@ -238,28 +235,28 @@ hookOn("dungeonTick", (dt) => {
   SHOW.seenT -= dt;
   if (SHOW.seenT > 0) return;
   SHOW.seenT = 0.3;
-  const p = game.player, c = game.profile.codex;
-  if (!p || !c) return;
+  // 주인공 누구든(같이 하기: 친구 포함) 가까이서 본 몬스터는 모두의 도감에 (records.js "seen")
+  const ps = allPlayers().filter((q) => q && q.hp > 0), c = game.profile.codex;
+  if (!ps.length || !c) return;
+  if (!SHOW.runSeen || SHOW.runSeenN !== allPlayers().length) { SHOW.runSeen = new Set(); SHOW.runSeenN = allPlayers().length; } // 친구가 새로 오면 다시 알려줘요
+  const runSeen = SHOW.runSeen;
   for (const m of monsters) {
     if (m.hp <= 0 || (m.appearTimer || 0) > 0 || m.hidden) continue;
-    if (Math.hypot(m.x - p.x, m.y - p.y) > 6.5) continue;
-    if (m.elite && m.affixes) for (const id of m.affixes) if (!c.affix[id]) { c.affix[id] = true; SHOW.toast.push({ name: `정예 속성 ${ELITE_AFFIXES[id] ? ELITE_AFFIXES[id].name : id}`, t: 2.6 }); }
-    if (codexSkipMonster(m)) continue;
-    if (!c.seen[m.type]) {
-      c.seen[m.type] = true;
-      SHOW.toast.push({ name: m.def.name, t: 2.6 });
-      if (SHOW.toast.length > 3) SHOW.toast.shift();
-      if (typeof sfx !== "undefined") sfx.sparkle();
-    }
+    if (!ps.some((p) => Math.hypot(m.x - p.x, m.y - p.y) <= 6.5)) continue;
+    if (m.elite && m.affixes) for (const id of m.affixes) if (!runSeen.has("a:" + id)) { runSeen.add("a:" + id); recShared("affix", { id }); }
+    if (codexSkipMonster(m) || runSeen.has(m.type)) continue;
+    runSeen.add(m.type);
+    recShared("seen", { type: m.type });
   }
 }, 60);
-
-hookOn("monsterKilled", (m) => {
-  const c = game.profile.codex;
-  if (!c || codexSkipMonster(m)) return;
-  c.seen[m.type] = true;
-  c.killed[m.type] = (c.killed[m.type] || 0) + 1;
-}, 60);
+hookOn("dungeonStarted", () => { SHOW.runSeen = new Set(); }, 60);
+// 도감에 처음 들어온 몬스터·정예 속성 알림 (내 도감에 처음일 때만, records.js)
+function codexSeenToast(name) {
+  SHOW.toast.push({ name, t: 2.6 });
+  if (SHOW.toast.length > 3) SHOW.toast.shift();
+  if (typeof sfx !== "undefined") sfx.sparkle();
+}
+// 도감 잡은 수는 몬스터를 잡을 때 records.js "kill" 이 남겨요 (같이 하기: 친구 도감에도)
 
 // ---------------- 캠프: 트로피 선반, 도감 책 ----------------
 const TROPHY_SPOTS = [];

@@ -518,12 +518,13 @@ function bossRoomLoot(mapId) {
   const pr = game.profile, L = game.mapLevel || 1;
   const key = `${mapId}:${pr.difficulty}`;
   const first = !(pr.bossFirst || (pr.bossFirst = {}))[key];
-  pr.bossFirst[key] = true;
   const coins = bossCoins(L, first);
   for (const [id, n] of Object.entries(coins)) curAdd(id, n);
   const got = [rollItem("boss", L)];
   const legendChance = { easy: 0.15, normal: 0.22, hard: 0.3, nightmare: 0.4 }[pr.difficulty] || 0.22;
-  if (!pr.legends[mapId] || Math.random() < legendChance) { const lg = makeLegend(mapId, L); if (lg) { got.push(lg); pr.legends[mapId] = (pr.legends[mapId] || 0) + 1; } }
+  let gotLegend = false;
+  if (!pr.legends[mapId] || Math.random() < legendChance) { const lg = makeLegend(mapId, L); if (lg) { got.push(lg); gotLegend = true; } }
+  recShared("bossLoot", { map: mapId, legend: gotLegend }); // 보스 첫 보상·전설 받은 수 (같이 하기: 친구도, records.js)
   for (const it of got) giveItem(it, { quiet: true });
   if (game.run) { game.run.bossLoot = got.map((x) => x.u); }
   return { coins, items: got };
