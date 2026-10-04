@@ -169,7 +169,7 @@ function drawTerrainTile(tx, ty) {
   // 가장자리 테두리: 옆 칸이 낮으면 밝은 선 (단 끝이 잘 보여요)
   ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = Math.max(1.5, 1.6 * ZOOM);
   ctx.beginPath();
-  const low = (x, y) => !isWall(x, y) && tileH(x, y) < world.hgt[i] - 0.01;
+  const low = (x, y) => !isWall(x, y) && !isStair(x, y) && tileH(x, y) < world.hgt[i] - 0.01; // 계단 쪽은 절벽 선을 안 그려요 (절벽처럼 보이지 않게)
   if (low(tx + 1, ty)) { ctx.moveTo(b.x, b.y); ctx.lineTo(c.x, c.y); }
   if (low(tx, ty + 1)) { ctx.moveTo(e.x, e.y); ctx.lineTo(c.x, c.y); }
   if (low(tx - 1, ty)) { ctx.moveTo(a.x, a.y); ctx.lineTo(e.x, e.y); }
@@ -183,9 +183,55 @@ function drawStairTile(tx, ty, d, base) {
   for (let k = 0; k < n; k++) { // k: 뒤(작은 x/y)에서 앞으로
     const hgtK = up ? (k + 1) / n : (n - k) / n;
     const x0 = alongX ? tx + k / n : tx, y0 = alongX ? ty : ty + k / n;
-    drawBox(x0, y0, 0, alongX ? 1 / n : 1, alongX ? 1 : 1 / n, hgtK * L, col);
+    drawBox(x0, y0, 0, alongX ? 1 / n : 1, alongX ? 1 : 1 / n, hgtK * L, k % 2 ? shade(col, 0.9) : col);
+  }
+  // 칸 끝(디딤 모서리)마다 밝은 선 + 올라가는 쪽 노란 화살표: 화면 쪽으로 올라가는 계단은 높은 단이 낮은 단을 가려서
+  // 절벽처럼 보였어요. 보이는 단 위에 화살표를 그려 "여기가 계단" 이라고 알려줘요
+  const [dx, dy] = STAIR_DIRS[d];
+  for (let k = 0; k < n; k++) {
+    const hgtK = (up ? (k + 1) / n : (n - k) / n) * L;
+    if (up && k < n - 1) continue; // 화면 쪽으로 올라가면 맨 앞(가장 높은) 단만 보여요
+    const cx = alongX ? tx + (k + 0.5) / n : tx + 0.5, cy = alongX ? ty + 0.5 : ty + (k + 0.5) / n;
+    stairEdgeLine(alongX ? tx + (up ? k + 1 : k) / n : tx, alongX ? ty : ty + (up ? k + 1 : k) / n, alongX, hgtK);
+    if (up) { // 화면 쪽으로 올라가는 계단: 보이는 맨 위 단을 노란 테두리로 (절벽 끝과 헷갈리지 않게)
+      const x0 = alongX ? tx + k / n : tx, y0 = alongX ? ty : ty + k / n, x1 = alongX ? x0 + 1 / n : tx + 1, y1 = alongX ? ty + 1 : y0 + 1 / n;
+      const q = [toScreen(x0, y0, hgtK), toScreen(x1, y0, hgtK), toScreen(x1, y1, hgtK), toScreen(x0, y1, hgtK)];
+      ctx.save(); ctx.strokeStyle = "rgba(255,226,122,0.75)"; ctx.lineWidth = Math.max(1.5, 2 * ZOOM); ctx.beginPath(); q.forEach((c, i) => (i ? ctx.lineTo(c.x, c.y) : ctx.moveTo(c.x, c.y))); ctx.closePath(); ctx.stroke(); ctx.restore();
+    }
+    stairChevron(cx, cy, hgtK + 0.01, dx, dy, up ? 0.2 : 0.14);
   }
 }
+// 계단 디딤 모서리 선 (밝게)
+function stairEdgeLine(x, y, alongX, z) {
+  const a = toScreen(x, y, z), b = alongX ? toScreen(x, y + 1, z) : toScreen(x + 1, y, z);
+  ctx.save(); ctx.strokeStyle = "rgba(255,240,200,0.85)"; ctx.lineWidth = Math.max(1.5, 2 * ZOOM);
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore();
+}
+// 올라가는 쪽을 가리키는 노란 화살표 (^ 모양), 어두운 테두리로 어느 바닥에서도 보여요
+function stairChevron(cx, cy, z, dx, dy, size = 0.25, alpha = 1) {
+  const px = -dy, py = dx;
+  const tip = toScreen(cx + dx * size, cy + dy * size, z), l = toScreen(cx - dx * size * 0.4 + px * size * 1.1, cy - dy * size * 0.4 + py * size * 1.1, z), r = toScreen(cx - dx * size * 0.4 - px * size * 1.1, cy - dy * size * 0.4 - py * size * 1.1, z);
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (const [w, c] of [[4.5, "rgba(40,28,10,0.8)"], [2.4, "#ffe27a"]]) { ctx.strokeStyle = c; ctx.lineWidth = Math.max(1.5, w * ZOOM); ctx.beginPath(); ctx.moveTo(l.x, l.y); ctx.lineTo(tip.x, tip.y); ctx.lineTo(r.x, r.y); ctx.stroke(); }
+  ctx.restore();
+}
+// 계단 앞뒤 바닥 표시: 아래층 바닥(계단 쪽을 가리키는 화살표)과 위층 끝(내려가는 쪽을 가리키는 화살표). 바닥 그릴 때
+//   which: "low" = 아래층 바닥 (높은 칸보다 먼저 그려야 가려져요), "high" = 위층 끝 (높은 칸 위에)
+function drawStairApproaches(which) {
+  if (!world.sdir) return;
+  const W = world.W;
+  const L = terrainList();
+  for (let j = 0; j < L.length; j += 2) {
+    const x = L[j], y = L[j + 1], d = world.sdir[y * W + x];
+    if (!d || !onScreen(x + 0.5, y + 0.5, 3)) continue;
+    const [dx, dy] = STAIR_DIRS[d];
+    const lx = x - dx, ly = y - dy, ux = x + dx, uy = y + dy; // 아래 칸, 위 칸
+    const t = 0.5 + 0.5 * Math.sin(game.time * 3 + x + y);
+    if (which === "low" && !isWall(lx, ly) && !isStair(lx, ly)) stairChevron(lx + 0.5 + dx * 0.15, ly + 0.5 + dy * 0.15, tileH(lx, ly) * LEVEL_Z + 0.02, dx, dy, 0.16, 0.35 + 0.35 * t);
+    if (which === "high" && !isWall(ux, uy) && !isStair(ux, uy)) stairChevron(ux + 0.5 - dx * 0.15, uy + 0.5 - dy * 0.15, tileH(ux, uy) * LEVEL_Z + 0.02, -dx, -dy, 0.16, 0.35 + 0.35 * t);
+  }
+}
+
 // 바닥 그릴 때: 화면에 보이는 높은 칸·계단을 뒤에서부터 (목록은 맵마다 한 번만 만들어 깊이 순서로 둬요)
 function terrainList() {
   if (world._terr && world._terr.hgt === world.hgt && world._terr.tiles === world.tiles) return world._terr.list;

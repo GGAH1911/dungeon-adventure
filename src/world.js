@@ -316,7 +316,7 @@ function drawFloor() {
     ctx.fillStyle = color;
     ctx.fill();
   }
-  if (hg && typeof drawTerrain === "function") drawTerrain();
+  if (hg && typeof drawTerrain === "function") { drawStairApproaches("low"); drawTerrain(); drawStairApproaches("high"); } // 계단 앞뒤 화살표 (terrain.js)
 }
 
 // 화면에 보이는 벽을 그리기 목록에 넣어요
