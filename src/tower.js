@@ -1,10 +1,11 @@
 // ===== 시련의 탑 =====
 // 둥근 아레나에서 웨이브를 다 물리치면 계단이 열려요. 계단으로 올라가면 다음 층!
-// 5층과 10층에는 보스가 나와요. 층이 올라갈수록 몬스터가 세져요.
+// 30층까지! 5층마다 보스가 나와요: 5~25층은 보스방 보스들(탑 버전: 정예 속성 하나), 30층은 탑의 주인 (towerboss.js)
+// 층이 올라갈수록 몬스터가 세지고, 8층부터는 정예도 섞여요.
 
 const TOWER = {
-  id: "tower", type: "tower", name: "시련의 탑", desc: "웨이브를 깨고 계단으로 올라가요! 5층·10층엔 보스",
-  minLevel: 2, floors: 10, reward: 45, unlockAfter: "cave",
+  id: "tower", type: "tower", name: "시련의 탑", desc: "웨이브를 깨고 계단으로 올라가요! 5층마다 보스, 30층엔 탑의 주인",
+  minLevel: 2, floors: 30, reward: 90, unlockAfter: "cave",
   size: 22, count: 0, monsters: {},
   theme: { floor: "#7a6f62", moss: "#8c7b5e", wall: "#9a8a72", darkness: 0.35, bg: "#120f0c" },
   // 층마다 나오는 몬스터
@@ -13,8 +14,16 @@ const TOWER = {
     { upTo: 4, monsters: ["zombie", "spider", "skeleton", "bat"] },
     { upTo: 7, monsters: ["zombie", "skeleton", "slime", "boomer", "bat", "mummy"] },
     { upTo: 10, monsters: ["skeleton", "boomer", "mummy", "mage", "knight", "bat"] },
+    { upTo: 14, monsters: ["knight", "mage", "golem", "charger", "sniper", "whirler", "bat"] },
+    { upTo: 19, monsters: ["miner", "wisp", "crab", "shieldbearer", "healer", "knight", "boomer"] },
+    { upTo: 24, monsters: ["shadow", "golem", "mage", "drummer", "lurker", "summoner", "crab"] },
+    { upTo: 30, monsters: ["shadow", "knight", "golem", "wisp", "sniper", "healer", "charger", "whirler"] },
   ],
-  bosses: { 5: "golem", 10: "knight" },
+  // 보스 층: 그 층에 나올 수 있는 보스방 보스 (탑에 들어갈 때마다 하나를 골라요). "tower" = 탑의 주인
+  bossPools: { 5: ["cave", "crypt", "jungle"], 10: ["desert", "ice", "swamp"], 15: ["volcano", "mine", "coral"], 20: ["castle", "sky"], 25: ["void"], 30: ["tower"] },
+  bossAffixes: ["fireTrail", "fast", "vampiric", "lightning", "deathNova"], // 탑 보스에 붙는 정예 속성 (기술이 안 늘어나는 것만)
+  levelStep: 0.35, // 층마다 몬스터 레벨이 오르는 정도
+  maxWave: 22, // 한 층 몬스터 최대 (태블릿이 힘들지 않게)
   floorThemes: [
     { floor: "#7a6f62", moss: "#8c7b5e", wall: "#9a8a72", darkness: 0.35, bg: "#120f0c" },
     { floor: "#5e6a78", moss: "#6f7f92", wall: "#7a8696", darkness: 0.4, bg: "#0c1016" },
@@ -33,7 +42,7 @@ function startTower(level) {
   game.overlay = null;
   game.mapDef = TOWER;
   game.mapLevel = level;
-  game.tower = { floor: 1, cleared: false, waveDelay: 1.2 };
+  game.tower = { floor: 1, cleared: false, waveDelay: 1.2, bossMaps: towerPickBosses() };
   buildArenaFloor(1);
   placePlayer();
   game.run = { kills: 0, emeralds: 0, xp: 0, levels: 0 };
@@ -41,8 +50,42 @@ function startTower(level) {
   showMessage(`시련의 탑 1층`, 2.5);
 }
 
+// 층의 몬스터 레벨: 들어간 레벨 + 층마다 0.35 (30층이면 +10)
+function towerLevel(f) { return game.mapLevel + Math.floor((f - 1) * TOWER.levelStep); }
+// 이번 탑에서 층마다 나올 보스 (들어갈 때마다 바뀌어요)
+function towerPickBosses() {
+  const out = {};
+  for (const [f, pool] of Object.entries(TOWER.bossPools)) out[f] = pool[Math.floor(Math.random() * pool.length)];
+  return out;
+}
+// 이 층의 보스 (없으면 null): { mapId, def }
+function towerBossAt(f) {
+  const T = game.tower; if (!T) return null;
+  const mapId = (T.bossMaps || {})[f]; if (!mapId) return null;
+  const def = mapId === "tower" ? (typeof TOWER_MASTER_DEF !== "undefined" ? TOWER_MASTER_DEF : null) : BOSS_DEFS[mapId];
+  return def ? { mapId, def } : null;
+}
+
+// 보스 층: 그 보스의 보스방처럼 둥근 방 (숨을 기둥도 그대로) + 뒤쪽 계단
+function buildBossFloor(f, def) {
+  const N = (def.arena && def.arena.size) || 24;
+  resetWorld(N, N, -1, (def.arena && def.arena.theme) || TOWER.theme);
+  const c = N / 2, R = N / 2 - 2;
+  for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) if (Math.hypot(x + 0.5 - c, y + 0.5 - c) < R) world.tiles[y][x] = 0;
+  finishWalls(makeRandom(f * 131 + 9));
+  world.rooms = [{ x: 2, y: 2, w: N - 4, h: N - 4, cx: c, cy: c }];
+  if (def.arena && def.arena.build) def.arena.build(world);
+  world.start = findFreeSpot(c + R * 0.6, c + R * 0.2, 0.5, 3) || { x: c, y: c };
+  world.explored = null; world.mini = null;
+  stairs = { x: c - R * 0.55, y: c - R * 0.55, open: false, glow: 0 };
+  const sp = findFreeSpot(stairs.x, stairs.y, 0.8, 3); if (sp) { stairs.x = sp.x; stairs.y = sp.y; }
+  chests = [];
+}
+
 // 아레나 만들기 (팔각형 방 + 층마다 다른 기둥)
 function buildArenaFloor(f) {
+  const tb = towerBossAt(f);
+  if (tb) return buildBossFloor(f, tb.def);
   const th = TOWER.floorThemes[Math.floor((f - 1) / 3) % TOWER.floorThemes.length];
   const N = TOWER.size;
   resetWorld(N, N, -1, th);
@@ -71,11 +114,13 @@ function towerMonsterPool(f) {
 }
 
 function spawnWave() {
-  const f = game.tower.floor;
-  const L = game.mapLevel + Math.floor((f - 1) * 0.6);
+  const T = game.tower;
+  const f = T.floor;
+  const L = towerLevel(f);
   const pool = towerMonsterPool(f);
-  const bossType = TOWER.bosses[f];
-  const count = bossType ? 3 + Math.floor(f / 2) : Math.round(5 + f * 1.5);
+  const tb = towerBossAt(f);
+  const count = tb ? Math.min(6, 1 + Math.floor(f / 6)) : Math.min(TOWER.maxWave, Math.round(5 + f * 1.5));
+  const elites = tb ? 0 : f >= 18 ? 2 : f >= 8 ? 1 : 0;
   const p = game.player;
   monsters = [];
   for (let i = 0; i < count; i++) {
@@ -88,17 +133,27 @@ function spawnWave() {
     }
     const m = createMonster(type, spot.x, spot.y, L);
     m.aggro = true; m.appearTimer = 0.6;
+    if (i < elites && typeof makeElite === "function" && !(ELITE_RULES.notElite || []).includes(type)) makeElite(m, pickAffixes(1, game.profile.difficulty));
     monsters.push(m);
     addRing(spot.x, spot.y, { speed: 3, life: 0.4, hue: 280 });
   }
-  if (bossType) {
-    const m = createMonster(bossType, world.W / 2 - 1.5, world.H / 2 - 1.5, L + 2);
-    makeBoss(m);
-    const free = findFreeSpot(m.x, m.y, m.r);
+  if (tb) {
+    const c = world.W / 2;
+    const m = tb.def.create(c - 1, c - 1, L + 1);
+    m.boss = true; m.towerBoss = tb.mapId; if (m.aggro === undefined || m.aggro === false) m.aggro = true;
+    // 탑 버전: 정예 속성 하나 (30층 탑의 주인은 그대로)
+    if (tb.mapId !== "tower") {
+      const id = TOWER.bossAffixes[Math.floor(Math.random() * TOWER.bossAffixes.length)], a = ELITE_AFFIXES[id];
+      m.elite = true; m.affixes = [id]; if (a && a.apply) a.apply(m);
+      m.name = `${tb.def.name || m.name} (${a ? a.name : id})`;
+    }
+    const free = findFreeSpot(m.x, m.y, m.r, 4);
     if (free) { m.x = free.x; m.y = free.y; }
     monsters.push(m);
+    T.boss = m;
     sfx.boss();
-    showMessage(`보스 등장! ${m.name}`, 2.5, false, "#ff7070");
+    game.shake = 0.5;
+    showMessage(tb.mapId === "tower" ? "마지막 층! 탑의 주인이 나타났어요!" : `보스 등장! ${m.name}`, 3, tb.mapId === "tower", "#ff7070");
   }
 }
 
@@ -122,8 +177,17 @@ function updateTower(p, dt) {
     if (T.waveDelay <= 0) spawnWave();
     return;
   }
+  // 보스가 쓰러지면 남은 부하·분신과 아직 안 끝난 기술(부르기 등)도 함께 사라져요 (보스방과 같아요)
+  if (T.boss && T.boss.hp <= 0 && !T.bossDown) {
+    T.bossDown = true;
+    for (const m of monsters) if (m !== T.boss && m.hp > 0) { m.hp = 0; spawnBurst(m.x, m.y, ["#888888"], 6); }
+    monsters = monsters.filter((m) => m.hp > 0);
+    if (typeof casts !== "undefined") casts = casts.filter((c) => !c.m || c.m === game.player || c.m.hp > 0);
+  }
   if (!T.cleared && monsters.length === 0) floorCleared();
   if (stairs.open) stairs.glow += dt;
+  // 보스 층은 방이 넓어서 조금 멀리 봐요 (보스방처럼)
+  if (typeof setBossZoom === "function") setBossZoom(!!(towerBossAt(T.floor) && !T.cleared));
 }
 
 function floorCleared() {
@@ -133,6 +197,8 @@ function floorCleared() {
   const pr = game.profile;
   pr.towerBest = Math.max(pr.towerBest || 0, T.floor);
   if (T.floor >= TOWER.floors) {
+    const last = towerBossAt(T.floor);
+    if (last && typeof towerBossReward === "function") towerBossReward(last.mapId, towerLevel(T.floor));
     endRun(true);
     return;
   }
@@ -141,16 +207,17 @@ function floorCleared() {
   pr.emeralds += bonus;
   game.run.emeralds += bonus;
   // 층마다 화폐 조금 (탑 층이 높을수록 좋은 화폐)
-  const tl = game.mapLevel + Math.floor((T.floor - 1) * 0.6);
+  const tl = towerLevel(T.floor);
   const ct = mapCoinTier(tl);
   if (ct >= 1) curAdd(coinIdOfTier(ct), Math.max(1, coinCount(1 + T.floor * 0.15)));
   else curAdd("emerald", 3);
-  if (T.floor % 5 === 0) giveItem(rollItem("goldChest", tl));
+  const tb = towerBossAt(T.floor);
+  if (tb && typeof towerBossReward === "function") towerBossReward(tb.mapId, tl);
   p.hp = Math.min(p.maxHp, p.hp + 3);
   stairs.open = true;
   sfx.clear();
   showMessage(`${T.floor}층 클리어! 에메랄드 +${bonus} · 계단이 열렸어요`, 3, false, "#7dffb0");
-  if (TOWER.bosses[T.floor]) {
+  if (tb) {
     addChest(world.W / 2, world.H / 2, true);
     showMessage(`보스 처치! 황금 상자가 나왔어요`, 3, true);
   }
@@ -168,6 +235,7 @@ function nextFloor() {
   T.floor++;
   T.cleared = false;
   T.waveDelay = 1.5;
+  T.boss = null; T.bossDown = false;
   const hp = p.hp;
   resetEffects();
   buildArenaFloor(T.floor);
@@ -175,7 +243,8 @@ function nextFloor() {
   game.player.hp = hp;
   game.fade = 0.6;
   sfx.stairs();
-  showMessage(TOWER.bosses[T.floor] ? `${T.floor}층 · 보스 층!` : `${T.floor}층`, 2.5, false, TOWER.bosses[T.floor] ? "#ff8080" : "#ffe27a");
+  const nb = towerBossAt(T.floor);
+  showMessage(nb ? (T.floor === TOWER.floors ? `${T.floor}층 · 마지막 층!` : `${T.floor}층 · 보스 층!`) : T.floor % 5 === 4 ? `${T.floor}층 · 다음은 보스 층!` : `${T.floor}층`, 2.5, false, nb ? "#ff8080" : "#ffe27a");
 }
 
 function stairsThings(things) { const r = stairsThingsBase(things); hookRun("worldThings", things); return r; }

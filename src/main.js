@@ -634,5 +634,14 @@ placePlayer();
 // 모든 스크립트가 다 읽힌 뒤에 시작해요. 그 전에 그리면 아직 안 읽힌 파일(직업 등)을 찾다가 오류가 나요
 // (느린 인터넷에서는 다음 파일을 받는 동안 화면을 먼저 그릴 수 있어요)
 let gameBooted = false;
+// 다 읽힐 때까지 "불러오는 중" (까만 화면 대신)
+try {
+  ctx.fillStyle = "#16181d"; ctx.fillRect(0, 0, view.w, view.h);
+  ctx.fillStyle = "#ffe27a"; ctx.font = 'bold 30px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif'; ctx.textAlign = "center";
+  ctx.fillText("던전 모험", view.w / 2, view.h / 2 - 10);
+  ctx.fillStyle = "#cccccc"; ctx.font = 'bold 16px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+  ctx.fillText("불러오는 중...", view.w / 2, view.h / 2 + 22);
+  ctx.textAlign = "left";
+} catch (e) { /* 그만 */ }
 function bootLoop() { if (gameBooted) return; gameBooted = true; lastTime = performance.now(); if (!rafId && !paused) rafId = requestAnimationFrame(loop); }
 if (document.readyState === "complete") bootLoop(); else window.addEventListener("load", bootLoop);
