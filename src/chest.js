@@ -15,6 +15,7 @@ function placeChests(rand) {
     if (chests.some((c) => Math.hypot(c.x - spot.x, c.y - spot.y) < 3)) continue;
     if (hitsWall(spot.x, spot.y, 0.5)) continue;
     if (typeof nearStair === "function" && nearStair(spot.x, spot.y, 1.2)) continue; // 계단 길은 비워 둬요 (terrain.js)
+    if (typeof w2EnvKeepClear === "function" && w2EnvKeepClear(spot.x, spot.y)) continue; // 바다 해면 길·파이프 (ocean_env.js)
     addChest(spot.x, spot.y, rand() < 0.22);
   }
 }

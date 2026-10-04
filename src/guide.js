@@ -348,8 +348,9 @@ hookOn("hudDraw", () => {
   if (b && game.time > b.until) b = guide.banner = null;
   // 용이 날고 있으면 계속 알려줘요
   const flyer = lv !== "none" && monsters.find((m) => m.boss && m.flying && m.hp > 0);
-  if (flyer && b && !b.sub && !b.sticky) b = { ...b, sub: touch.show ? "용이 날고 있어요: 활 버튼으로!" : "용이 날고 있어요: 활(L)로!" };
-  if (flyer && !b) b = { text: touch.show ? "날고 있어요! 활 버튼으로 쏴요" : "날고 있어요! 활(L)로 쏴요", kind: "safe", start: game.time - 1, until: game.time + 1, sticky: true };
+  const fw = flyer && flyer.swimming ? "헤엄치고" : "날고"; // 물기둥 고래는 헤엄쳐요
+  if (flyer && b && !b.sub && !b.sticky) b = { ...b, sub: touch.show ? `${flyer.swimming ? "고래가" : "용이"} ${fw} 있어요: 활 버튼으로!` : `${flyer.swimming ? "고래가" : "용이"} ${fw} 있어요: 활(L)로!` };
+  if (flyer && !b) b = { text: touch.show ? `${fw} 있어요! 활 버튼으로 쏴요` : `${fw} 있어요! 활(L)로 쏴요`, kind: "safe", start: game.time - 1, until: game.time + 1, sticky: true };
   if (b) {
     const k = b.sticky ? 0.85 : Math.min(1, (game.time - b.start) * 6, (b.until - game.time) * 3);
     const size = 24, y = Math.max(108, H * 0.3);

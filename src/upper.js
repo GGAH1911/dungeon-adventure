@@ -23,6 +23,7 @@ hookOn("dungeonStarted", (def) => {
     if (chests.some((c) => Math.hypot(c.x - x, c.y - y) < 2)) continue;
     if (interactables().some((n) => Math.hypot(n.x - x, n.y - y) < 3.5)) continue; // E 가 다른 물건(레버·문)을 잡지 않게
     if (world.solids.some((o) => Math.hypot(o.x - x, o.y - y) < 1.6)) continue;
+    if (typeof w2EnvKeepClear === "function" && w2EnvKeepClear(x, y, 1.4)) continue; // 바다 해면 길·파이프
     game.upStairs = { x, y };
     world.solids.push({ x, y, r: 0.55, upStairs: true });
     return;
@@ -60,6 +61,7 @@ function upperPlaceAll(x, y) {
 
 function enterUpperFloor() {
   if (game.upper || !game.upStairs || game.mode !== "dungeon") return;
+  game.upperSwapT = game.time;
   const def = game.mapDef, level = game.mapLevel;
   game.mainSnap = upperSnapshot();
   upperClearEffects();
@@ -88,8 +90,14 @@ function enterUpperFloor() {
   game.upperFresh = false;
   hookRun("upperChanged", true);
 }
+// 계단에서 E: 오르내린 바로 뒤(0.8초)엔 무시해요 (두 번 누르면 도착한 계단에서 바로 되돌아가요. 같이 하기에서 누름이 두 번 갈 때도)
+function upperStairsUse() {
+  if (game.time - (game.upperSwapT ?? -9) < 0.8) return;
+  if (game.upper) leaveUpperFloor(); else enterUpperFloor();
+}
 function leaveUpperFloor() {
   if (!game.upper || !game.mainSnap) return;
+  game.upperSwapT = game.time;
   game.upperSnap = upperSnapshot();
   upperClearEffects();
   upperRestore(game.mainSnap);
@@ -105,8 +113,8 @@ function leaveUpperFloor() {
 // 말 걸기 (E): 올라가기 / 내려가기
 hookOn("dungeonInteractables", (list) => {
   if (game.mode !== "dungeon") return list;
-  if (!game.upper && game.upStairs && !(game.keyhunt && game.keyhunt.inBoss)) list.push({ x: game.upStairs.x, y: game.upStairs.y, range: 1.7, short: "위층", prompt: "위층으로 올라가요", action: enterUpperFloor });
-  if (game.upper && game.downStairs) list.push({ x: game.downStairs.x, y: game.downStairs.y, range: 1.7, short: "아래층", prompt: "아래층으로 내려가요", action: leaveUpperFloor });
+  if (!game.upper && game.upStairs && !(game.keyhunt && game.keyhunt.inBoss)) list.push({ x: game.upStairs.x, y: game.upStairs.y, range: 1.7, short: "위층", prompt: "위층으로 올라가요", action: upperStairsUse });
+  if (game.upper && game.downStairs) list.push({ x: game.downStairs.x, y: game.downStairs.y, range: 1.7, short: "아래층", prompt: "아래층으로 내려가요", action: upperStairsUse });
   return list;
 }, 50);
 
@@ -127,11 +135,11 @@ function drawDownStairs(s) {
 }
 hookOn("worldThings", (things) => {
   if (game.mode !== "dungeon") return;
-  if (!game.upper && game.upStairs && onScreen(game.upStairs.x, game.upStairs.y, 3)) { const s = game.upStairs; things.push({ depth: s.x + s.y + 0.6, x: s.x, y: s.y, draw: () => drawUpStairs(s) }); }
+  if (!game.upper && game.upStairs && !(game.keyhunt && game.keyhunt.inBoss) && onScreen(game.upStairs.x, game.upStairs.y, 3)) { const s = game.upStairs; things.push({ depth: s.x + s.y + 0.6, x: s.x, y: s.y, draw: () => drawUpStairs(s) }); }
   if (game.upper && game.downStairs && onScreen(game.downStairs.x, game.downStairs.y, 3)) { const s = game.downStairs; things.push({ depth: s.x + s.y - 0.6, x: s.x, y: s.y, draw: () => drawDownStairs(s) }); }
 }, 55);
 hookOn("lights", (lights) => {
-  if (!game.upper && game.upStairs) lights.push({ x: game.upStairs.x, y: game.upStairs.y, radius: 2.4, power: 0.7 });
+  if (!game.upper && game.upStairs && !(game.keyhunt && game.keyhunt.inBoss)) lights.push({ x: game.upStairs.x, y: game.upStairs.y, radius: 2.4, power: 0.7 });
   if (game.upper && game.downStairs) lights.push({ x: game.downStairs.x, y: game.downStairs.y, radius: 2.4, power: 0.7 });
 }, 55);
 // 미니맵: 계단 표시 (가 본 곳이면)

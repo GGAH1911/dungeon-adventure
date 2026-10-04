@@ -228,10 +228,10 @@ function bossMonsterIds() {
 }
 function codexMonsterIds() {
   const bosses = bossMonsterIds();
-  return Object.keys(MONSTERS).filter((id) => !id.startsWith("__") && !CODEX_SKIP.has(id) && !bosses.has(id) && !MONSTERS[id].untargetable);
+  return Object.keys(MONSTERS).filter((id) => !id.startsWith("__") && !CODEX_SKIP.has(id) && !bosses.has(id) && !MONSTERS[id].untargetable && MONSTERS[id].behavior !== "prop" && !MONSTERS[id].codexSkip);
 }
 function codexSkipMonster(m) {
-  return !m || !m.def || m.clone || m.b2Decoy || m.boss || m.def.untargetable || CODEX_SKIP.has(m.type) || bossMonsterIds().has(m.type);
+  return !m || !m.def || m.clone || m.b2Decoy || m.boss || m.def.untargetable || m.def.behavior === "prop" || m.def.codexSkip || CODEX_SKIP.has(m.type) || bossMonsterIds().has(m.type); // 소품(소라·조개·파이프·눈덩이)은 도감에 안 넣어요
 }
 
 hookOn("dungeonTick", (dt) => {

@@ -130,10 +130,11 @@ function khRandomRoomFar(p, minD) {
 function khSpot(r, fx, fy, rad = 0.45) {
   const s = findFreeSpot(r.x + r.w * fx, r.y + r.h * fy, rad, 4);
   // 계단 길은 비워 둬요 (terrain.js): 계단 옆이면 방 안에서 조금씩 옮겨 봐요
-  if (s && typeof nearStair === "function" && nearStair(s.x, s.y, 1.2)) {
+  const busy = (x, y) => (typeof nearStair === "function" && nearStair(x, y, 1.2)) || (typeof w2EnvKeepClear === "function" && w2EnvKeepClear(x, y)); // 계단·바다 해면 길
+  if (s && busy(s.x, s.y)) {
     for (let k = 1; k <= 8; k++) {
       const a = k * 2.4, d = 0.8 + k * 0.4, t = findFreeSpot(s.x + Math.cos(a) * d, s.y + Math.sin(a) * d, rad, 1);
-      if (t && t.x > r.x && t.x < r.x + r.w && t.y > r.y && t.y < r.y + r.h && !nearStair(t.x, t.y, 1.2)) return t;
+      if (t && t.x > r.x && t.x < r.x + r.w && t.y > r.y && t.y < r.y + r.h && !busy(t.x, t.y)) return t;
     }
   }
   return s || { x: r.cx, y: r.cy };
@@ -655,6 +656,7 @@ const KEY_CHALLENGES = {
         for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) if (isWall(gx + x, gy + y)) return false;
         // 상자 같은 물건이 타일 위에 있으면 안 돼요
         if (world.solids.some((q) => q.x > gx - 0.6 && q.x < gx + 3.6 && q.y > gy - 0.6 && q.y < gy + 3.6)) return false;
+        if (typeof w2EnvKeepClear === "function" && (w2EnvKeepClear(r.cx + 2.6, r.cy + 2.6) || w2EnvKeepClear(r.cx, r.cy, 2.2))) return false; // 바다 해면 길·파이프 (ocean_env.js)
         return !hitsWall(r.cx + 2.6, r.cy + 2.6, 0.4);
       };
       const r = khTakeRoom(ok);

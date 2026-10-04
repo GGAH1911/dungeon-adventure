@@ -13,15 +13,56 @@ const W2_MAPS = [
   { world: 2, unlockAfter: "shallows", key: ["shards", "mimic"],
     id: "kelp", name: "다시마 숲", desc: "키 큰 다시마 속에 몬스터가 숨어 있어요",
     minLevel: 35, size: 62, rooms: 13, count: 34, reward: 125, features: { kelp: 14, currents: 2 },
-    monsters: { lurker: 2, w2_jelly: 2, w2_puffer: 2, w2_shrimp: 2, w2_seahorse: 1, w2_turtle: 1, crab: 1, thief: 1 },
+    monsters: { w2_eel: 2, w2_jelly: 2, w2_puffer: 2, w2_shrimp: 2, w2_seahorse: 1, w2_turtle: 1, crab: 1, thief: 1 },
     theme: { floor: "#6f8f6a", moss: "#3f8a4a", wall: "#3a5a52", darkness: 0.4, bg: "#06201a" } },
+  { world: 2, unlockAfter: "kelp", key: ["crackwall", "hold", "twins"],
+    id: "wreck", name: "가라앉은 배 무덤", desc: "부서진 배 사이, 거품 기둥이 하트를 채워줘요",
+    minLevel: 37, size: 64, rooms: 13, count: 36, reward: 140, features: { vents: 6, currents: 2 },
+    monsters: { w2_turtle: 2, w2_puffer: 2, w2_shrimp: 2, w2_urchin: 2, w2_seahorse: 1, crab: 1, jellyCube: 1, thief: 1 },
+    theme: { floor: "#7a6a52", moss: "#5fa8a0", wall: "#4a3e34", darkness: 0.45, bg: "#081a20" } },
+  { world: 2, unlockAfter: "wreck", key: ["plates", "guardian"],
+    id: "icefloe", name: "꽁꽁 얼음 바다", desc: "미끄러운 얼음판! 쭉 미끄러지며 펭귄을 피해요",
+    minLevel: 39, size: 64, rooms: 13, count: 36, reward: 150, features: { ice: 9, vents: 2 },
+    monsters: { w2_penguin: 3, w2_puffer: 2, w2_turtle: 2, w2_shrimp: 2, w2_jelly: 1, w2_seahorse: 1, thief: 1 },
+    theme: { floor: "#8fa8b8", moss: "#a8c8d8", wall: "#4f7a98", darkness: 0.22, bg: "#0a2a40" } },
+  { world: 2, unlockAfter: "icefloe", key: ["memory", "shards"],
+    id: "songreef", name: "노래하는 산호밭", desc: "통통 해면을 밟으면 붕 날아올라요",
+    minLevel: 41, size: 64, rooms: 14, count: 36, reward: 160, features: { sponges: 9, currents: 2 },
+    monsters: { w2_starfish: 3, w2_jelly: 2, w2_seahorse: 2, w2_shrimp: 2, w2_puffer: 1, w2_urchin: 1, thief: 1 },
+    theme: { floor: "#d8bcd0", moss: "#f2a0c8", wall: "#8a5aa0", darkness: 0.25, bg: "#200a30" } },
+  { world: 2, unlockAfter: "songreef", key: ["dark", "levers", "mimic"],
+    id: "trench", name: "깜깜 해구", desc: "빛나는 산호만 반짝이는 깊고 깜깜한 골짜기",
+    minLevel: 43, size: 64, rooms: 14, count: 34, reward: 170, features: { glow: 34 },
+    monsters: { w2_angler: 3, w2_jelly: 3, w2_eel: 2, w2_seahorse: 1, w2_shrimp: 1, thief: 1 },
+    theme: { floor: "#2f3a5a", moss: "#5ff0d0", wall: "#1e2640", darkness: 0.72, bg: "#02040c" } },
+  { world: 2, unlockAfter: "trench", key: ["thief", "twins"],
+    id: "sharkreef", name: "상어 암초", desc: "커다란 덫 조개! 몬스터를 조개 위로 데려가요",
+    minLevel: 45, size: 66, rooms: 14, count: 38, reward: 180, features: { clams: 12, kelp: 4 },
+    monsters: { w2_sharkling: 3, w2_eel: 2, w2_urchin: 2, w2_shrimp: 2, w2_turtle: 1, w2_seahorse: 1, thief: 1 },
+    theme: { floor: "#b8a888", moss: "#5fb0c0", wall: "#4a6070", darkness: 0.35, bg: "#062030" } },
+  { world: 2, unlockAfter: "sharkreef", key: ["traphall", "guardian"],
+    id: "vents", name: "뜨거운 열수구", desc: "바닥에서 뜨거운 물기둥이 솟아요! 예고를 보고 피해요",
+    minLevel: 47, size: 66, rooms: 14, count: 38, reward: 190, features: { geysers: 12, currents: 2 },
+    monsters: { w2_urchin: 3, w2_turtle: 2, w2_puffer: 2, w2_shrimp: 2, w2_seahorse: 1, w2_penguin: 1, crab: 1, thief: 1 },
+    theme: { floor: "#4a4048", moss: "#ff8a4a", wall: "#3a3036", darkness: 0.5, bg: "#140808", lava: true } },
+  { world: 2, unlockAfter: "vents", key: ["torches", "crackwall", "twins"],
+    id: "sunken", name: "잠긴 도시", desc: "옛 도시의 물 파이프! 들어가면 슝 다른 방으로",
+    minLevel: 49, size: 68, rooms: 15, count: 40, reward: 205, features: { pipes: 4, glow: 10 },
+    monsters: { w2_octo: 3, w2_turtle: 2, w2_angler: 2, w2_urchin: 2, w2_seahorse: 1, w2_sharkling: 1, thief: 1 },
+    theme: { floor: "#9a9a8a", moss: "#7fd0b0", wall: "#5a6a6a", darkness: 0.5, bg: "#04121a" } },
+  { world: 2, unlockAfter: "sunken", key: ["levers", "hold", "twins"],
+    id: "abyss", name: "심해 궁전", desc: "깊은 바다 맨 아래, 바다 용왕의 궁전",
+    minLevel: 52, size: 70, rooms: 15, count: 40, reward: 225, features: { currents: 3, vents: 3, glow: 12 },
+    monsters: { w2_turtle: 2, w2_eel: 2, w2_angler: 2, w2_seahorse: 2, w2_urchin: 2, w2_octo: 1, w2_starfish: 1, w2_sharkling: 1, w2_jelly: 1, thief: 1 },
+    theme: { floor: "#3a4a6a", moss: "#e0c060", wall: "#2a3550", darkness: 0.55, bg: "#03060f" } },
 ];
 for (const m of W2_MAPS) MAPS.push(m);
 
-// 모험 지도 자리 (바다 지도: 왼쪽 위 해안 -> 오른쪽 아래 심해)
+// 모험 지도 자리 (바다 지도: 왼쪽 위 해안 -> 오른쪽 아래 심해, 10곳이 길처럼 이어져요)
 Object.assign(WORLD_PLACES, {
-  shallows: { x: 520, y: 380 }, kelp: { x: 900, y: 640 }, wreck: { x: 1320, y: 520 },
-  trench: { x: 1480, y: 960 }, vents: { x: 1960, y: 760 }, abyss: { x: 1920, y: 1320 },
+  shallows: { x: 360, y: 300 }, kelp: { x: 700, y: 470 }, wreck: { x: 1080, y: 330 },
+  icefloe: { x: 1480, y: 230 }, songreef: { x: 1900, y: 380 }, trench: { x: 1700, y: 720 },
+  sharkreef: { x: 1260, y: 820 }, vents: { x: 820, y: 1000 }, sunken: { x: 1240, y: 1260 }, abyss: { x: 1860, y: 1290 },
 });
 
 function inWorld2Dungeon() { return game.scene === "dungeon" && game.mapDef && mapWorld(game.mapDef) === 2; }
@@ -73,7 +114,7 @@ hookOn("playersUpdated", (dt) => {
       if (!world.w2.taught && typeof showMessage === "function") { world.w2.taught = true; showMessage("물살! 거스르면 느려요, 타면 빨라요", 2.5, false, "#9fe6ff"); }
     }
   }
-}, 60);
+}, 96); // 같이 하기: netplay 가 친구 자리를 적어 둔 뒤(95)에 밀어야 친구 기기도 밀려요
 hookOn("dungeonTick", (dt) => {
   if (!inWorld2Dungeon() || !world.w2) return;
   for (const m of monsters) {
@@ -152,21 +193,26 @@ function buildSeaTerrain() {
   // 물결 무늬
   g.strokeStyle = "rgba(220,250,255,0.18)"; g.lineWidth = 3;
   for (let i = 0; i < 180; i++) { const x = rand() * WORLD_W, y = rand() * WORLD_H * 0.7; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 14, y - 8, x + 28, y); g.quadraticCurveTo(x + 42, y + 8, x + 56, y); g.stroke(); }
-  // 지역: 산호초 · 다시마 숲 · 배 무덤 · 해구 · 열수구 · 궁전
+  // 지역 10곳 (WORLD_PLACES 자리): 산호초 · 다시마 숲 · 배 무덤 · 얼음 바다 · 노래 산호밭 · 해구 · 상어 암초 · 열수구 · 잠긴 도시 · 심해 궁전
   const region = (cx, cy, rx, ry, color, bump = 0.3) => { noisyBlob(g, cx, cy, { x: rx, y: ry }, rand, bump); g.fillStyle = color; g.fill(); };
-  region(520, 380, 280, 200, "rgba(232,214,160,0.85)");  // 모래 산호초
-  region(900, 650, 240, 180, "rgba(70,140,90,0.75)");     // 다시마 숲
-  region(1320, 520, 240, 170, "rgba(120,100,80,0.7)");    // 배 무덤
-  region(1480, 980, 260, 220, "rgba(10,14,40,0.8)");      // 해구
-  region(1960, 760, 220, 180, "rgba(120,60,50,0.7)");     // 열수구
-  region(1920, 1330, 260, 200, "rgba(60,70,120,0.8)");    // 심해 궁전
+  const P = WORLD_PLACES;
+  region(P.shallows.x, P.shallows.y, 240, 170, "rgba(232,214,160,0.85)");
+  region(P.kelp.x, P.kelp.y + 10, 200, 150, "rgba(70,140,90,0.75)");
+  region(P.wreck.x, P.wreck.y, 200, 150, "rgba(120,100,80,0.7)");
+  region(P.icefloe.x, P.icefloe.y, 220, 150, "rgba(235,248,255,0.8)");
+  region(P.songreef.x, P.songreef.y, 210, 160, "rgba(220,170,220,0.7)");
+  region(P.trench.x, P.trench.y + 20, 230, 190, "rgba(10,14,40,0.8)");
+  region(P.sharkreef.x, P.sharkreef.y, 210, 150, "rgba(150,160,150,0.6)");
+  region(P.vents.x, P.vents.y, 210, 160, "rgba(120,60,50,0.7)");
+  region(P.sunken.x, P.sunken.y, 220, 160, "rgba(110,120,110,0.65)");
+  region(P.abyss.x, P.abyss.y, 240, 190, "rgba(60,70,120,0.8)");
   // 산호·다시마 점
   for (let i = 0; i < 220; i++) { const x = 300 + rand() * 900, y = 220 + rand() * 600; g.fillStyle = ["#ff8f7a", "#ffb04a", "#c87aff", "#4fa05a"][Math.floor(rand() * 4)]; g.globalAlpha = 0.55; g.fillRect(x, y, 6 + rand() * 6, 6 + rand() * 10); }
   g.globalAlpha = 1;
   // 거품
   for (let i = 0; i < 260; i++) { g.strokeStyle = `rgba(230,250,255,${0.15 + rand() * 0.25})`; g.lineWidth = 2; g.beginPath(); g.arc(rand() * WORLD_W, rand() * WORLD_H, 3 + rand() * 8, 0, Math.PI * 2); g.stroke(); }
   // 해구의 갈라진 틈
-  g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = 10; g.beginPath(); g.moveTo(1300, 900); g.quadraticCurveTo(1480, 1000, 1660, 1060); g.stroke();
+  g.strokeStyle = "rgba(0,0,0,0.5)"; g.lineWidth = 10; g.beginPath(); g.moveTo(P.trench.x - 180, P.trench.y - 60); g.quadraticCurveTo(P.trench.x, P.trench.y + 40, P.trench.x + 180, P.trench.y + 100); g.stroke();
   return c;
 }
 
