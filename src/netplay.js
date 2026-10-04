@@ -5,14 +5,26 @@
 // 연결은 net.js (PeerJS 는 같이 하기를 누를 때만 불러와요).
 //
 // 메시지 (net.js 위에서 { t: 종류, ... })
-//   친구 -> 방장: hello(장비·직업·모습) / input(조작, 초당 30) / gear(장비 바뀜)
-//   방장 -> 친구: scene(장면) / snap(상태, 초당 15) / result(결과창) / reward(보상)
+//   친구 -> 방장: hello(장비·직업·모습) / input(조작 + 내 위치 + 보고 있는 창, 초당 30) / gear(장비 바뀜)
+//   방장 -> 친구: scene(장면) / snap(상태, 초당 20) / explore(가 본 곳) / result(결과창)
+//
+// 부드럽게 (docs/design/netplay.md "끊김 줄이기")
+//   - 친구 내 주인공 위치는 친구 기기가 정해요. 방장은 속도·벽만 검사하고, 방장만 아는 밀림(맞아서 밀림·물살)은
+//     ex 로 보내 친구가 따라 움직여요. 순간이동·부활·검사 실패는 wv(번호)를 올려 친구를 방장 자리로 옮겨요.
+//   - 몬스터·다른 사람·늑대는 받은 위치를 잠깐(약 0.1초) 모았다가 두 위치 사이를 이어서 그려요.
+//   - 화살·투사체는 친구 기기가 속도대로 날리고, 예고 시간도 친구 기기에서 흘러가요.
+//   - 숫자 칸은 "예상대로 줄어드는/느는" 동안은 안 보내요 (@칸 = 1초에 늘어나는 양, 두 번 연달아 같을 때만).
 
 const NP = {
-  snapHz: 15,          // 방장이 상태를 보내는 횟수 (초당)
+  snapHz: 20,          // 방장이 상태를 보내는 횟수 (초당, 화면 속도와 상관없이 고르게)
   inputHz: 30,         // 친구가 조작을 보내는 횟수 (초당)
   keyhuntEvery: 5,     // 열쇠 찾기 상태는 상태 5번에 1번
-  correct: 0.8,        // 친구 내 주인공 위치가 방장과 이만큼 다르면 당겨 맞춰요
+  eps: 0.06,           // 숫자 칸: 예상과 이만큼 넘게 다를 때만 보내요
+  posEps: 0.004,       // 위치는 더 꼼꼼하게
+  delayMin: 0.07, delayMax: 0.2, // 친구 화면: 모아 두는 시간 (끊김 정도에 따라 자동)
+  moveBudget: 8, moveRefill: 14, // 친구 위치 검사: 한 번에 갈 수 있는 거리, 1초에 채워지는 거리 (순간이동 기술까지)
+  castGrace: 0.1,      // 친구를 노리는 예고는 이만큼 늦게 터져요 (연결 시간만큼 봐주기)
+  exploreEvery: 10,    // 가 본 곳 지도를 이 초마다 다시 보내요
 };
 const netplay = {
   role: null,          // null | "host" | "guest"
@@ -27,6 +39,13 @@ const netplay = {
   others: new Map(),   // 친구: pid -> 다른 주인공
   rxSnap: 0, guestSceneKey: null, presses: {}, replaying: false, pendingSnap: null,
   stats: { snaps: 0, bytes: 0, t0: 0, kbps: 0, lastBytes: 0, lastT: 0 },
+  wt: 0,               // 방장: 세상 시간 (세상이 멈추면 같이 멈춰요. 숫자 칸 예상에 써요)
+  kid: 1,              // 방장: 배열 물건 번호 (화살·늑대를 친구 기기에서 같은 것으로 이어 그려요)
+  lsSent: {},          // 방장: 잘 안 바뀌는 배열은 바뀔 때만
+  lmap: {},            // 친구: 배열 이름 -> (번호 -> 물건)
+  busy: [],            // 지금 창을 보고 있는 사람 [[번호, 창 이름], ...] (있으면 다 같이 멈춰요)
+  ns: { off: null, delay: 0.1, late: [], gaps: [], lastRx: null, frames: [], warps: 0, rejects: 0, bytes: [] }, // 친구: 부드럽게 + 측정
+  showStats: false,
   status: "", ui: { digits: "" },
   autoApprove: false,  // 시험용: 새 친구를 묻지 않고 들여보내요 (보통은 방장이 "예"를 눌러야 해요)
   ask: null,           // 방장: 지금 묻고 있는 새 친구 { id, ... }
@@ -193,7 +212,14 @@ hookOn("playerInput", (inp, p) => {
   return inp;
 }, 80);
 hookOn("playersUpdated", () => { netplay.curP = null; }, 0);
-hookOn("keepRunning", () => netHosting(), 50);
+// 방장: 세상 시간 + 이번 화면에 내 기기가 움직인 뒤의 친구 자리 (그 뒤로 더 움직이면 "방장만 아는 밀림")
+hookOn("playersUpdated", (dt) => {
+  if (netplay.role !== "host") return;
+  netplay.wt += dt || 0;
+  for (const q of allPlayers()) if (q.remote) q._pp = { x: q.x, y: q.y };
+}, 95);
+// 누가 창을 보고 있으면 방장 세상도 멈춰요 (모두에게 무엇을 보고 있는지 알려줘요)
+hookOn("simulateSkip", () => netHosting() && netplay.busy.length > 0, 45);
 
 // 사건 모으기 (소리·글자·터짐·고리·번쩍·메시지)
 hookOn("event", (kind, args) => {
@@ -283,27 +309,72 @@ function netMonsterFields(m) {
   return out;
 }
 
-function netBuildSnap() {
-  const snap = { t: "snap", n: ++netplay.snapN, key: netplay.sceneKey, tm: game.time, sh: game.shake };
-  // 주인공들
-  snap.pl = allPlayers().map((q) => { const e = netEnc(q, 0); e.pid = q.pid || 1; e.cls = typeof playerCls === "function" ? playerCls(q) : q.cls; return e; });
+// 바뀐 칸만 (숫자는 "예상"과 다를 때만: 예상 = 마지막 값 + @빠르기 × 지난 시간)
+//   빠르기(1초에 바뀌는 양, -4~4)는 두 번 연달아 같을 때만 써요 (줄어드는 시간·느는 걸음 시간). 위치는 빠르기 없이 꼼꼼하게.
+function netDeltaFields(key, f, now) {
+  const last = netplay.sent.get(key) || {};
+  const delta = {}; let any = false;
+  for (const k of Object.keys(f)) {
+    const v = f[k], L = last[k];
+    if (typeof v === "number") {
+      const pos = k === "x" || k === "y";
+      if (L && typeof L.v === "number") {
+        const pred = L.v + (L.r || 0) * (now - L.t);
+        if (Math.abs(v - pred) <= (pos ? NP.posEps : NP.eps)) continue;
+        // 빠르기: 두 번 연달아 같은 빠르기로 바뀌었을 때만 믿어요 (맞아서 뚝 떨어진 체력은 빠르기가 아니에요)
+        let r = 0, rr = null;
+        if (!pos && now > L.t) {
+          rr = (v - L.v) / (now - L.t);
+          if (L.rr !== null && L.rr !== undefined && Math.abs(rr) <= 4 && Math.abs(rr - L.rr) < 0.1 * Math.max(1, Math.abs(rr))) r = Math.round(rr * 100) / 100;
+        }
+        if (r !== (L.r || 0)) delta["@" + k] = r;
+        last[k] = { v, t: now, r, rr };
+      } else { if (L && L.r) delta["@" + k] = 0; last[k] = { v, t: now, r: 0 }; }
+      delta[k] = v; any = true;
+    } else {
+      const j = JSON.stringify(v);
+      if (L && L.j === j) continue;
+      last[k] = { j }; delta[k] = v; any = true;
+    }
+  }
+  netplay.sent.set(key, last);
+  return any ? delta : null;
+}
+// 잘 안 바뀌는 배열 (바뀔 때만 보내요)
+const NP_STATIC_LISTS = new Set(["chests", "pickups"]);
+function netBuildSnap(tm = game.time) {
+  const snap = { t: "snap", n: ++netplay.snapN, key: netplay.sceneKey, tm: Math.round(tm * 1000) / 1000, sh: game.shake };
+  const now = netplay.wt, seen = new Set();
+  // 주인공들 (바뀐 칸만 + 친구에게는 순간이동 번호·밀림)
+  snap.pl = allPlayers().map((q) => {
+    const pid = q.pid || 1, f = netEnc(q, 0);
+    f.cls = typeof playerCls === "function" ? playerCls(q) : q.cls;
+    seen.add("p" + pid);
+    const e = netDeltaFields("p" + pid, f, now) || {};
+    e.pid = pid;
+    if (q.remote) Object.assign(e, netExtFor(pid) || {});
+    return e;
+  });
   // 몬스터 (바뀐 칸만)
   const ids = [], md = [];
-  const seen = new Set();
   for (const m of monsters) {
     if (m._nid === undefined) m._nid = netplay.nid++;
     ids.push(m._nid); seen.add(m._nid);
-    const f = netMonsterFields(m);
-    const last = netplay.sent.get(m._nid) || {};
-    const delta = {}; let any = false;
-    for (const k of Object.keys(f)) { const j = JSON.stringify(f[k]); if (last[k] !== j) { delta[k] = f[k]; last[k] = j; any = true; } }
-    netplay.sent.set(m._nid, last);
-    if (any) md.push([m._nid, delta]);
+    const delta = netDeltaFields(m._nid, netMonsterFields(m), now);
+    if (delta) md.push([m._nid, delta]);
   }
   for (const id of [...netplay.sent.keys()]) if (!seen.has(id)) netplay.sent.delete(id);
   snap.ids = ids; snap.md = md;
   snap.ls = {};
-  for (const [k, [get]] of Object.entries(NP_LISTS)) { const a = get(); snap.ls[k] = a && a.length ? netEnc(a, 0) : []; }
+  for (const [k, [get]] of Object.entries(NP_LISTS)) {
+    const a = get() || [];
+    for (const o of a) if (o && typeof o === "object" && o._k === undefined) o._k = netplay.kid++;
+    const enc = a.length ? netEnc(a, 0) : [];
+    enc.forEach((e, i) => { if (e && typeof e === "object" && !Array.isArray(e)) e.k = a[i]._k; });
+    if (NP_STATIC_LISTS.has(k)) { const j = JSON.stringify(enc); if (netplay.lsSent[k] === j) continue; netplay.lsSent[k] = j; }
+    snap.ls[k] = enc;
+  }
+  if (netplay.busy.length) snap.bz = netplay.busy;
   if (typeof b2Field !== "undefined") snap.b2f = netEnc(b2Field, 1);
   if (game.keyhunt && netplay.snapN % NP.keyhuntEvery === 1) snap.kh = netEnc(game.keyhunt, 0);
   if (netplay.events.length) { snap.ev = netplay.events; netplay.events = []; }
@@ -323,21 +394,129 @@ function netSceneMsg() {
 function netHostTick(dt) {
   const S = netSession();
   if (!S || S.peers.size === 0) return;
+  netNoteFrame(dt);
   for (const [slot, r] of netplay.remotes) if (r.nextInfo) { try { netApplyInfo(slot, r); } catch (e) { console.error(e); r.nextInfo = null; } }
   // 장면 바뀜
   const key = netSceneKey();
-  if (key !== netplay.sceneKey) { netplay.sceneKey = key; netplay.sent.clear(); S.broadcast(netSceneMsg()); }
+  if (key !== netplay.sceneKey) { netplay.sceneKey = key; netplay.sent.clear(); netplay.lsSent = {}; S.broadcast(netSceneMsg()); }
   // 결과창
   if (game.result && netplay.resultSent !== game.result) { netplay.resultSent = game.result; S.broadcast({ t: "result", r: netEnc(game.result, 0), et: game.endTimer }); }
   if (!game.result) netplay.resultSent = null;
-  // 상태
+  netplay.busy = netBusyList();
+  netHostSyncRemotes(dt);
+  netCastGrace();
+  // 가 본 곳 지도 (도중에 들어온 친구도 같은 지도)
+  netplay.exploreT = (netplay.exploreT ?? 0) - dt;
+  if (netplay.exploreT <= 0 && game.scene === "dungeon" && world.explored) { netplay.exploreT = NP.exploreEvery; S.broadcast({ t: "explore", key: netplay.sceneKey, w: world.W, h: world.H, d: netPackExplored() }); }
+  // 상태: 화면 속도와 상관없이 1초에 snapHz 번 (모자란 시간은 다음으로 넘겨요)
   netplay.sendT -= dt;
   if (netplay.sendT > 0) return;
-  netplay.sendT = 1 / NP.snapHz;
-  const snap = netBuildSnap();
+  netplay.sendT += 1 / NP.snapHz;
+  if (netplay.sendT < 0) netplay.sendT = 0;
+  const snap = netBuildSnap(game.time - dt); // 보내는 상태는 지난 화면 끝에 계산한 것 (이번 화면 시간은 이미 dt 만큼 앞서 있어요)
   const json = JSON.stringify(snap);
   netStatBytes(json.length);
   S.broadcast(snap, true);
+}
+
+// ----- 창 보고 있는 사람 (다 같이 멈춤) -----
+const NP_BUSY_WORDS = {
+  shop: "가게를 보고", smith: "대장장이와 이야기하고", maps: "지도를 보고", menu: "메뉴를 보고", hero: "영웅 창을 보고",
+  wardrobe: "옷장을 보고", records: "기록을 보고", classes: "직업 훈련관과 이야기하고", codex: "도감을 보고", help: "도움말을 보고",
+  btnedit: "버튼 자리를 바꾸고", netask: "새 친구를 들여보낼지 고르고", nethost: "방 번호를 보고", qolConfirm: "고르고", other: "다른 창을 보고",
+};
+const NP_BUSY_SKIP = new Set(["result"]); // 결과창은 각자 봐요
+function netMyBusy() {
+  const o = game.overlay;
+  if (!o || NP_BUSY_SKIP.has(o) || game.scene === "title") return null;
+  return Object.hasOwn(NP_BUSY_WORDS, o) ? o : "other";
+}
+function netCleanBusy(b) { return typeof b === "string" && Object.hasOwn(NP_BUSY_WORDS, b) && !NP_BUSY_SKIP.has(b) ? b : null; }
+function netBusyList() {
+  const out = [];
+  const mine = netMyBusy(); if (mine) out.push([1, mine]);
+  for (const [slot, r] of netplay.remotes) if (r.busy) out.push([slot, r.busy]);
+  return out;
+}
+function netBusyText(list, me) {
+  const o = (list || []).filter(([pid]) => pid !== me);
+  if (!o.length) return null;
+  const [pid, what] = o[0];
+  return `${pid === 1 ? "방장" : pid + "번 친구"}${pid === 1 ? "이" : "가"} ${NP_BUSY_WORDS[what] || NP_BUSY_WORDS.other} 있어요 · 잠깐 멈춤`;
+}
+
+// ----- 친구 위치: 친구 기기가 정하고 방장은 검사 -----
+// r.wv: 순간이동 번호 (오르면 친구는 방장 자리로), r.ext: 방장만 아는 밀림 [번호, dx, dy] (친구가 받았다고 할 때까지 다시 보내요)
+function netHostSyncRemotes(dt) {
+  for (const [slot, r] of netplay.remotes) {
+    const q = allPlayers().find((x) => x.pid === slot && x.remote);
+    if (!q) continue;
+    if (!r.ext) { r.ext = []; r.extSeq = 0; r.wv = r.wv || 1; }
+    const warp = () => { r.wv++; r.ext = []; r.extOpen = null; r.lastAcc = null; };
+    if (q !== r.q) { r.q = q; warp(); q._pp = null; } // 장면이 바뀌어 새로 세웠어요
+    const alive = q.hp > 0;
+    if (alive && r.alive === false) warp(); // 다시 일어났어요 (부활 자리로)
+    r.alive = alive;
+    // 지난 화면에 내 기기가 움직인 뒤로 더 움직인 만큼 = 방장만 아는 밀림
+    if (q._pp) {
+      const dx = q.x - q._pp.x, dy = q.y - q._pp.y, d = Math.hypot(dx, dy);
+      if (d > 2.5) warp();
+      else if (d > 0.0005 && alive) { const o = r.extOpen || (r.extOpen = { dx: 0, dy: 0 }); o.dx += dx; o.dy += dy; }
+    }
+    r.budget = Math.min(NP.moveBudget, (r.budget ?? NP.moveBudget) + NP.moveRefill * dt);
+    const rep = r.rep; r.rep = null;
+    if (rep && alive && rep.wv === r.wv) {
+      r.ext = r.ext.filter((e) => e[0] > rep.xa);
+      let tx = rep.x, ty = rep.y;
+      for (const e of r.ext) { tx += e[1]; ty += e[2]; }
+      if (r.extOpen) { tx += r.extOpen.dx; ty += r.extOpen.dy; }
+      const base = r.lastAcc || { x: q.x, y: q.y };
+      const moved = Math.hypot(rep.x - base.x, rep.y - base.y);
+      const okWall = !isWall(Math.floor(tx), Math.floor(ty));
+      if (okWall && moved <= r.budget + 0.3) {
+        r.budget = Math.max(0, r.budget - moved);
+        r.lastAcc = { x: rep.x, y: rep.y };
+        q.x = tx; q.y = ty;
+        if (rep.fx || rep.fy) { q.faceX = rep.fx; q.faceY = rep.fy; }
+      } else { r.rejects = (r.rejects || 0) + 1; warp(); }
+    }
+    q._pp = { x: q.x, y: q.y };
+  }
+}
+// 밀림을 상태에 실을 때 (열린 것을 닫아 번호를 붙여요)
+function netExtFor(slot) {
+  const r = netplay.remotes.get(slot); if (!r || !r.ext) return null;
+  if (r.extOpen && Math.hypot(r.extOpen.dx, r.extOpen.dy) > 0.001) { r.ext.push([++r.extSeq, Math.round(r.extOpen.dx * 1000) / 1000, Math.round(r.extOpen.dy * 1000) / 1000]); r.extOpen = null; }
+  if (r.ext.length > 40) r.ext = r.ext.slice(-40);
+  return { wv: r.wv, xs: r.extSeq, ex: r.ext.length ? r.ext : undefined };
+}
+// 친구를 노리는 예고는 조금 늦게 터져요 (친구 화면엔 연결 시간만큼 늦게 보이니까)
+function netCastGrace() {
+  if (typeof casts === "undefined") return;
+  for (const c of casts) {
+    if (!c || c._npGrace) continue;
+    c._npGrace = true;
+    const t = c.target || (c.m && typeof nearestPlayer === "function" ? nearestPlayer(c.m.x, c.m.y) : null);
+    if (t && t.remote && typeof c.time === "number") c.time += NP.castGrace;
+  }
+}
+// 가 본 곳: 0/1 이 이어지는 길이로 (0 부터 시작)
+function netPackExplored() {
+  const e = world.explored, out = []; let cur = 0, n = 0;
+  for (let i = 0; i < e.length; i++) { const v = e[i] ? 1 : 0; if (v === cur) n++; else { out.push(n); cur = v; n = 1; } }
+  out.push(n);
+  return out;
+}
+function netUnpackExplored(d, W, H) {
+  if (!Array.isArray(d) || !world.explored || W !== world.W || H !== world.H || d.length > W * H + 1) return 0;
+  let i = 0, v = 0, marked = 0;
+  for (const run of d) {
+    const n = Number.isInteger(run) && run >= 0 ? run : 0;
+    if (v) for (let j = i; j < Math.min(i + n, W * H); j++) if (!world.explored[j]) { markExplored(j % W, Math.floor(j / W)); marked++; }
+    i += n; v ^= 1;
+    if (i >= W * H) break;
+  }
+  return marked;
 }
 function netStatBytes(n) {
   const st = netplay.stats; st.snaps++; st.bytes += n;
@@ -358,14 +537,22 @@ function netOnMessageHost(msg, slot) {
       if (msg.t === "hello" && !(now - (r.helloAt || 0) < NP_HELLO_EVERY)) {
         r.helloAt = now;
         if (!r.greeted) { r.greeted = true; showMessage(`${slot}번 친구가 들어왔어요!`, 2.5, false, coopColorOf(slot).label); }
-        netplay.sceneKey = null; netplay.sent.clear(); // 다음 틱에 장면·전체 상태
+        netplay.sceneKey = null; netplay.sent.clear(); netplay.lsSent = {}; netplay.exploreT = 0; // 다음 틱에 장면·전체 상태·지도
         r.infoAt = 0;
       }
       netApplyInfo(slot, r, now);
       return;
     }
-    if (msg.t === "input") { r.input = netCleanInput(msg.i); return; }
+    if (msg.t === "input") { r.input = netCleanInput(msg.i); r.busy = netCleanBusy(msg.b); const rp = netCleanReport(msg.r); if (rp) r.rep = rp; return; }
   } catch (e) { console.error(e); }
+}
+// 친구가 알려준 자기 위치 (숫자가 아니면 버려요. 벽·속도 검사는 netHostSyncRemotes)
+function netCleanReport(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const x = Number(v.x), y = Number(v.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !world.W || x < 0 || y < 0 || x > world.W || y > world.H) return null;
+  const fx = netNum(v.fx, -1, 1, 0), fy = netNum(v.fy, -1, 1, 0);
+  return { x, y, fx, fy, wv: Number.isInteger(v.wv) ? v.wv : -1, xa: Number.isInteger(v.xa) ? v.xa : 0 };
 }
 function netApplyInfo(slot, r, now = Date.now()) {
   if (!r.nextInfo || now - (r.infoAt || 0) < NP_INFO_EVERY) return;
@@ -410,11 +597,14 @@ function netGuestTick(dt) {
     for (const k of Object.keys(inp)) if (k.endsWith("Pressed") && inp[k]) netplay.presses[k] = (netplay.presses[k] || 0) + 1;
     if (wasPressed("KeyE", "TouchUse") && game.scene === "dungeon") netplay.presses.usePressed = (netplay.presses.usePressed || 0) + 1;
     if (netplay.inT <= 0) {
-      netplay.inT = 1 / NP.inputHz;
+      netplay.inT += 1 / NP.inputHz;
+      if (netplay.inT < 0) netplay.inT = 0;
       const i = {};
       for (const k of Object.keys(inp)) { if (k.endsWith("Pressed")) continue; i[k] = typeof inp[k] === "number" ? Math.round(inp[k] * 100) / 100 : !!inp[k]; }
       Object.assign(i, netplay.presses);
-      S.toHost({ t: "input", i }, true);
+      const R2 = (v) => Math.round(v * 1000) / 1000;
+      const rp = { x: R2(p.x), y: R2(p.y), fx: R2(p.faceX || 0), fy: R2(p.faceY || 0), wv: p._wv ?? -1, xa: p._xa || 0 };
+      S.toHost({ t: "input", i, r: rp, b: netMyBusy() }, true);
     }
   }
   // 장비가 바뀌면 알려요 (1초마다 확인)
@@ -440,6 +630,7 @@ function netOnMessageGuestBody(msg) {
   if (!msg || typeof msg !== "object" || !msg.t) return;
   if (msg.t === "scene") return netGuestScene(msg);
   if (msg.t === "snap") { if (msg.key === netplay.guestSceneKey) netGuestApply(msg); return; } // 장면이 맞을 때만
+  if (msg.t === "explore") { if (msg.key === netplay.guestSceneKey && game.scene === "dungeon") netUnpackExplored(msg.d, msg.w, msg.h); return; }
   if (msg.t === "result") {
     const r = netCleanResult(msg.r); if (!r) return;
     game.result = r; game.endTimer = netNum(msg.et, 0.1, 10, 1);
@@ -472,7 +663,7 @@ function netGuestScene(msg) {
   monsters = []; netplay.mons.clear();
   for (const [, [, set]] of Object.entries(NP_LISTS)) set([]);
   if (game.player) game.player.pid = netplay.slot;
-  netplay.others.clear();
+  netplay.others.clear(); netplay.lmap = {};
   netplay.lastScene = msg;
 }
 hookOn("dungeonStarted", () => { netplay.runSeed = world.seed; }, 10);
@@ -499,25 +690,117 @@ function netMonById(id) {
   return m;
 }
 
+// 받은 칸 넣기: "@칸" 은 1초에 늘어나는 양 (친구 기기에서 흘러가요), 위치는 모아 두었다가 이어 그려요
+const NP_PL_META = new Set(["pid", "wv", "xs", "ex"]);
+function netApplyFields(o, f, skip) {
+  for (const k of Object.keys(f)) {
+    if (NP_BAD_KEYS.has(k) || (skip && skip.has(k))) continue;
+    if (k[0] === "@") { const n = k.slice(1); if (!NP_BAD_KEYS.has(n) && n !== "x" && n !== "y") (o._r || (o._r = {}))[n] = netNum(f[k], -4, 4, 0); continue; }
+    if (k === "x" || k === "y") { if (typeof f[k] === "number") { o["_t" + k] = f[k]; if (o._new) o[k] = f[k]; } continue; }
+    o[k] = netDec(f[k]);
+  }
+}
+// ----- 친구 화면: 위치 모아 두기 (약 0.1초 전 모습을 두 위치 사이로 이어 그려요) -----
+function nsPush(o, tm) {
+  const x = o._tx ?? o.x, y = o._ty ?? o.y;
+  if (typeof x !== "number" || typeof y !== "number") return;
+  const h = o._h || (o._h = []);
+  const last = h[h.length - 1];
+  if (last && tm <= last.t) { last.x = x; last.y = y; return; }
+  h.push({ t: tm, x, y });
+  while (h.length > 10 || (h.length > 2 && tm - h[0].t > 1.5)) h.shift();
+}
+function nsPlace(o, R) {
+  const h = o._h; if (!h || !h.length) return;
+  let x, y;
+  const last = h[h.length - 1];
+  if (R >= last.t) {
+    // 다음 위치가 아직 안 왔어요: 조금만(0.12초까지) 같은 빠르기로 이어 가요
+    const prev = h[h.length - 2], ex = Math.min(R - last.t, 0.12);
+    if (prev && last.t > prev.t && Math.hypot(last.x - prev.x, last.y - prev.y) < 3) { x = last.x + (last.x - prev.x) / (last.t - prev.t) * ex; y = last.y + (last.y - prev.y) / (last.t - prev.t) * ex; }
+    else { x = last.x; y = last.y; }
+  } else if (R <= h[0].t) { x = h[0].x; y = h[0].y; }
+  else {
+    let i = h.length - 2; while (i > 0 && h[i].t > R) i--;
+    const a = h[i], b = h[i + 1];
+    if (Math.hypot(b.x - a.x, b.y - a.y) > 3) { x = a.x; y = a.y; } // 순간이동은 잇지 않아요
+    else { const k = (R - a.t) / (b.t - a.t); x = a.x + (b.x - a.x) * k; y = a.y + (b.y - a.y) * k; }
+  }
+  if (Number.isFinite(x) && Number.isFinite(y)) { o.x = x; o.y = y; }
+}
+// 방장 시계 맞추기 + 모아 둘 시간 정하기 (늦게 오는 정도의 90% 를 덮을 만큼)
+function nsClock(tm) {
+  const ns = netplay.ns, s = tm - game.time;
+  if (ns.off === null || s > ns.off || s < ns.off - 0.3) ns.off = s; // 더 빨리 온 것 기준. 너무 늦으면 다시 맞춰요
+  else ns.off -= 0.0005;
+  ns.late.push(ns.off - s); if (ns.late.length > 60) ns.late.shift();
+  const sorted = [...ns.late].sort((a, b) => a - b), p90 = sorted[Math.floor(sorted.length * 0.9)] || 0;
+  const want = Math.min(NP.delayMax, Math.max(NP.delayMin, 1 / NP.snapHz + p90 + 0.016));
+  ns.delay += (want - ns.delay) * 0.1;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (ns.lastRx !== null) { ns.gaps.push(now - ns.lastRx); if (ns.gaps.length > 100) ns.gaps.shift(); }
+  ns.lastRx = now;
+}
+function nsRenderTime() { const ns = netplay.ns; return ns.off === null ? null : game.time + ns.off - ns.delay; }
+// 배열 물건: 번호가 같으면 같은 물건으로 이어요 (날아가는 것은 내 화면 위치를 살짝만 고쳐요)
+const NP_LIST_MODE = { arrows: "fly", shots: "fly", clsFx: "fly", allies: "buf", casts: "time" };
+function nsMergeList(name, incoming, tm) {
+  const prev = netplay.lmap[name] || new Map(), next = new Map(), out = [], mode = NP_LIST_MODE[name];
+  for (const e of Array.isArray(incoming) ? incoming : []) {
+    if (!e || typeof e !== "object" || Array.isArray(e)) { if (e !== undefined) out.push(e); continue; }
+    const k = Number.isInteger(e.k) ? e.k : undefined;
+    let o = k !== undefined ? prev.get(k) : undefined;
+    if (o) {
+      const ox = o.x, oy = o.y, ot = o.t;
+      for (const f of Object.keys(e)) if (!NP_BAD_KEYS.has(f)) o[f] = e[f];
+      if (mode === "fly" && typeof ox === "number" && typeof e.x === "number") {
+        const d = Math.hypot(e.x - ox, e.y - oy);
+        if (d < 0.8) { o.x = ox + (e.x - ox) * 0.35; o.y = oy + (e.y - oy) * 0.35; }
+      }
+      if (mode === "buf") { o._tx = e.x; o._ty = e.y; o.x = ox; o.y = oy; }
+      if (mode === "time" && typeof ot === "number" && typeof e.t === "number" && ot > e.t && ot - e.t < 0.3) o.t = ot;
+    } else { o = e; if (mode === "buf") { o._tx = e.x; o._ty = e.y; } }
+    if (mode === "buf") nsPush(o, tm);
+    out.push(o);
+    if (k !== undefined) next.set(k, o);
+  }
+  netplay.lmap[name] = next;
+  return out;
+}
+function nsAdvanceLists(dt) {
+  const fly = (a) => {
+    for (const o of a) {
+      if (!o || typeof o !== "object") continue;
+      if (typeof o.delay === "number" && o.delay > 0) continue;
+      if (typeof o.vx === "number" && typeof o.vy === "number") { o.x += o.vx * dt; o.y += o.vy * dt; }
+      else if (typeof o.dir === "number" && typeof o.speed === "number") { o.x += Math.cos(o.dir) * o.speed * dt; o.y += Math.sin(o.dir) * o.speed * dt; }
+    }
+  };
+  fly(arrows); fly(shots); if (typeof clsFx !== "undefined") fly(clsFx);
+  if (typeof casts !== "undefined") for (const c of casts) if (c && typeof c.t === "number" && typeof c.time === "number") c.t = Math.min(c.time, c.t + dt);
+  const R = nsRenderTime();
+  if (R !== null && typeof allies !== "undefined") for (const a of allies) if (a && a._h) nsPlace(a, R);
+}
+
 function netGuestApply(snap) {
   netplay.rxSnap++;
+  const tm = typeof snap.tm === "number" ? snap.tm : game.time;
+  nsClock(tm);
   // 몬스터
   for (const [id, f] of Array.isArray(snap.md) ? snap.md : []) {
     const m = netMonById(id);
     if (!m || !f || typeof f !== "object") continue;
-    for (const k of Object.keys(f)) {
-      if (NP_BAD_KEYS.has(k)) continue;
-      if (k === "x" || k === "y") { m["_t" + k] = f[k]; if (m._new) m[k] = f[k]; continue; }
-      m[k] = netDec(f[k]);
-    }
+    netApplyFields(m, f);
     if (typeof m.type === "string" && Object.hasOwn(MONSTERS, m.type)) m.def = MONSTERS[m.type];
     m._new = false;
   }
   const keep = new Set(snap.ids || []);
   for (const id of [...netplay.mons.keys()]) if (!keep.has(id)) netplay.mons.delete(id);
   monsters = (snap.ids || []).map((id) => netplay.mons.get(id)).filter((m) => m && m.def);
+  for (const m of monsters) nsPush(m, tm);
+  netplay.busy = Array.isArray(snap.bz) ? snap.bz.filter((b) => Array.isArray(b) && Number.isInteger(b[0]) && netCleanBusy(b[1])).slice(0, 4) : [];
   // 다른 배열
-  for (const [k, [, set]] of Object.entries(NP_LISTS)) if (snap.ls && snap.ls[k]) set(netDec(snap.ls[k]));
+  for (const [k, [, set]] of Object.entries(NP_LISTS)) if (snap.ls && snap.ls[k]) set(nsMergeList(k, netDec(snap.ls[k]), tm));
   // 새로 시작된 기술 예고 -> 친구 화면에도 안내 배너·목소리 (guide.js 의 castStarted)
   if (snap.ls && snap.ls.casts && typeof casts !== "undefined") {
     const now = new Set();
@@ -535,7 +818,7 @@ function netGuestApply(snap) {
   if (snap.kh && game.keyhunt) { const kh = netDec(snap.kh); for (const k of Object.keys(kh)) if (!NP_KH_LOCAL.has(k)) game.keyhunt[k] = kh[k]; }
   game.shake = Math.max(game.shake, snap.sh || 0);
   // 주인공들
-  netGuestPlayers(snap.pl || []);
+  netGuestPlayers(snap.pl || [], tm);
   // 사건
   if (Array.isArray(snap.ev)) {
     netplay.replaying = true;
@@ -646,21 +929,24 @@ function netGuestReward(d) {
 // 열쇠 찾기 상태 중 친구 기기가 스스로 관리하는 것 (보스방 들어가기/나오기는 장면 메시지로)
 const NP_KH_LOCAL = new Set(["snap", "inBoss", "keepOnReset", "enterT", "gate"]);
 const NP_OWN_FIELDS = ["hp", "maxHp", "res", "resMax", "cd", "bear", "ghost", "ghostT", "reviveT", "abSlow", "abBurn", "hurtTimer", "flash", "buffT"];
-function netGuestPlayers(list) {
+function netGuestPlayers(list, tm = game.time) {
   const me = game.player;
   const seen = new Set();
   for (const e of list) {
+    if (!e || typeof e !== "object" || !Number.isInteger(e.pid)) continue;
     seen.add(e.pid);
     if (e.pid === netplay.slot && me) {
       for (const k of NP_OWN_FIELDS) if (e[k] !== undefined) me[k] = netDec(e[k]);
-      me._hx = e.x; me._hy = e.y;
+      if (typeof e.x === "number") me._hx = e.x;
+      if (typeof e.y === "number") me._hy = e.y;
+      netGuestSelfSync(me, e);
       continue;
     }
     let q = netplay.others.get(e.pid);
-    if (!q) { q = createPlayer(e.x, e.y); netplay.others.set(e.pid, q); }
-    const d = netDec(e);
-    for (const k of Object.keys(d)) { if (k === "x" || k === "y") continue; q[k] = d[k]; }
-    q._tx = e.x; q._ty = e.y; q.pid = e.pid; q.netRemoteView = true;
+    if (!q) { q = createPlayer(typeof e.x === "number" ? e.x : 0, typeof e.y === "number" ? e.y : 0); q._new = true; netplay.others.set(e.pid, q); }
+    netApplyFields(q, e, NP_PL_META);
+    q._new = false; q.pid = e.pid; q.netRemoteView = true;
+    nsPush(q, tm);
   }
   for (const pid of [...netplay.others.keys()]) if (!seen.has(pid)) netplay.others.delete(pid);
   if (me) {
@@ -670,25 +956,52 @@ function netGuestPlayers(list) {
   }
 }
 
+// 내 주인공: 순간이동 번호가 바뀌면 방장 자리로, 방장만 아는 밀림은 받은 만큼 (부드럽게 0.05초에 걸쳐)
+function netGuestSelfSync(me, e) {
+  if (Number.isInteger(e.wv) && e.wv !== me._wv) {
+    if (typeof me._hx === "number" && typeof me._hy === "number") { me.x = me._hx; me.y = me._hy; }
+    me._wv = e.wv; me._xa = Number.isInteger(e.xs) ? e.xs : 0; me._xq = null;
+    netplay.ns.warps++;
+    return;
+  }
+  if (!Array.isArray(e.ex)) return;
+  for (const it of e.ex.slice(0, 40)) {
+    if (!Array.isArray(it) || !Number.isInteger(it[0]) || it[0] <= (me._xa || 0)) continue;
+    const q = me._xq || (me._xq = { dx: 0, dy: 0 });
+    q.dx += netNum(it[1], -3, 3, 0); q.dy += netNum(it[2], -3, 3, 0);
+    me._xa = it[0];
+  }
+}
+
 // 친구 기기 매 프레임: 내 주인공만 계산, 나머지는 받은 상태를 부드럽게
 function netGuestUpdate(dt) {
   const p = game.player;
+  netNoteFrame(dt);
+  // 누가 창을 보고 있으면 다 같이 멈춰요 (화면은 그대로 그려요)
+  if (netplay.busy.some(([pid]) => pid !== netplay.slot)) { updateFloatTexts(dt); return true; }
   if (p && p.hp > 0) updatePlayer(p, dt);
-  // 방장 위치와 많이 다르면 당겨 맞춰요
-  if (p && p._hx !== undefined) {
-    const dx = p._hx - p.x, dy = p._hy - p.y, d = Math.hypot(dx, dy);
-    if (d > 4) { p.x = p._hx; p.y = p._hy; }
-    else if (d > NP.correct) { p.x += dx * Math.min(1, dt * 6); p.y += dy * Math.min(1, dt * 6); }
+  if (p && p._xq) {
+    const k = Math.min(1, dt / 0.05), q = p._xq;
+    if (p.hp > 0) moveEntity(p, q.dx * k, q.dy * k);
+    q.dx *= 1 - k; q.dy *= 1 - k;
+    if (Math.hypot(q.dx, q.dy) < 0.001) p._xq = null;
   }
-  const lerp = (o) => {
-    if (o._tx === undefined) return;
-    const dx = o._tx - o.x, dy = o._ty - o.y, d = Math.hypot(dx, dy);
-    if (d > 3) { o.x = o._tx; o.y = o._ty; } else { const k = Math.min(1, dt * 12); o.x += dx * k; o.y += dy * k; }
-  };
-  for (const m of monsters) lerp(m);
-  for (const q of netplay.others.values()) lerp(q);
+  // 쓰러졌을 때(유령)는 방장이 움직여요. 살아 있어도 아주 멀어지면(엇갈림) 방장 자리로
+  if (p && typeof p._hx === "number") {
+    const dx = p._hx - p.x, dy = p._hy - p.y, d = Math.hypot(dx, dy);
+    if (p.hp <= 0) { if (d > 3) { p.x = p._hx; p.y = p._hy; } else { const k = Math.min(1, dt * 10); p.x += dx * k; p.y += dy * k; } }
+    else if (d > 6) { p._farT = (p._farT || 0) + dt; if (p._farT > 1.5) { p.x = p._hx; p.y = p._hy; p._farT = 0; } }
+    else p._farT = 0;
+  }
+  // 숫자 칸 흘려보내기 (@빠르기), 위치는 모아 둔 것 사이로
+  const R = nsRenderTime();
+  const flow = (o) => { if (o._r) for (const n of Object.keys(o._r)) { const r = o._r[n]; if (r && typeof o[n] === "number") o[n] += r * dt; } };
+  for (const m of monsters) { flow(m); if (R !== null) nsPlace(m, R); }
+  for (const q of netplay.others.values()) { flow(q); if (R !== null) nsPlace(q, R); }
+  nsAdvanceLists(dt);
   updateParticles(dt);
   updateFloatTexts(dt);
+  updateLegendary(dt, p); // 번쩍임·바닥 고리가 줄어들어 사라져요 (빼먹으면 화면이 뿌옇게 남아요)
   updateImpacts(dt);
   // 상자·문·말 걸기: 캠프는 내 기기에서(가게·대장장이), 던전은 방장에게 부탁 (E 를 보내요)
   game.nearNpc = p && p.hp > 0 ? nearestNpc(p) : null;
@@ -697,7 +1010,7 @@ function netGuestUpdate(dt) {
     if (game.nearNpc && game.nearNpc.action === openMapSelect) game.nearNpc = { ...game.nearNpc, short: "지도", prompt: "방장이 맵을 골라요", action: () => showMessage("방장이 맵을 고르는 중이에요", 2, false, "#ffe27a") };
     if (game.nearNpc && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
     updateLobby(p, dt);
-  } else if (game.mode !== "tower" && p) revealAround(p.x, p.y);
+  } else if (game.mode !== "tower" && p) { revealAround(p.x, p.y); for (const q of netplay.others.values()) if (q.hp > 0) revealAround(q.x, q.y); } // 지도: 같이 간 곳은 다 같이
   if (game.result && game.endTimer > 0) { game.endTimer -= dt; if (game.endTimer <= 0) game.overlay = "result"; }
   netplay.saveT = (netplay.saveT || 0) - dt;
   if (netplay.saveT <= 0 && netplay.saveT > -1) { netplay.saveT = -2; saveProfile(); }
@@ -766,8 +1079,10 @@ function netToggleLock() {
 }
 function netReset() {
   netplay.ask = null;
-  netplay.remotes.clear(); netplay.mons.clear(); netplay.others.clear(); netplay.sent.clear();
+  netplay.remotes.clear(); netplay.mons.clear(); netplay.others.clear(); netplay.sent.clear(); netplay.lsSent = {};
   netplay.events = []; netplay.sceneKey = null; netplay.snapN = 0; netplay.presses = {}; netplay.lastScene = null;
+  netplay.busy = []; netplay.lmap = {}; netplay.exploreT = 0; netplay.sendT = 0; netplay.inT = 0;
+  netplay.ns = { off: null, delay: 0.1, late: [], gaps: [], lastRx: null, frames: [], warps: 0, rejects: 0, bytes: [] };
 }
 function netLeave() {
   const S = netSession();
@@ -900,7 +1215,17 @@ hookOn("hudDraw", () => {
   const rtt = S ? Object.values(S.rtt || {}) : [];
   const ms = rtt.length ? Math.max(...rtt) : null;
   const col = ms === null ? "#ddd" : ms < 80 ? "#7dffb0" : ms < 160 ? "#ffe27a" : "#ff8080";
-  text(`같이 ${n}명${ms !== null ? ` · ${ms}ms` : ""}${netplay.role === "host" ? ` · 방 ${netplay.code}` : ""}`, W / 2, view.h - 30, 14, col, "center");
+  const label = `같이 ${n}명${ms !== null ? ` · ${ms}ms` : ""}${netplay.role === "host" ? ` · 방 ${netplay.code}` : ""}`;
+  text(label, W / 2, view.h - 30, 14, col, "center");
+  addUI(W / 2 - 90, view.h - 50, 180, 30, () => { netplay.showStats = !netplay.showStats; }); // 누르면 끊김 측정 보기
+  if (netplay.showStats) netDrawStats(W / 2, view.h - 58);
+  // 누가 창을 보고 있어요: 다 같이 멈춘 이유
+  const bt = netBusyText(netplay.busy, netplay.role === "host" ? 1 : netplay.slot);
+  if (bt && !game.overlay) {
+    const bw = Math.min(W - 24, 460), by = Math.round(view.h * 0.3);
+    drawPanel(W / 2 - bw / 2, by, bw, 54);
+    text(bt, W / 2, by + 34, 18, "#ffe27a", "center");
+  }
   // 다른 사람 하트 (위 가운데, 사람마다 한 줄)
   const bossBar = monsters.some((m) => m.boss && m.aggro && m.hp > 0);
   let y = bossBar ? 96 : 14;
@@ -917,6 +1242,30 @@ hookOn("hudDraw", () => {
   // 지도: 친구 화면 안내
   if (netGuest() && game.scene === "lobby") text("방장이 맵을 고르면 같이 출발해요", W / 2, view.h - 50, 14, "#ffe27a", "center");
 }, 70);
+
+// ----- 끊김 측정 (같이 N명 글자를 누르면) -----
+function netNoteFrame(dt) { const f = netplay.ns.frames; f.push(dt); if (f.length > 120) f.shift(); }
+function netStatsLines() {
+  const ns = netplay.ns, avg = (a) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  const pct = (a, q) => { const z = [...a].sort((x, y) => x - y); return z.length ? z[Math.floor(q * (z.length - 1))] : 0; };
+  const fps = ns.frames.length ? 1 / Math.max(1e-3, avg(ns.frames)) : 0, worst = ns.frames.length ? Math.max(...ns.frames) * 1000 : 0;
+  const lines = [];
+  if (netplay.role === "guest") {
+    const g = ns.gaps, a = avg(g);
+    lines.push(`받기 ${(a ? 1000 / a : 0).toFixed(1)}번/초 · 간격 평균 ${a.toFixed(0)}ms · 95% ${pct(g, 0.95).toFixed(0)}ms · 최대 ${(g.length ? Math.max(...g) : 0).toFixed(0)}ms`);
+    lines.push(`모아 두기 ${(ns.delay * 1000).toFixed(0)}ms · 화면 ${fps.toFixed(0)}fps (가장 느린 ${worst.toFixed(0)}ms) · 자리 맞춤 ${ns.warps}번`);
+  } else {
+    const st = netplay.stats, n = Math.max(1, st.snaps), rej = [...netplay.remotes.values()].reduce((x, r) => x + (r.rejects || 0), 0);
+    lines.push(`보내기 ${NP.snapHz}번/초 · 평균 ${(st.bytes / n / 1024).toFixed(2)}KB · ${st.kbps.toFixed(1)}KB/초`);
+    lines.push(`화면 ${fps.toFixed(0)}fps (가장 느린 ${worst.toFixed(0)}ms) · 친구 위치 검사 실패 ${rej}번`);
+  }
+  return lines;
+}
+function netDrawStats(cx, bottom) {
+  const lines = netStatsLines(), w = Math.min(view.w - 16, 560), h = 12 + lines.length * 18;
+  ctx.fillStyle = "rgba(0,0,0,0.65)"; ctx.fillRect(cx - w / 2, bottom - h, w, h);
+  lines.forEach((l, i) => text(l, cx, bottom - h + 20 + i * 18, 13, "#e8f4ff", "center"));
+}
 
 // 방장 지도: 친구에게 너무 어려운 레벨이면 알려줘요
 hookOn("hudDraw", () => {

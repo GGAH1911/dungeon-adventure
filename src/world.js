@@ -348,13 +348,20 @@ function revealAround(x, y, r = 7) {
       const i = ty * world.W + tx;
       if (world.explored[i]) continue;
       if ((tx - cx) ** 2 + (ty - cy) ** 2 > r * r) continue;
-      world.explored[i] = 1;
-      const t = world.tiles[ty][tx];
-      if (t === VOID) continue;
-      mc.fillStyle = t === 0 ? "#cfc6b0" : "#5a5248";
-      mc.fillRect(tx, ty, 1, 1);
+      markExplored(tx, ty, mc);
     }
   }
+}
+// 한 칸을 "가 봤어요"로 + 미니맵에 칠하기 (같이 하기: 친구가 본 곳도 여기로 칠해요, netplay.js)
+function markExplored(tx, ty, mc = world.miniCtx) {
+  if (!world.explored || tx < 0 || ty < 0 || tx >= world.W || ty >= world.H) return;
+  const i = ty * world.W + tx;
+  if (world.explored[i]) return;
+  world.explored[i] = 1;
+  const t = world.tiles[ty][tx];
+  if (t === VOID || !mc) return;
+  mc.fillStyle = t === 0 ? "#cfc6b0" : "#5a5248";
+  mc.fillRect(tx, ty, 1, 1);
 }
 
 // 미니맵도 화면처럼 비스듬하게 그려요
@@ -389,6 +396,15 @@ function drawMinimapBase(p, list) {
     const blink = few ? 0.5 + 0.5 * Math.sin(game.time * 8) : 1;
     ctx.fillStyle = `rgba(255,70,70,${blink})`;
     ctx.fillRect(s.x - 2, s.y - 2, 4, 4);
+  }
+  // 같이 하는 친구 (자기 색 점 + 번호, 쓰러지면 속이 빈 동그라미)
+  for (const q of typeof allPlayers === "function" ? allPlayers() : []) {
+    if (!q || q === p) continue;
+    const s = M(q.x, q.y), c = typeof coopColorOf === "function" ? coopColorOf(q.pid || 1).label : "#7dd3ff";
+    ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+    if (q.hp > 0) { ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.stroke(); }
+    else { ctx.lineWidth = 2; ctx.strokeStyle = c; ctx.stroke(); }
+    text(String(q.pid || 1), s.x + 6, s.y - 2, 11, c);
   }
   const ps = M(p.x, p.y);
   ctx.fillStyle = "#ffffff";

@@ -355,7 +355,7 @@ function updateBase(dt) {
     case "smith": updateSmith(dt); return;
     case "wardrobe": updateWardrobe(); return;
     case "records": updateRecords(); return;
-    case "menu": updateMenu(); if (hookAny("keepRunning", dt)) updateWorld(dt); return; // 같이 할 땐 메뉴를 열어도 안 멈춰요
+    case "menu": updateMenu(); if (hookAny("keepRunning", dt)) updateWorld(dt); return; // "keepRunning": 메뉴 중에도 세상을 돌릴 때 (같이 하기는 이제 다 같이 멈춰요: netplay.js)
     case "result": updateResult(); return;
     default: if (game.overlay && hookAny("overlayUpdate", game.overlay, dt)) return; // 다른 파일이 만든 창
   }
