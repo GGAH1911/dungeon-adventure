@@ -116,8 +116,10 @@ function coinsForKill(m, L) {
   if (m.def && m.def.treasure) { dropCoin(coinIdOfTier(Math.max(1, T)), m.x, m.y, 2 + coinCount(2)); if (Math.random() < 0.35) dropCoin(coinIdOfTier(Math.min(3, Math.max(1, T) + 1)), m.x, m.y, 1); return; }
   if (m.keyGuard) { dropCoin("amethyst", m.x, m.y, 1); if (T >= 1) dropCoin(coinIdOfTier(T), m.x, m.y, 1 + coinCount(1)); return; }
   if (m.elite) {
-    if (T >= 1 && Math.random() < 0.6) dropCoin(coinIdOfTier(T), m.x, m.y, 1);
-    else if (T === 0 && Math.random() < 0.2) dropCoin("silver", m.x, m.y, 1);
+    // 정예는 꼭 화폐를 줘요: 맵 단계 화폐 1개 (낮은 맵은 가끔 은, 아니면 에메랄드 2개 더)
+    if (T >= 1) dropCoin(coinIdOfTier(T), m.x, m.y, 1);
+    else if (Math.random() < 0.2) dropCoin("silver", m.x, m.y, 1);
+    else { dropPickup("emerald", m.x, m.y); dropPickup("emerald", m.x, m.y); }
     if (T >= 1 && Math.random() < 0.12) dropCoin(coinIdOfTier(Math.min(3, T + 1)), m.x, m.y, 1);
     return;
   }
