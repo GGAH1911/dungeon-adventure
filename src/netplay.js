@@ -209,7 +209,7 @@ hookOn("playerInput", (inp, p) => {
   // 이 게임이 쓰는 조작 이름을 배워 둬요 (다른 파일이 새 버튼을 더해도 친구 조작이 통해요)
   if (inp && NP_INPUT_KEYS.size < 64) for (const k of Object.keys(inp)) if (!NP_INPUT_KEYS.has(k) && /^[a-z][A-Za-z0-9]{0,20}(Pressed|Held)$/.test(k)) NP_INPUT_KEYS.add(k);
   // 같이 하는 중 메뉴가 열려 있으면 방장 주인공은 가만히
-  if (netHosting() && game.overlay) return { sx: 0, sy: 0 };
+  if (netOn() && game.overlay) return { sx: 0, sy: 0 }; // 같이 하는 중 창을 보면 내 주인공은 가만히 (세상은 계속 돌아요)
   return inp;
 }, 80);
 hookOn("playersUpdated", () => { netplay.curP = null; }, 0);
@@ -230,8 +230,17 @@ hookOn("playersTeleported", () => {
 }, 50);
 // 같이 하는 중엔 글 입력 창을 열어도 게임이 멈추지 않아요 (나도, 친구도)
 hookOn("cheatKeepsRunning", () => netOn(), 50);
-// 누가 창을 보고 있으면 방장 세상도 멈춰요 (모두에게 무엇을 보고 있는지 알려줘요)
-hookOn("simulateSkip", () => netHosting() && netplay.busy.length > 0, 45);
+// 누가 창을 봐도 세상은 그대로 돌아요 (창을 연 사람 주인공만 가만히). 대신 다른 곳으로 가는 건 다 닫을 때까지 막아요 ("sceneGate")
+hookOn("keepRunning", () => netOn() && game.scene !== "title", 50);
+hookOn("sceneGate", (kind) => {
+  if (!netHosting() || netplay.replaying) return false;
+  const actor = netplay.reqSlot || (netplay.curP && netplay.curP.remote ? netplay.curP.pid : 1);
+  const list = netBusyList().filter(([pid, what]) => pid !== actor && what !== "maps");
+  if (!list.length) return false;
+  showMessage(`${netBusyText(list, actor)} · 다 닫으면 갈 수 있어요`, 2.4, false, "#ffe27a");
+  sfx.denied();
+  return true;
+}, 50);
 
 // 사건 모으기 (소리·글자·터짐·고리·번쩍·메시지)
 hookOn("event", (kind, args) => {
@@ -451,7 +460,6 @@ function netMyBusy() {
 function netCleanBusy(b) { return typeof b === "string" && Object.hasOwn(NP_BUSY_WORDS, b) && !NP_BUSY_SKIP.has(b) ? b : null; }
 function netBusyList() {
   const out = [];
-  if (game.scene !== "dungeon") return out; // 캠프에선 아무도 안 멈춰요 (누가 지도·가게를 봐도 나는 돌아다니고 지도도 열어요)
   const mine = netMyBusy(); if (mine) out.push([1, mine]);
   for (const [slot, r] of netplay.remotes) if (r.busy) out.push([slot, r.busy]);
   return out;
@@ -462,7 +470,7 @@ function netBusyText(list, me) {
   const [pid, what] = o[0];
   const q = allPlayers().find((x) => (x.pid || 1) === pid);
   const nm = q && netCleanName(q.netName) ? netCleanName(q.netName) : pid === 1 ? "방장" : `${pid}번 친구`;
-  return `${josa(nm, "이/가")} ${NP_BUSY_WORDS[what] || NP_BUSY_WORDS.other} 있어요 · 잠깐 멈춤`;
+  return `${josa(nm, "이/가")} ${NP_BUSY_WORDS[what] || NP_BUSY_WORDS.other} 있어요`;
 }
 
 // ----- 친구 위치: 친구 기기가 정하고 방장은 검사 -----
@@ -619,7 +627,7 @@ function netGuestTick(dt) {
   netplay.inT -= dt;
   const p = game.player;
   if (p) {
-    const inp = playerInputLocal(p);
+    const inp = game.overlay ? { sx: 0, sy: 0 } : playerInputLocal(p); // 창을 보는 동안 내 주인공은 가만히 (창 조작이 걷기·공격으로 가지 않게)
     // 물약은 친구 자기 저장에서 써요 (없거나 하트가 가득하면 보내지 않아요)
     if (inp.potionPressed) {
       const pr = game.profile;
@@ -630,7 +638,7 @@ function netGuestTick(dt) {
     }
     if (typeof buffPotGuestPress === "function") buffPotGuestPress(inp, p); // 강화 물약도 내 저장에서 (buffpots.js)
     for (const k of Object.keys(inp)) if (k.endsWith("Pressed") && inp[k]) netplay.presses[k] = (netplay.presses[k] || 0) + 1;
-    if (wasPressed("KeyE", "TouchUse") && game.scene === "dungeon") netplay.presses.usePressed = (netplay.presses.usePressed || 0) + 1;
+    if (!game.overlay && wasPressed("KeyE", "TouchUse") && game.scene === "dungeon") netplay.presses.usePressed = (netplay.presses.usePressed || 0) + 1;
     if (netplay.inT <= 0) {
       netplay.inT += 1 / NP.inputHz;
       if (netplay.inT < 0) netplay.inT = 0;
@@ -1063,8 +1071,6 @@ function netGuestSelfSync(me, e) {
 function netGuestUpdate(dt) {
   const p = game.player;
   netNoteFrame(dt);
-  // 누가 창을 보고 있으면 다 같이 멈춰요 (화면은 그대로 그려요)
-  if (netplay.busy.some(([pid]) => pid !== netplay.slot)) { updateFloatTexts(dt); return true; }
   if (p && p.hp > 0) updatePlayer(p, dt);
   if (p && p._xq) {
     const k = Math.min(1, dt / 0.05), q = p._xq;
@@ -1098,7 +1104,7 @@ function netGuestUpdate(dt) {
   game.nearNpc = p && p.hp > 0 ? nearestNpc(p) : null;
   game.nearWho = p;
   if (game.scene === "lobby") {
-    if (game.nearNpc && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
+    if (game.nearNpc && !game.overlay && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
     updateLobby(p, dt);
   } else if (game.mode !== "tower" && p) { revealAround(p.x, p.y); for (const q of netplay.others.values()) if (q.hp > 0) revealAround(q.x, q.y); } // 지도: 같이 간 곳은 다 같이
   if (game.result && game.endTimer > 0) { game.endTimer -= dt; if (game.endTimer <= 0) game.overlay = "result"; }
@@ -1137,7 +1143,7 @@ function netGuestAsk(w, d) {
   return true;
 }
 hookOn("startChosenMap", (def, level) => netGuestAsk("start", { map: def.id, level }), 50);
-hookOn("finishResult", () => { if (!netGuest() || netplay.replaying) return false; game.overlay = null; return netGuestAsk("finish"); }, 50);
+hookOn("finishResult", () => netGuestAsk("finish"), 50);
 hookOn("retryBoss", () => netGuestAsk("retry"), 50);
 hookOn("giveUpToCamp", () => netGuestAsk("camp"), 50);
 hookOn("leaveRun", () => netGuestAsk("lobby"), 50);
@@ -1149,14 +1155,23 @@ function netHostReq(slot, w, d) {
   if (w === "start") {
     const def = MAPS.find((m) => m.id === d.map), level = Math.round(netNum(d.level, 1, 999, 1));
     if (!def || game.scene !== "lobby" || game.result) return;
-    if (game.overlay) closeOverlay();
-    showMessage(`${josa(who, "이/가")} ${josa(def.name, "을/를")} 골랐어요!`, 2.2, false, coopColorOf(slot).label);
-    startChosenMapBase(def, level);
-  } else if (w === "finish") { if (game.result && !game.result.retry) finishResultBase(); }
-  else if (w === "retry") { if (game.result && game.result.retry && game.keyhunt && game.keyhunt.snap) retryBossBase(); }
-  else if (w === "camp") { if (game.result && game.result.retry) giveUpToCampBase(); }
-  else if (w === "lobby") { if (game.scene === "dungeon" && !game.result) { if (game.overlay) closeOverlay(); enterLobby(`${josa(who, "이/가")} 캠프로 돌아가자고 했어요`); } }
-  else if (w === "rule") { if (game.scene === "lobby" && (d.kind === "diff" ? NP_DIFFS.includes(d.value) : d.kind === "hard" && typeof d.value === "boolean")) setRoomRuleBase(d.kind, d.value); }
+    netplay.reqSlot = slot;
+    try {
+      if (hookAny("sceneGate", "start")) return;
+      if (game.overlay === "maps") closeOverlay();
+      showMessage(`${josa(who, "이/가")} ${josa(def.name, "을/를")} 골랐어요!`, 2.2, false, coopColorOf(slot).label);
+      startChosenMapBase(def, level);
+    } finally { netplay.reqSlot = 0; }
+    return;
+  }
+  netplay.reqSlot = slot; // 누가 눌렀나 (그 사람 창은 막는 이유에서 빼요)
+  try {
+    if (w === "finish") { if (game.result && !game.result.retry) finishResult(); }
+    else if (w === "retry") { if (game.result && game.result.retry && game.keyhunt && game.keyhunt.snap) retryBoss(); }
+    else if (w === "camp") { if (game.result && game.result.retry) giveUpToCamp(); }
+    else if (w === "lobby") { if (game.scene === "dungeon" && !game.result && !hookAny("sceneGate", "lobby")) { if (game.overlay === "menu") closeOverlay(); enterLobby(`${josa(who, "이/가")} 캠프로 돌아가자고 했어요`); } }
+  } finally { netplay.reqSlot = 0; }
+  if (w === "rule") { if (game.scene === "lobby" && (d.kind === "diff" ? NP_DIFFS.includes(d.value) : d.kind === "hard" && typeof d.value === "boolean")) setRoomRuleBase(d.kind, d.value); }
 }
 
 // ===================== 공통 =====================
@@ -1348,17 +1363,9 @@ hookOn("hudDraw", () => {
   text(label, W / 2, view.h - 30, 14, col, "center");
   addUI(W / 2 - 90, view.h - 50, 180, 30, () => { netplay.showStats = !netplay.showStats; }); // 누르면 끊김 측정 보기
   if (netplay.showStats) netDrawStats(W / 2, view.h - 58);
-  // 누가 창을 보고 있어요: 다 같이 멈춘 이유
+  // 누가 창을 보고 있어요: 세상은 그대로, 작은 글자로만 알려요 (그동안 다른 곳으로 가기는 막혀요: "sceneGate")
   const bt = netBusyText(netplay.busy, netplay.role === "host" ? 1 : netplay.slot);
-  if (bt && !game.overlay) {
-    // 기다리는 동안 내 것 보기 (열면 나도 '보는 중'이 돼요)
-    const acts = NP_WAIT_ACTS.filter((a) => a.ok());
-    const bw = Math.min(W - 24, 520), by = Math.round(view.h * 0.28), bh = acts.length ? 106 : 54;
-    drawInfoBox(W / 2 - bw / 2, by, bw, bh); // drawPanel 은 화면 전체 누르기를 막아요
-    text(bt, W / 2, by + 34, 18, "#ffe27a", "center");
-    const gap = 8, w = (bw - 24 - gap * (acts.length - 1)) / Math.max(1, acts.length);
-    acts.forEach((a, i) => drawButton(W / 2 - bw / 2 + 12 + i * (w + gap), by + 52, w, 42, a.label, a.open, { size: 15 }));
-  }
+  if (bt && !game.overlay) text(bt, W / 2, view.h - 72, 14, "#ffe27a", "center");
   // 다른 사람 하트 (위 가운데, 사람마다 한 줄)
   const bossBar = monsters.some((m) => m.boss && m.aggro && m.hp > 0);
   let y = bossBar ? 96 : 14;
@@ -1376,13 +1383,6 @@ hookOn("hudDraw", () => {
   if (game.scene === "lobby") text("누구든 모험 지도에서 맵을 고르면 다 같이 출발해요", W / 2, view.h - 50, 14, "#ffe27a", "center");
 }, 70);
 
-// 친구가 창을 보는 동안 기다리는 사람이 열 수 있는 것
-const NP_WAIT_ACTS = [
-  { label: "캐릭터", ok: () => typeof openHero === "function", open: () => openHero() },
-  { label: "옷장", ok: () => typeof openWardrobe === "function", open: () => openWardrobe() },
-  { label: "도감", ok: () => typeof openCodex === "function", open: () => openCodex() },
-  { label: "기록", ok: () => typeof openRecords === "function", open: () => openRecords() },
-];
 // ----- 끊김 측정 (같이 N명 글자를 누르면) -----
 function netNoteFrame(dt) { const f = netplay.ns.frames; f.push(dt); if (f.length > 120) f.shift(); }
 function netStatsLines() {

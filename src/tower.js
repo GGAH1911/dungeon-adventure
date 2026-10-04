@@ -238,9 +238,11 @@ function floorCleared() {
 
 function stairsInteractables() {
   if (!stairs || !stairs.open) return [];
-  return [{ x: stairs.x, y: stairs.y, range: 1.6, short: "올라가기", prompt: "다음 층으로", action: nextFloor }];
+  return [{ x: stairs.x, y: stairs.y, range: 1.6, short: "올라가기", prompt: "다음 층으로", action: towerStairsUse }];
 }
 
+// 탑 계단에서 E (같이 하기: 누가 창을 보고 있으면 잠깐 막아요 "sceneGate")
+function towerStairsUse() { if (hookAny("sceneGate", "floor")) return; return nextFloor(); }
 function nextFloor() {
   const T = game.tower;
   T.floor++;

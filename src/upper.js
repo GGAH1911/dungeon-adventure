@@ -91,7 +91,8 @@ function enterUpperFloor() {
   hookRun("upperChanged", true);
 }
 // 계단에서 E: 오르내린 바로 뒤(0.8초)엔 무시해요 (두 번 누르면 도착한 계단에서 바로 되돌아가요. 같이 하기에서 누름이 두 번 갈 때도)
-function upperStairsUse() {
+function upperStairsUse() { if (hookAny("sceneGate", "upper")) return; return upperStairsUseBase(); } // 같이 하기: 누가 창을 보고 있으면 잠깐 막아요
+function upperStairsUseBase() {
   if (game.time - (game.upperSwapT ?? -9) < 0.8) return;
   if (game.upper) leaveUpperFloor(); else enterUpperFloor();
 }

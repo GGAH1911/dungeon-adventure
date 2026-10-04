@@ -53,7 +53,7 @@ function bossDoorInteractables() {
     sfx.anvil(); sfx.boss(); game.shake = 0.35;
     showMessage("문이 열렸어요! 준비되면 들어가요", 2.5, false, "#ffd23f");
   } }];
-  return [{ x: d.x, y: d.y, range: 2.4, short: "입장", prompt: "보스방 들어가기", action: () => { kh.enterT = 0.6; game.fade = 0.9; sfx.stairs(); } }];
+  return [{ x: d.x, y: d.y, range: 2.4, short: "입장", prompt: "보스방 들어가기", action: bossDoorUse }];
 }
 
 function drawGate(x, y, open, k = 1) {
@@ -91,6 +91,10 @@ function bossDoorThings(list) {
     if (kh.hasKey && !d.open) { const c = toScreen(d.x, d.y, 3.4 + Math.sin(game.time * 4) * 0.1); drawStar(c.x, c.y, 12 * ZOOM, "#ffd23f"); }
   } });
 }
+
+// 보스방 문에서 E (같이 하기: 누가 창을 보고 있으면 잠깐 막아요 "sceneGate")
+function bossDoorUse() { if (hookAny("sceneGate", "boss")) return; return bossDoorUseBase(); }
+function bossDoorUseBase() { const kh = game.keyhunt; if (!kh) return; kh.enterT = 0.6; game.fade = 0.9; sfx.stairs(); }
 
 // ----- 보스방 들어가기 -----
 function enterBossRoom() {
@@ -231,7 +235,7 @@ function respawnInDungeon(spot) {
 
 // 보스방에서 쓰러진 뒤 "다시 도전": 던전으로 돌아가 문 앞에서
 // 같이 하기: 누가 눌러도 다 같이 (친구 기기는 방장에게 부탁: netplay.js "retryBoss"/"giveUpToCamp" 훅)
-function retryBoss() { if (hookAny("retryBoss")) return; return retryBossBase(); }
+function retryBoss() { if (hookAny("retryBoss") || hookAny("sceneGate", "retry")) return; return retryBossBase(); }
 function retryBossBase() {
   const kh = game.keyhunt;
   const S = kh.snap;
@@ -249,7 +253,7 @@ function retryBossBase() {
   showMessage("보스방 문 앞이에요. 열쇠는 그대로! 다시 도전해요", 3, false, "#ffd23f");
 }
 
-function giveUpToCamp() { if (hookAny("giveUpToCamp")) return; return giveUpToCampBase(); }
+function giveUpToCamp() { if (hookAny("giveUpToCamp") || hookAny("sceneGate", "camp")) return; return giveUpToCampBase(); }
 function giveUpToCampBase() {
   game.result = null;
   closeOverlay();

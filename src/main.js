@@ -350,16 +350,20 @@ function updateBase(dt) {
     if (wasPressed("Enter", "Space")) enterLobby();
     return;
   }
+  // 창(가게·지도·메뉴…) 보는 중: 창만 움직여요. "keepRunning" 이면 세상도 계속 (같이 하기: 누가 창을 봐도 다른 사람은 그대로 놀아요, netplay.js)
+  const hadOverlay = !!game.overlay;
+  let handled = true;
   switch (game.overlay) {
-    case "shop": updateShop(dt); return;
-    case "maps": updateMapSelect(); return;
-    case "smith": updateSmith(dt); return;
-    case "wardrobe": updateWardrobe(); return;
-    case "records": updateRecords(); return;
-    case "menu": updateMenu(); if (hookAny("keepRunning", dt)) updateWorld(dt); return; // "keepRunning": 메뉴 중에도 세상을 돌릴 때 (같이 하기는 이제 다 같이 멈춰요: netplay.js)
-    case "result": updateResult(); return;
-    default: if (game.overlay && hookAny("overlayUpdate", game.overlay, dt)) return; // 다른 파일이 만든 창
+    case "shop": updateShop(dt); break;
+    case "maps": updateMapSelect(); break;
+    case "smith": updateSmith(dt); break;
+    case "wardrobe": updateWardrobe(); break;
+    case "records": updateRecords(); break;
+    case "menu": updateMenu(); break;
+    case "result": updateResult(); break;
+    default: handled = !!(game.overlay && hookAny("overlayUpdate", game.overlay, dt)); // 다른 파일이 만든 창
   }
+  if (hadOverlay && handled) { if (hookAny("keepRunning", dt)) updateWorld(dt); return; }
   if (wasPressed("Escape")) { openMenu(); return; }
   updateWorld(dt);
 }
@@ -384,7 +388,7 @@ function updateWorld(dt) {
     const n = nearestNpc(q);
     if (n) { game.nearNpc = n; game.nearWho = q; break; }
   }
-  if (game.nearNpc && wasPressed("KeyE", "TouchUse", "Comma", "NumpadAdd", "T2Use")) game.nearNpc.action();
+  if (game.nearNpc && !game.overlay && wasPressed("KeyE", "TouchUse", "Comma", "NumpadAdd", "T2Use")) game.nearNpc.action(); // 창을 보는 동안(같이 하기라 세상이 도는 중)엔 E 가 창 몫이에요
 
   if (game.scene === "lobby") {
     updateLobby(p, dt);

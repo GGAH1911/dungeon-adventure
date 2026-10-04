@@ -70,7 +70,8 @@ function updateResultBase() {
 }
 
 // 같이 하기: 누가 누르든 다 같이 (친구 기기는 방장에게 부탁해요: netplay.js 훅)
-function finishResult() { if (hookAny("finishResult")) return; return finishResultBase(); }
+// "sceneGate": 다른 곳으로 가는 버튼은 누가 창을 보고 있으면 잠깐 막아요 (같이 하기, netplay.js)
+function finishResult() { if (hookAny("finishResult") || hookAny("sceneGate", "finish")) return; return finishResultBase(); }
 function finishResultBase() {
   game.result = null;
   closeOverlay();
@@ -109,7 +110,7 @@ function drawResultBase() {
 }
 
 // 던전에서 메뉴 "로비로 돌아가기" (같이 하기: 누가 눌러도 다 같이)
-function leaveRunToLobby() { if (hookAny("leaveRun")) return; return enterLobby("로비로 돌아왔어요"); }
+function leaveRunToLobby() { if (hookAny("leaveRun") || hookAny("sceneGate", "lobby")) return; return enterLobby("로비로 돌아왔어요"); }
 // 방 규칙: 난이도·하드모드 (같이 하기: 방장 규칙으로 다 같이. 친구가 바꾸면 방장에게 부탁해요)
 function setRoomRule(kind, value) { if (hookAny("setRoomRule", kind, value)) return; return setRoomRuleBase(kind, value); }
 function setRoomRuleBase(kind, value) {

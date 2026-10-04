@@ -109,7 +109,7 @@ function tryStartMap(i) {
   startChosenMap(MAPS[i], mapSel.level);
 }
 // 고른 맵으로 출발 (같이 하기: 누가 골라도 다 같이. 친구 기기는 방장에게 부탁해요, netplay.js)
-function startChosenMap(def, level) { if (hookAny("startChosenMap", def, level)) return; return startChosenMapBase(def, level); }
+function startChosenMap(def, level) { if (hookAny("startChosenMap", def, level) || hookAny("sceneGate", "start")) return; return startChosenMapBase(def, level); }
 function startChosenMapBase(def, level) { return def.type === "tower" ? startTower(level, def) : startDungeon(def, level); }
 
 // ----- 화면 배치 -----
