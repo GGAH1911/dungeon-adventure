@@ -83,8 +83,7 @@ hookOn("monsterDamage", (h) => {
 hookOn("untargetable", (o) => o.type === "w2_lamp" && (o.lit || o.trCdT > 0), 50);
 // 가까이서 E 로도 켜요
 hookOn("dungeonInteractables", (list) => {
-  const kh = game.keyhunt;
-  if (!kh || !kh.inBoss) return list;
+  if (!w2BossNow()) return list;
   for (const l of trLamps()) if (!l.lit && !(l.trCdT > 0)) list.push({ x: l.x, y: l.y, range: 1.8, short: "켜기", prompt: "등불 켜기", action: () => trLightLamp(l) });
   return list;
 }, 50);
@@ -236,7 +235,7 @@ function trBossPhase(m, idx) {
 }
 // 첫 프레임: 등불 4개 (2개는 켜진 채)
 hookOn("dungeonTick", () => {
-  const kh = game.keyhunt; const m = kh && kh.inBoss && kh.boss;
+  const m = w2BossNow();
   if (!m || m.type !== TR_BOSS.type || m.trInit) return;
   m.trInit = true;
   trLampsAround(m, world.W / 2, world.H / 2, TR_LAMP_SPOTS, 2);

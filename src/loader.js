@@ -28,7 +28,7 @@ var daLoader = (function () {
     [/^(bosses_a|bosses_b|bosses_c|towerboss|bossroom)$/, "보스 깨우는 중"],
     [/^(bow|effects|legendary|chest|tower)$/, "보물 숨기는 중"],
     [/^(lobby|lobbyui|shop|mapselect|menus|hud|main|keyhunt|guide|qol|showcase|classes|help|hero|worlds)$/, "캠프 꾸미는 중"],
-    [/^(ocean|ocean_env|bosses_w2)/, "깊은 바다 채우는 중"],
+    [/^(ocean|ocean_env|bosses_w2|seatower)/, "깊은 바다 채우는 중"],
     [/^(btnlayout|coop|party|net|netplay|trade|upper)$/, "같이 하기 준비 중"],
   ];
   const me = (typeof document !== "undefined" && document.currentScript) || null;

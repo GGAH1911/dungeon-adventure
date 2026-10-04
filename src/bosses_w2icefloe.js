@@ -80,7 +80,7 @@ function icPhase(m, idx) {
   if (idx === 1) showMessage("펭귄 썰매병이 와요! 눈덩이로 맞혀도 돼요", 2.6, false, "#9fe6ff");
   if (idx === 2) showMessage("찬 숨결이 눈덩이를 얼려요! 얼은 눈덩이는 두 번 쳐요", 3, false, "#bff0ff");
 }
-function icBoss() { const kh = game.keyhunt; const b = kh && kh.inBoss && kh.boss; return b && b.type === IC_BOSS.type ? b : null; }
+function icBoss() { const b = w2BossNow(); return b && b.type === IC_BOSS.type ? b : null; }
 function icBalls() { return monsters.filter((o) => o.type === "w2_icSnowball"); }
 
 // ----- 눈덩이: 맞으면 굴러가요 (다치지 않아요) -----

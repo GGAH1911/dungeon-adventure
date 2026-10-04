@@ -22,7 +22,7 @@ function wkDiff() { return (game.profile && game.profile.difficulty) || "normal"
 function wkStagK() { return { easy: 1.3, normal: 1, hard: 0.85, nightmare: 0.7 }[wkDiff()] || 1; }
 // 널빤지 3곳 (서·북·남): 선원이 올라오는 곳. 들어오는 문(동)은 비워요
 function wkPlanks(w = world) { const c = w.W / 2, R = w.W / 2 - 3; return [{ x: c - R, y: c, dx: -1, dy: 0 }, { x: c, y: c - R, dx: 0, dy: -1 }, { x: c, y: c + R, dx: 0, dy: 1 }]; }
-function wkBoss() { const kh = game.keyhunt; const b = kh && kh.inBoss && kh.boss; return b && b.type === "w2_captain" ? b : null; }
+function wkBoss() { const b = w2BossNow(); return b && b.type === "w2_captain" ? b : null; }
 
 // ----- 부하 -----
 Object.assign(MONSTERS, {

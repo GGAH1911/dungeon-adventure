@@ -160,8 +160,7 @@ function vtSetTide(m, st) {
 }
 const VT_NEXT = { rise: "high", high: "drain", drain: "low", low: "rise" };
 hookOn("dungeonTick", (dt) => {
-  const kh = game.keyhunt;
-  if (!kh || !kh.inBoss) return;
+  if (!w2BossNow()) return;
   const m = vtBoss();
   if (!m) return;
   const c = vtCenter();

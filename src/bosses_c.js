@@ -124,9 +124,8 @@ function w2LaneRects(w) {
 }
 function w2InLane(l, x, y) { return x >= l.x0 && x <= l.x1 && y >= l.y0 && y <= l.y1; }
 hookOn("dungeonTick", (dt) => {
-  const kh = game.keyhunt;
-  if (!kh || !kh.inBoss || !kh.boss) return;
-  const m = kh.boss;
+  const m = w2BossNow();
+  if (!m) return;
   // 첫 프레임: 산호 바위 (물살 끝 벽 앞)
   if (m.type === "w2_soraKing" && !m.w2Init) {
     m.w2Init = true;
@@ -249,7 +248,7 @@ hookOn("resolveCast", (c, p) => {
 }, 15);
 // 화난 소라왕은 물길 경고 동안 그 물길 쪽으로 걸어가요 (주인공이 옆으로 빠지면 보스만 떠내려가요)
 hookOn("dungeonTick", (dt) => {
-  const kh = game.keyhunt; const m = kh && kh.inBoss && kh.boss;
+  const m = w2BossNow();
   if (!m || m.type !== "w2_soraKing" || !m.flowable || !m.w2Flow || m.stagger > 0 || m.hp <= 0) return;
   if (m.w2LaneGoal !== undefined && m.w2Flow.t < m.w2Flow.warn + 0.5) {
     const dx = m.w2LaneGoal - m.x;
@@ -259,7 +258,7 @@ hookOn("dungeonTick", (dt) => {
 
 // 물살 길 그림 (예고 장판 위에)
 hookOn("drawTelegraphsAfter", () => {
-  const kh = game.keyhunt; const m = kh && kh.inBoss && kh.boss;
+  const m = w2BossNow();
   if (!m || !m.w2Flow) return;
   const F = m.w2Flow, warn = F.t < F.warn;
   const blink = warn ? Math.floor(F.t / 0.25) % 2 === 0 : true;

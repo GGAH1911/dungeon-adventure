@@ -38,6 +38,7 @@ const TOWER_MASTER_DEF = {
   create: (x, y, level) => b2MakeBoss("towerMaster", x, y, level, 3.3),
 };
 TOWER_MASTER_DEF.phases = MONSTERS.towerMaster.phases;
+TOWER_MASTERS.tower = TOWER_MASTER_DEF;
 // 기술 뒤 비틀거림은 다른 보스와 같아요 (B2_STAGGER_AFTER)
 
 // ----- 탑의 왕관 (전설 장신구) -----
@@ -50,6 +51,7 @@ BOSS_LEGENDS.tower = "L_tower";
 function towerBossReward(mapId, L) {
   const pr = game.profile;
   const got = [];
+  if (mapId !== "tower" && TOWER_MASTERS[mapId] && TOWER_MASTERS[mapId].reward) return TOWER_MASTERS[mapId].reward(L); // 다른 탑의 주인 (seatower.js)
   if (mapId === "tower") {
     const first = !pr.towerCrown;
     pr.towerCrown = (pr.towerCrown || 0) + 1;
@@ -74,7 +76,7 @@ function towerTrophySpot() {
 }
 hookOn("lobbyThings", (things) => {
   const pr = game.profile;
-  if (!pr.towerCrown) return;
+  if (!pr.towerCrown || (typeof curWorld === "function" && curWorld() !== 1)) return; // 시련의 탑 트로피는 월드 1 캠프에
   const s = towerTrophySpot();
   things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
     drawBox(s.x - 0.32, s.y - 0.32, 0, 0.64, 0.64, 0.18, "#5e5470");
@@ -84,7 +86,7 @@ hookOn("lobbyThings", (things) => {
 }, 65);
 hookOn("lobbyInteractables", (list) => {
   const pr = game.profile;
-  if (!pr.towerCrown) return list;
+  if (!pr.towerCrown || (typeof curWorld === "function" && curWorld() !== 1)) return list;
   const s = towerTrophySpot();
   list.push({ x: s.x, y: s.y, range: 1.4, label: "탑 트로피", short: "보기", prompt: "시련의 탑 정복 트로피", action: () => showMessage(`시련의 탑 정복 ${pr.towerCrown}번! 최고 ${pr.towerBest || 0}층`, 3, true) });
   return list;

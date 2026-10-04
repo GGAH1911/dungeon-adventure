@@ -667,7 +667,7 @@ function netGuestScene(msg) {
   netplay.replaying = true;
   try {
     if (msg.s === "lobby") { if (game.scene !== "lobby" || game.result) { game.result = null; enterLobby(); } }
-    else if (msg.s === "dungeon" && msg.map === "tower" && typeof TOWER !== "undefined") { netGuestTower(msg); game.result = null; game.overlay = null; }
+    else if (msg.s === "dungeon" && MAPS.some((m) => m.id === msg.map && m.type === "tower")) { netGuestTower(msg); game.result = null; game.overlay = null; }
     else if (msg.s === "dungeon") {
       const def = MAPS.find((m) => m.id === msg.map && m.type !== "tower");
       const sameMap = prev.s === "dungeon" && prev.map === msg.map && prev.seed === msg.seed && game.scene === "dungeon";
@@ -701,21 +701,22 @@ function netGuestScene(msg) {
 hookOn("dungeonStarted", () => { netplay.runSeed = world.seed; }, 10);
 // 시련의 탑: 방장과 같은 층·같은 보스 (탑 보스는 들어갈 때마다 골라서 방장이 알려줘요). 층 모양은 정해져 있어요
 function netGuestTower(msg) {
+  const def = MAPS.find((m) => m.id === msg.map && m.type === "tower") || TOWER; // 시련의 탑 또는 다른 월드의 탑 (심해 탑)
   const tw = msg.tower && typeof msg.tower === "object" ? msg.tower : {};
   const level = Math.round(netNum(msg.level, 1, 999, 1));
-  const floor = Math.round(netNum(tw.floor, 1, TOWER.floors, 1));
+  const floor = Math.round(netNum(tw.floor, 1, def.floors, 1));
   const bm = {};
-  for (const f of Object.keys(TOWER.bossPools)) { const id = tw.bossMaps && tw.bossMaps[f]; if (typeof id === "string" && TOWER.bossPools[f].includes(id)) bm[f] = id; }
-  const same = game.mode === "tower" && game.scene === "dungeon" && game.tower && game.mapLevel === level && JSON.stringify(game.tower.bossMaps) === JSON.stringify(bm);
+  for (const f of Object.keys(def.bossPools)) { const id = tw.bossMaps && tw.bossMaps[f]; if (typeof id === "string" && def.bossPools[f].includes(id)) bm[f] = id; }
+  const same = game.mode === "tower" && game.scene === "dungeon" && game.tower && game.mapDef === def && game.mapLevel === level && JSON.stringify(game.tower.bossMaps) === JSON.stringify(bm);
   if (same && game.tower.floor === floor) return;
   const hp = same && game.player ? game.player.hp : null;
-  if (!same) startTower(level); else resetEffects();
+  if (!same) startTower(level, def); else resetEffects();
   const T = game.tower;
   T.bossMaps = bm; T.floor = floor; T.cleared = false; T.boss = null; T.bossDown = false; T.waveDelay = 99;
   buildArenaFloor(floor);
   placePlayer();
   if (hp !== null && game.player) game.player.hp = hp;
-  const pr = game.profile; if (floor > 1) pr.towerBest = Math.max(pr.towerBest || 0, floor - 1);
+  if (floor > 1) towerSetBest(def, floor - 1);
 }
 hookOn("dungeonSeed", (seed) => (netGuest() && netplay.forceSeed !== undefined ? netplay.forceSeed : seed), 50);
 

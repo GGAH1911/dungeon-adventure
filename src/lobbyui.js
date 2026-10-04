@@ -254,6 +254,7 @@ function drawBasicRecords(x0, y0, pw, ph) {
     [`연 보물상자`, `${st.chests}개`],
     [`던전 도전 / 클리어`, `${st.runs}번 / ${st.clears}번`],
     [`시련의 탑 최고`, `${pr.towerBest || 0}층`],
+    [`심해 탑 최고`, `${(pr.towerBests && pr.towerBests.seatower) || 0}층`],
     [`강아지 쓰다듬기`, `${st.pets}번`],
     [`장비 강화 합계`, `+${EQ_SLOTS.reduce((a, sl) => a + ((pr.eq[sl.id] && pr.eq[sl.id].p) || 0), 0)}`],
     [`보스 처치`, `${st.bosses || 0}번`],

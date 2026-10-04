@@ -120,9 +120,8 @@ hookOn("resolveCast", (c) => {
 
 // 소라 놓기 (보스 첫 프레임) + 노래 진행 (방장)
 hookOn("dungeonTick", (dt) => {
-  const kh = game.keyhunt;
-  if (!kh || !kh.inBoss || !kh.boss || kh.boss.type !== "w2_seaQueen") return;
-  const m = kh.boss;
+  const m = w2BossNow();
+  if (!m || m.type !== "w2_seaQueen") return;
   if (!m.sgInit) {
     m.sgInit = true;
     const c = world.W / 2;

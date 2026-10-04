@@ -106,7 +106,7 @@ function tryStartMap(i) {
     return;
   }
   closeOverlay();
-  if (MAPS[i].type === "tower") startTower(mapSel.level);
+  if (MAPS[i].type === "tower") startTower(mapSel.level, MAPS[i]);
   else startDungeon(MAPS[i], mapSel.level);
 }
 
@@ -706,13 +706,13 @@ function drawMapSelect() {
       ctx.fillStyle = "rgba(255,210,63,0.25)"; ctx.fill();
     }
     drawPlaceIcon(m, P.x, P.y, s, !open);
-    const cleared = m.type === "tower" ? pr.towerBest > 0 : pr.cleared.includes(m.id);
+    const cleared = m.type === "tower" ? towerBestOf(m) > 0 : pr.cleared.includes(m.id);
     if (cleared) drawStar(P.x - 22 * s, P.y - 36 * s, 9 * s, "#ffd23f");
     if (i === recIdx) drawRecRibbon(P.x + 20 * s, P.y - 44 * s, s);
     const fs = Math.round(Math.max(11, Math.min(17, 13 * s)));
     placeLabel(m.name, P.x, P.y + 22 * s, fs, open ? "#3a2210" : "#6a6a6a", sel ? "rgba(255,236,170,0.95)" : open ? "rgba(245,232,200,0.9)" : "rgba(210,205,195,0.85)");
     let sub = null;
-    if (m.type === "tower") { if (pr.towerBest) sub = `최고 ${pr.towerBest}층`; }
+    if (m.type === "tower") { if (towerBestOf(m)) sub = `최고 ${towerBestOf(m)}층`; }
     else if (pr.best[m.id]) sub = `최고 Lv ${pr.best[m.id]}`;
     if (sub) { ctx.font = `bold ${fs - 2}px sans-serif`; text(sub, P.x, P.y + 22 * s + fs + 2, fs - 2, "#1f7a3a", "center"); }
   }
@@ -767,7 +767,7 @@ function drawMapInfoPanel() {
   for (const l of wrapLines(m.desc || "", iw, 15).slice(0, 2)) { y += 22; text(l, ix, y, 15, "#ddd"); }
   y += 8;
   let info;
-  if (m.type === "tower") info = `${m.floors}층까지 · 5층·10층 보스 · 최고 ${pr.towerBest || 0}층`;
+  if (m.type === "tower") info = `${m.floors}층까지 · 5층마다 보스 · 최고 ${towerBestOf(m)}층`;
   else {
     const names = Object.keys(m.monsters || {}).map((k) => (MONSTERS[k] && MONSTERS[k].name) || k).join(", ");
     info = `몬스터: ${names}`;

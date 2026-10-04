@@ -91,7 +91,7 @@ function skArenaC() { return { x: world.W / 2, y: world.H / 2 }; }
 
 // 첫 프레임: 덫 조개 5개 (아레나 가운데 둘레, 걸어서 지나갈 수 있어요: 벽(solids)이 아니에요)
 hookOn("dungeonTick", (dt) => {
-  const kh = game.keyhunt, m = kh && kh.inBoss && kh.boss;
+  const m = w2BossNow();
   if (!m || m.type !== SK_BOSS.type) return;
   if (!m.skInit) {
     m.skInit = true;
@@ -256,7 +256,7 @@ hookOn("monsterDamage", (h) => {
 }, 19);
 // 꼬마 상어도 지나가다 열린 조개에 닿으면 꽉
 hookOn("dungeonTick", () => {
-  const kh = game.keyhunt, b = kh && kh.inBoss && kh.boss;
+  const b = w2BossNow();
   if (!b || b.type !== SK_BOSS.type) return;
   for (const s of skClams()) {
     if (s.shutT > 0) continue;
@@ -270,8 +270,7 @@ hookOn("dungeonTick", () => {
 
 // 지느러미·조개 빛 (어둑한 암초에서도 잘 보여요)
 hookOn("lights", (lights) => {
-  const kh = game.keyhunt;
-  if (!kh || !kh.inBoss) return;
+  if (!w2BossNow()) return;
   for (const o of monsters) {
     if (o.hp <= 0) continue;
     if (o.type === SK_BOSS.type && (o.skFin || o.skDash)) lights.push({ x: o.x, y: o.y, radius: 1.8, power: 0.6 });

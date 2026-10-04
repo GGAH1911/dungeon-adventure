@@ -242,12 +242,12 @@ function endRunBase(win) {
     const best = pr.best[game.mapDef.id] || 0;
     if (game.mapLevel > best) pr.best[game.mapDef.id] = game.mapLevel;
     sfx.clear();
-    showMessage(game.mode === "tower" ? "시련의 탑 정복!" : "던전 클리어!", 2, true);
+    showMessage(game.mode === "tower" ? `${curTower().name} 정복!` : "던전 클리어!", 2, true);
     for (let i = 0; i < 3; i++) addRing(game.player.x, game.player.y, { speed: 6, life: 0.6, hue: i * 120, delay: i * 0.15 });
   } else {
     pr.stats.deaths++;
   }
-  const where = game.mode === "tower" ? `시련의 탑 Lv ${game.mapLevel} · ${game.tower.floor}층` : `${game.mapDef.name} Lv ${game.mapLevel}`;
+  const where = game.mode === "tower" ? `${curTower().name} Lv ${game.mapLevel} · ${game.tower.floor}층` : `${game.mapDef.name} Lv ${game.mapLevel}`;
   if (!win) mats = r.mats || null;
   game.result = { win, mapName: where, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus, mats, money: { ...(r.money || {}) }, items: (r.items || []).slice() };
   game.endTimer = win ? 1.8 : 1.4;

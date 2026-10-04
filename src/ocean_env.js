@@ -32,6 +32,13 @@ function w2EnsureEnv(w = world) {
   for (const k of ["vents", "glows", "geysers", "ice", "sponges", "clams", "pipes"]) if (!w.w2[k]) w.w2[k] = [];
   return w.w2;
 }
+// 지금 싸우는 바다 보스: 보스방(열쇠 찾기 뒤) 또는 탑의 보스 층 (보스 파일들이 이걸로 찾아요)
+function w2BossNow() {
+  const kh = game.keyhunt;
+  if (kh && kh.inBoss) return kh.boss || null;
+  if (game.mode === "tower" && game.scene === "dungeon" && game.tower && game.tower.boss) return game.tower.boss;
+  return null;
+}
 function w2AddVent(x, y, w = world) { const v = { x, y, r: 0.9, charge: 3, refill: 0 }; w2EnsureEnv(w).vents.push(v); return v; }
 function w2Floating(p) { return (p.w2Float || 0) > 0; }
 

@@ -120,7 +120,7 @@ function drawHUDBase() {
   // 장소 정보 (오른쪽 위 단추들 왼쪽에)
   const RX = W - (touch.show && canFullscreen() && !isFullscreen() ? 178 : 124);
   if (game.scene === "dungeon" && game.mode === "tower") {
-    text(`시련의 탑 ${game.tower.floor}층 / ${TOWER.floors}`, RX, 40, 20, "#ffe27a", "right");
+    text(`${curTower().name} ${game.tower.floor}층 / ${curTower().floors}`, RX, 40, 20, "#ffe27a", "right");
     const lvText = `Lv ${towerLevel(game.tower.floor)}`;
     const left = game.tower.waveDelay <= 0 && !game.tower.cleared ? ` · 남은 몬스터 ${monsters.length}` : "";
     text(lvText + left, RX, 64, 15, monsters.length <= 3 && left ? "#ff8080" : "#ccc", "right");

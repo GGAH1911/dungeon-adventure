@@ -86,9 +86,7 @@ function snPhase(m, idx) {
 
 // 첫 프레임: 파이프 5개 놓기 + 가운데 파이프에 숨기 (create 뒤에 몬스터 목록이 다시 만들어질 수 있어서 여기서)
 hookOn("dungeonTick", () => {
-  const kh = game.keyhunt;
-  if (!kh || !kh.inBoss) return;
-  const m = kh.boss;
+  const m = w2BossNow();
   if (!m || m.type !== SN_BOSS.type || m.snInit) return;
   m.snInit = true;
   const c = world.W / 2;
