@@ -27,7 +27,6 @@ function menuItems() {
   }
   items.push({ label: muted ? "소리 켜기" : "소리 끄기", act: () => { muted = !muted; } });
   if (canFullscreen()) items.push({ label: isFullscreen() ? "전체 화면 끄기" : "전체 화면", act: () => { toggleFullscreen(); closeOverlay(); } });
-  items.push({ label: "치트", act: () => { closeOverlay(); openCheat(); } });
   hookRun("menuItems", items); // 다른 파일이 메뉴 항목을 더해요 (예: 목소리 안내, 저장 코드)
   if (game.scene === "lobby") items.push({ label: "처음 화면으로", act: () => { closeOverlay(); game.scene = "title"; } });
   return items;

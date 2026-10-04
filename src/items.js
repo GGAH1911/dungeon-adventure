@@ -86,7 +86,7 @@ const ARROW_TYPES = [
 
 const POTION = { id: "potion", name: "체력 물약", price: 4, heal: 4 };
 
-// ----- 치트 전용 전설 장비 -----
+// ----- 예전 치트 전용 전설 장비 (치트는 없앴어요: 저장에 남은 pr.legend 는 읽을 때 꺼요, save.js) -----
 const LEGEND = {
   weapon: { id: "legend", name: "무지개 별빛 대검", type: "sword", legendary: true, range: 2.6, cooldown: 0.24, arc: 2.2, length: 1.35, color: "#ffffff", chain: 5, chainRange: 6 },
   bow: { id: "legend", name: "무지개 별똥별 활", legendary: true, cooldown: 0.22, speed: 24, multishot: 5, pierce: 99, infinite: true, color: "#ffffff" },

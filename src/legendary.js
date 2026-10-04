@@ -156,7 +156,7 @@ function legendBlock(p) {
   }
 }
 
-// 치트 성공 축하!
+// 큰 축하 연출 (예전 치트 전설 장비용)
 function legendCelebration(p) {
   sfx.cheat();
   flashScreen(0.8, true);

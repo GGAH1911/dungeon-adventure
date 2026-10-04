@@ -228,7 +228,7 @@ hookOn("playersTeleported", () => {
     r.wv++; r.ext = []; r.extOpen = null; r.lastAcc = null; r.rep = null; q._pp = { x: q.x, y: q.y };
   }
 }, 50);
-// 같이 하는 중엔 치트를 쳐도 게임이 멈추지 않아요 (나도, 친구도)
+// 같이 하는 중엔 글 입력 창을 열어도 게임이 멈추지 않아요 (나도, 친구도)
 hookOn("cheatKeepsRunning", () => netOn(), 50);
 // 누가 창을 보고 있으면 방장 세상도 멈춰요 (모두에게 무엇을 보고 있는지 알려줘요)
 hookOn("simulateSkip", () => netHosting() && netplay.busy.length > 0, 45);

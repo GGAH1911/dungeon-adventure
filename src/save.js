@@ -19,7 +19,7 @@ function newProfile() {
     materials: {},  // 보스 부품 개수 (마법 열기)
     enchants: [],   // 열린 마법
     enchant: null,  // 무기에 붙인 마법
-    legend: false,  // 치트: 전설 장비
+    legend: false,  // 예전 치트 전설 장비 (치트는 없앴어요, 읽을 때 꺼요)
     difficulty: "normal", // easy / normal / hard / nightmare
     hardMode: false,      // 켜면 쓰러졌을 때 처음부터
     look: {},
@@ -93,6 +93,8 @@ function migrateProfile(d) {
 
 // 저장을 읽은 뒤 다른 파일이 새 필드를 채워요 (hookOn("profileLoaded", (pr) => { pr.x = pr.x || ... }))
 function loadProfile() { const pr = loadProfileBase(); hookRun("profileLoaded", pr); return pr; }
+// 치트는 없앴어요: 예전에 치트로 받은 전설 장비(무지개 대검·별똥별 활·황금 갑옷)는 저장을 읽을 때 꺼요
+hookOn("profileLoaded", (pr) => { if (pr && pr.legend) pr.legend = false; }, 5);
 function loadProfileBase() {
   try {
     const data = JSON.parse(localStorage.getItem(SAVE_KEY));

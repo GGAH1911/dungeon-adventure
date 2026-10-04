@@ -332,7 +332,7 @@ function updateBase(dt) {
   game.shake = Math.max(0, game.shake - dt);
   game.fade = Math.max(0, game.fade - dt);
   hookRun("netTick", dt); // 같이 하기: 주고받기 (netplay.js)
-  if (cheatOpen && !hookAny("cheatKeepsRunning")) return; // 치트 입력 중엔 잠깐 멈춰요 (같이 하기 중엔 안 멈춰요: netplay.js)
+  if (cheatOpen && !hookAny("cheatKeepsRunning")) return; // 글 입력 창 중엔 잠깐 멈춰요 (같이 하기 중엔 안 멈춰요: netplay.js)
 
   // 맞는 순간 잠깐 멈춤 (타격감)
   if (game.hitstop > 0) { game.hitstop -= dt; return; }

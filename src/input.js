@@ -1,3 +1,5 @@
+// 글 입력 창이 열려 있나 (이름 바꾸기·저장 코드 등 qol.js). 이름은 예전 치트 입력창에서 물려받았어요 (치트는 2026-10-04 에 없앴어요)
+var cheatOpen = false;
 // ===== 조작: 키보드 + 터치 + 마우스 =====
 // e.code 를 써서 한글 입력 상태여도 키가 잘 먹어요.
 
@@ -6,7 +8,7 @@ const pressed = {};  // 이번에 막 누른 키 (한 번만)
 
 window.addEventListener("keydown", (e) => {
   unlockAudio(); // 키를 처음 누르면 소리가 켜져요
-  if (typeof cheatOpen !== "undefined" && cheatOpen) return; // 치트 입력 중엔 게임 조작 안 해요
+  if (cheatOpen) return; // 글 입력 창(qol.js) 중엔 게임 조작 안 해요
   if (!keys[e.code]) pressed[e.code] = true;
   keys[e.code] = true;
   if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab"].includes(e.code)) e.preventDefault();
