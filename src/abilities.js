@@ -202,6 +202,16 @@ const ABILITY_TUNING = {
   nightmare: { telegraph: 0.8, damage: 1.0, size: 1.2, cooldown: 0.7 },
 };
 const MIN_TELEGRAPH = 0.45; // 아픈 기술 예고는 어떤 난이도에서도 이보다 짧지 않아요
+// 따라오는 예고(조준선·따라오는 낙인)는 끝나기 전에 꼭 멈춰요. 멈춘 뒤 남는 시간 = 보고 반응하는 시간 + 걸어서 빠져나가는 시간
+// (예전엔 "마지막 30%" 라서 빛줄기는 0.2초만 멈췄어요: 사람이 반응하기 전에 맞았어요)
+const FOLLOW_REACT = { easy: 0.45, normal: 0.35, hard: 0.3, nightmare: 0.25 };
+function followLockAt(c) {
+  const d = (typeof game !== "undefined" && game.profile && game.profile.difficulty) || "normal";
+  const shape = c.ab.telegraph.shape;
+  const escape = (shape === "line" ? c.width / 2 : c.radius || 0) + 0.2; // 빠져나가야 하는 거리 (주인공 몸 포함)
+  const need = (FOLLOW_REACT[d] || 0.35) + escape / CONFIG.player.speed + 0.15; // + 여유 (손가락 움직임·화면 한 칸)
+  return Math.max(0, Math.min(c.time * 0.6, c.time - need));
+}
 
 function abilityTuning() {
   const d = (typeof game !== "undefined" && game.profile && game.profile.difficulty) || "normal";
@@ -330,6 +340,7 @@ function makeCast(m, ab, id, target, time, tune) {
     length: (tg.length || 0) * tune.size, width: (tg.width || 0) * tune.size, angle: (tg.angle || 0) * Math.min(1.25, tune.size),
   };
   c.target = target && target.maxHp && !target.def ? target : null; // 노리는 주인공 (둘이 하기)
+  if (c.follow) c.lockAt = followLockAt(c);
   if (tg.at === "target") { c.x = target.x; c.y = target.y; }
   if (tg.at === "front") { c.x = m.x + m.faceX * (tg.offset || 0.8); c.y = m.y + m.faceY * (tg.offset || 0.8); }
   return c;
@@ -345,8 +356,8 @@ function updateAbilitiesBase(dt) {
     if (m.hp <= 0 && c.ab.effect.type !== "rain") { c.dead = true; if (c.ownerLock) endCastState(m); continue; }
     c.t += dt;
     const tg = c.ab.telegraph;
-    // 따라오는 예고: 마지막 30%는 멈춰요 (피할 시간)
-    if (c.follow && c.t < c.time * 0.7 && p) {
+    // 따라오는 예고: lockAt 부터는 멈춰요 (피할 시간: followLockAt)
+    if (c.follow && c.t < (c.lockAt ?? c.time * 0.6) && p) {
       if (tg.at === "target") { c.x += (p.x - c.x) * Math.min(1, dt * 6); c.y += (p.y - c.y) * Math.min(1, dt * 6); }
       else { const dx = p.x - m.x, dy = p.y - m.y, d = Math.hypot(dx, dy) || 1; c.dirX = dx / d; c.dirY = dy / d; m.faceX = c.dirX; m.faceY = c.dirY; }
     }
@@ -662,7 +673,8 @@ function drawTelegraphsBase() {
     if (shape === "none") continue;
     const k = Math.min(1, c.t / c.time);
     const [r, g, b] = telegraphColor(c);
-    const locked = c.follow && c.t >= c.time * 0.7;
+    const locked = c.follow && c.t >= (c.lockAt ?? c.time * 0.6);
+    const justLocked = locked && c.t - (c.lockAt ?? 0) < 0.18; // 멈추는 순간 하얗게 번쩍
     const soft = c.ab.telegraph.harmlessPreview;
     if (shape === "ring") {
       const outer = [], inner = [];
@@ -679,6 +691,7 @@ function drawTelegraphsBase() {
     ctx.beginPath(); pathPoly(full);
     ctx.fillStyle = `rgba(${r},${g},${b},${soft ? 0.08 : 0.16})`; ctx.fill();
     ctx.strokeStyle = `rgba(${r},${g},${b},${soft ? 0.45 : 0.9})`; ctx.lineWidth = locked ? 4 : 2.5; ctx.stroke();
+    if (justLocked) { ctx.strokeStyle = "rgba(255,255,255,0.95)"; ctx.lineWidth = 6; ctx.stroke(); }
     // 차오르는 진행 표시
     const prog = shapePoints(c, Math.max(0.02, k));
     if (prog.length >= 3) { ctx.beginPath(); pathPoly(prog); ctx.fillStyle = `rgba(${r},${g},${b},${soft ? 0.12 : 0.32})`; ctx.fill(); }
