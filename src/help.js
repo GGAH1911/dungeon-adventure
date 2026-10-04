@@ -10,6 +10,8 @@ const HELP_COMMON = [
   { icon: "bow", name: "활", touch: "누르고 있으면 계속 쏴요", key: "L" },
   { icon: "arrow_fire", name: "화살 바꾸기", touch: "보통 · 불 · 얼음 · 폭탄 화살", key: "Tab" },
   { icon: "potion", name: "물약", touch: "하트를 채워요", key: "Q" },
+  { icon: "pot_speed", name: "신속 물약", touch: "잠깐 빨리 걸어요 (가진 것 중 가장 센 것)", key: "Z" },
+  { icon: "pot_atk", name: "공격력 물약", touch: "잠깐 더 세게 때려요 (가진 것 중 가장 센 것)", key: "X" },
   { icon: "use", name: "열기 · 말 걸기", touch: "가까이 가면 나타나요 (상자·문·가게)", key: "E" },
   { icon: "menu", name: "메뉴", touch: "오른쪽 위 버튼", key: "Esc" },
 ];

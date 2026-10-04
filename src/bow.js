@@ -61,7 +61,7 @@ function fireBow(p) {
   const n = bow.multishot || 1;
   const spread = n > 1 ? 0.22 : 0;
   const base = Math.atan2(aim.y, aim.x);
-  const dmg = bow.damage * damageBonus(pr.level) * (type === "bomb" ? 1.4 : 1);
+  const dmg = bow.damage * damageBonus(pr.level) * (type === "bomb" ? 1.4 : 1) * buffMul(p, "atk"); // 공격력 물약 (buffpots.js)
   for (let i = 0; i < n; i++) {
     const a = base + (i - (n - 1) / 2) * spread;
     shots.push({

@@ -314,6 +314,8 @@ function onPickup(item, picker) {
     if (game.run) { game.run.mats = game.run.mats || {}; game.run.mats[item.mat] = (game.run.mats[item.mat] || 0) + (item.count || 1); }
     addFloatText(p.x, p.y, `${MATERIALS[item.mat].name} +${item.count || 1}`, MATERIALS[item.mat].color, 16);
     sfx.emerald();
+  } else if (item.type === "buffpot") {
+    buffPotPickup(item, p); // 강화 물약 (buffpots.js)
   } else if (item.type === "apple") {
     p.hp = Math.min(p.maxHp, p.hp + 2);
     addFloatText(p.x, p.y, "+2", "#ff7b7b", 20);

@@ -123,7 +123,7 @@ function updatePlayer(p, dt) {
   if (p.moving) {
     if (!attacking) { p.faceX = wx; p.faceY = wy; }
     const slowed = p.abSlow > 0 ? 0.55 : 1; // 거미줄·얼음 숨결 등에 맞으면 느려져요
-    const speed = cfg.speed * (1 + (Math.min(game.profile.level, CONFIG.level.speedUntil) - 1) * CONFIG.level.speedPerLevel) * (1 + (p.armor.speed || 0)) * power * (attacking ? 0.45 : 1) * slowed;
+    const speed = cfg.speed * (1 + (Math.min(game.profile.level, CONFIG.level.speedUntil) - 1) * CONFIG.level.speedPerLevel) * (1 + (p.armor.speed || 0)) * power * (attacking ? 0.45 : 1) * slowed * buffMul(p, "speed"); // 신속 물약 (buffpots.js)
     moveEntity(p, wx * speed * dt, wy * speed * dt);
     p.walkTime += dt * power;
   }
@@ -153,7 +153,8 @@ function updatePlayer(p, dt) {
   if (inp.arrowTypePressed) cycleArrowType();
 
   // 물약 마시기
-  if (inp.potionPressed && game.scene !== "lobby") drinkPotion(p);
+  // 같이 하기 친구 기기의 나: 물약은 보내기 전에 이미 썼어요 (netplay.js netGuestTick). 여기서 또 쓰면 2개가 줄었어요
+  if (inp.potionPressed && game.scene !== "lobby" && !(typeof netGuest === "function" && netGuest())) drinkPotion(p);
 
   // 직업 기술 (classes.js)
   hookRun("playerSkills", p, inp, dt);

@@ -116,6 +116,7 @@ function drawPickup(e) {
     drawBox(e.x + 0.02, e.y - 0.06, z + 0.26, 0.1, 0.06, 0.03, "#3fae3f");
     return;
   }
+  if (e.type === "buffpot") { drawBuffPotPickup(e, z); return; } // 강화 물약 (buffpots.js)
   if (e.type === "potion") {
     drawBox(e.x - 0.1, e.y - 0.1, z, 0.2, 0.2, 0.24, "#c64fa0");
     drawBox(e.x - 0.04, e.y - 0.04, z + 0.24, 0.08, 0.08, 0.08, "#ffd6f2");

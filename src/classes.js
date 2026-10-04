@@ -96,7 +96,7 @@ let clsFx = [];      // 기술 효과 (투사체, 덫, 화살비, 운석, 회오
 
 function W(p) {
   const pr = game.profile;
-  const base = playerCls(p) === "hunter" ? p.bow.damage * damageBonus(pr.level) : weaponPower(p);
+  const base = playerCls(p) === "hunter" ? p.bow.damage * damageBonus(pr.level) * buffMul(p, "atk") : weaponPower(p); // 공격력 물약은 weaponPower 에도 (buffpots.js)
   // 직업 배수: 같은 장비에서 직업끼리 처치 시간이 비슷하게 (봇 시험으로 맞춤, docs/design/classes.md 1-4)
   return base * (CLASS_DEFS[playerCls(p)].dmgMul || 1) * (p.buffT > 0 ? 1.3 : 1);
 }

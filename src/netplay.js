@@ -244,7 +244,7 @@ hookOn("reward", (kind, n) => { if (netHosting() && kind === "xp") netplay.event
 
 function netProfileCounts() {
   const pr = game.profile;
-  return { emeralds: pr.emeralds, arrows: pr.arrows, potions: pr.potions, materials: { ...(pr.materials || {}) }, special: { ...(pr.special || {}) }, money: { ...(pr.money || {}) },
+  return { emeralds: pr.emeralds, arrows: pr.arrows, potions: pr.potions, materials: { ...(pr.materials || {}) }, special: { ...(pr.special || {}) }, money: { ...(pr.money || {}) }, buffPots: { ...(pr.buffPots || {}) },
     runItems: (game.run && game.run.items ? game.run.items : []).slice() };
 }
 // 방장이 얻은 것(늘어난 것만)을 친구에게도 (모두 1인분씩)
@@ -253,7 +253,7 @@ function netRewardDelta() {
   // 캠프에서 사고팔기·소원 우물로 늘어난 건 방장 것이에요 (던전에서 얻은 것만 친구에게)
   if (game.scene !== "dungeon") { netplay.prof = b; return null; }
   for (const k of ["emeralds", "arrows", "potions"]) if (b[k] > a[k]) d[k] = b[k] - a[k];
-  for (const g of ["materials", "special", "money"]) for (const id of Object.keys(b[g])) if ((b[g][id] || 0) > ((a[g] || {})[id] || 0)) (d[g] = d[g] || {})[id] = b[g][id] - ((a[g] || {})[id] || 0);
+  for (const g of ["materials", "special", "money", "buffPots"]) for (const id of Object.keys(b[g])) if ((b[g][id] || 0) > ((a[g] || {})[id] || 0)) (d[g] = d[g] || {})[id] = b[g][id] - ((a[g] || {})[id] || 0);
   // 방장이 주운 장비: 친구는 같은 등급·레벨의 "자기 직업" 장비를 따로 받아요 (보스 전설은 같은 전설)
   const had = new Set(a.runItems || []);
   const fresh = (b.runItems || []).filter((u) => !had.has(u)).map((u) => typeof findItem === "function" ? findItem(u) : null).filter(Boolean);
@@ -615,6 +615,7 @@ function netGuestTick(dt) {
       else if (p.hp >= p.maxHp) { inp.potionPressed = false; showMessage("체력이 가득해요", 1); }
       else { pr.potions--; saveProfile(); }
     }
+    if (typeof buffPotGuestPress === "function") buffPotGuestPress(inp, p); // 강화 물약도 내 저장에서 (buffpots.js)
     for (const k of Object.keys(inp)) if (k.endsWith("Pressed") && inp[k]) netplay.presses[k] = (netplay.presses[k] || 0) + 1;
     if (wasPressed("KeyE", "TouchUse") && game.scene === "dungeon") netplay.presses.usePressed = (netplay.presses.usePressed || 0) + 1;
     if (netplay.inT <= 0) {
@@ -903,7 +904,7 @@ function netGuestEvent(ev) {
 }
 // 떠오르는 글자: 숫자 모양이거나 게임이 쓰는 짧은 말만
 const NP_FLOAT_WORDS = new Set(["회피!", "숨었다!", "히익!", "쿵!", "정예 처치!", "으르렁!", "원래대로!", "약점!", "슝!", "수정 보호막!", "비틀!", "부활!", "보호막이 깨졌어요!", "보호막!", "보호막 깨짐!", "방패!", "물약 +1", "무적", "무적!", "막힘", "막음!", "덮쳐!", "덜덜", "닿지 않아요! 화살로!", "끊김!", "깨갱", "광폭화!", "가짜!", "♥", "!", "정중앙!", "명중!", "화살 가득", "높은 곳!"]);
-const NP_FLOAT_RES = [/^[+\-]?[0-9.]{1,7}$/, /^치명타! [0-9.]{1,7}$/, /^\+[0-9.]{1,7} 냠!$/, /^[0-9]{1,2}단계!$/, /^열쇠 조각 [0-9]\/[0-9]$/, /^화살 \+[0-9]{1,3}$/];
+const NP_FLOAT_RES = [/^[+\-]?[0-9.]{1,7}$/, /^치명타! [0-9.]{1,7}$/, /^\+[0-9.]{1,7} 냠!$/, /^[0-9]{1,2}단계!$/, /^열쇠 조각 [0-9]\/[0-9]$/, /^화살 \+[0-9]{1,3}$/, /^(신속|공격력) \+[0-9]{1,2}%$/];
 function netCleanFloat(t) {
   if (typeof t === "number" && Number.isFinite(t)) t = String(Math.round(t * 10) / 10);
   if (typeof t !== "string" || t.length > 24) return null;
@@ -951,6 +952,7 @@ const NP_REWARD_SETS = {
   materials: [(id) => Object.hasOwn(MATERIALS, id), 50],
   special: [(id) => id !== "normal" && ARROW_TYPES.some((a) => a.id === id), 64],
   money: [(id) => ["silver", "amethyst", "gold", "diamond"].includes(id), 30],
+  buffPots: [(id) => typeof buffPotOk === "function" && buffPotOk(id), 5], // 강화 물약 (buffpots.js)
 };
 function netCleanReward(d) {
   if (!d || typeof d !== "object" || Array.isArray(d)) return null;
@@ -986,6 +988,7 @@ function netGuestReward(d) {
   for (const [id, n] of Object.entries(d.materials || {})) { addMaterial(id, n); if (game.run && game.scene !== "lobby") { game.run.mats = game.run.mats || {}; game.run.mats[id] = (game.run.mats[id] || 0) + n; } }
   for (const [id, n] of Object.entries(d.special || {})) pr.special[id] = Math.min(max, (pr.special[id] || 0) + n);
   for (const [id, n] of Object.entries(d.money || {})) curAdd(id, n);
+  for (const [id, n] of Object.entries(d.buffPots || {})) { buffPotAdd(id, n); addFloatText(game.player ? game.player.x : 0, game.player ? game.player.y : 0, `${buffPotName(id)} +${n}`, "#9fe6ff", 16); }
   for (const x of d.items || []) {
     let it = x.lg ? makeLegend(x.lg, Math.round(x.l / 0.85) + 1) : rollItem("chest", Math.round(x.l / 0.85) + 1);
     if (!it) continue;
@@ -1081,7 +1084,7 @@ function netGuestUpdate(dt) {
   game.nearNpc = p && p.hp > 0 ? nearestNpc(p) : null;
   game.nearWho = p;
   if (game.scene === "lobby") {
-    if (game.nearNpc && game.nearNpc.action === openMapSelect) game.nearNpc = { ...game.nearNpc, short: "지도", prompt: "방장이 맵을 골라요", action: () => showMessage("방장이 맵을 고르는 중이에요", 2, false, "#ffe27a") };
+    if (game.nearNpc && game.nearNpc.action === openMapSelect) game.nearNpc = { ...game.nearNpc, short: "지도", prompt: "지도 보기 (맵은 방장이 골라요)" }; // 내 기록(깬 맵·최고 레벨)은 내 지도에서 봐요
     if (game.nearNpc && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
     updateLobby(p, dt);
   } else if (game.mode !== "tower" && p) { revealAround(p.x, p.y); for (const q of netplay.others.values()) if (q.hp > 0) revealAround(q.x, q.y); } // 지도: 같이 간 곳은 다 같이
@@ -1370,6 +1373,14 @@ function netDrawStats(cx, bottom) {
   lines.forEach((l, i) => text(l, cx, bottom - h + 20 + i * 18, 13, "#e8f4ff", "center"));
 }
 
+// 친구 지도: 보기만 (출발은 방장이 골라요)
+hookOn("tryStartMap", () => {
+  if (!netGuest()) return false;
+  sfx.denied();
+  if (typeof mapSel !== "undefined") { mapSel.note = "맵은 방장이 골라요 (지도는 마음껏 봐요)"; mapSel.noteTimer = 2; }
+  showMessage("맵은 방장이 골라요", 1.8, false, "#ffe27a");
+  return true;
+}, 50);
 // 방장 지도: 친구에게 너무 어려운 레벨이면 알려줘요
 hookOn("hudDraw", () => {
   if (!netHosting() || game.overlay !== "maps") return;

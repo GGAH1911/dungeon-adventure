@@ -94,7 +94,7 @@ function updateAttack(p, dt) {
 
 function weaponPower(p) {
   const w = p.weapon;
-  return w.damage * damageBonus(game.profile.level); // 무기 강화·팔·세트는 currentWeapon() 에 들어 있어요
+  return w.damage * damageBonus(game.profile.level) * buffMul(p, "atk"); // 무기 강화·팔·세트는 currentWeapon() 에 들어 있어요. 공격력 물약 (buffpots.js)
 }
 
 function resolveMove(p, mv) {

@@ -16,7 +16,15 @@ function setShopCat(c) { shop.cat = c; shop.sel = 0; shop.page = 0; shop.confirm
 
 function shopEntries() {
   if (shop.cat === 0) return game.profile.shopStock.map((it) => ({ kind: "gear", id: it.u, it, item: { name: itemLabel(it), color: itemRarity(it).color } }));
-  return [...ARROW_TYPES.map((item) => ({ kind: "arrows", id: item.id, item })), { kind: "potion", id: "potion", item: POTION }];
+  return [...ARROW_TYPES.map((item) => ({ kind: "arrows", id: item.id, item })), { kind: "potion", id: "potion", item: POTION }, ...shopBuffEntries()];
+}
+// 강화 물약: 작은·큰 것만 팔아요 (최상급은 던전에서 줍기만, buffpots.js)
+function shopBuffEntries() {
+  if (typeof BUFF_IDS === "undefined") return [];
+  return BUFF_IDS.filter((id) => BUFF_TIERS[buffPotParse(id).tier].price > 0).map((id) => {
+    const { type, tier } = buffPotParse(id);
+    return { kind: "buffpot", id, item: { name: buffPotName(id), color: BUFF_TYPES[type].liquid, price: BUFF_TIERS[tier].price } };
+  });
 }
 
 function updateShop(dt) {
@@ -65,6 +73,12 @@ function shopAction() {
     else pr.special[it.id] = Math.min(max, (pr.special[it.id] || 0) + it.pack);
     saveProfile(); sfx.buy();
     return shopNote(`${it.name} ${it.pack}개를 샀어요! (${arrowCount(it.id)}개)`, "#7dffb0");
+  }
+  if (e.kind === "buffpot") {
+    if (!pay({ cur: "emerald", n: e.item.price })) return notEnough(e.item.price);
+    buffPotAdd(e.id, 1);
+    saveProfile(); sfx.buy();
+    return shopNote(`${josa(e.item.name, "을/를")} 샀어요! (${buffPotCount(e.id)}개) 던전에서 ${BUFF_TYPES[buffPotParse(e.id).type].keyName} 로 마셔요`, "#7dffb0");
   }
   if (pr.potions >= CONFIG.player.maxPotions) return shopNote(`물약은 ${CONFIG.player.maxPotions}개까지만 가질 수 있어요`, "#ddd");
   if (!pay({ cur: "emerald", n: POTION.price })) return notEnough(POTION.price);
@@ -121,6 +135,7 @@ function drawShop() {
       return;
     }
     if (e.kind === "arrows") { desc = `${e.item.desc} · ${e.item.pack}개 묶음 · ${arrowCount(e.id)}개 있음`; price = { cur: "emerald", n: e.item.price }; }
+    else if (e.kind === "buffpot") { desc = `${buffPotDesc(e.id)} · ${buffPotCount(e.id)}개 있음`; price = { cur: "emerald", n: e.item.price }; }
     else { desc = `던전에서 마시면 하트 ${POTION.heal}개 회복 · ${pr.potions}개 있음`; price = { cur: "emerald", n: POTION.price }; }
     ctx.fillStyle = e.item.color || (e.kind === "potion" ? "#c64fa0" : "#a0784a");
     ctx.fillRect(cx + 10, ry + rowH / 2 - 14, 20, 20);
@@ -152,6 +167,11 @@ function sellEntries() {
     out.push({ kind: "arrows", id: at.id, name: at.name, color: at.color, count: n, unit: at.pack, price: SELL.arrowPack[at.id] || 1, cur: "emerald" });
   }
   if (pr.potions > 0) out.push({ kind: "potion", id: "potion", name: POTION.name, color: "#c64fa0", count: pr.potions, unit: 1, price: SELL.potion, cur: "emerald" });
+  if (typeof BUFF_IDS !== "undefined") for (const id of BUFF_IDS) {
+    const n = buffPotCount(id); if (!n) continue;
+    const { type, tier } = buffPotParse(id);
+    out.push({ kind: "buffpot", id, name: buffPotName(id), color: BUFF_TYPES[type].liquid, count: n, unit: 1, price: BUFF_TIERS[tier].sell, cur: "emerald" });
+  }
   for (const it of pr.bag) {
     const v = sellValue(it);
     out.push({ kind: "item", id: it.u, it, name: itemLabel(it), color: itemRarity(it).color, count: 1, unit: 1, price: v.n, cur: v.cur, locked: !!it.lock });
@@ -190,6 +210,7 @@ function sellItem(e, all) {
     const qty = packs * e.unit, gain = packs * e.price;
     if (e.kind === "arrows") { if (e.id === "normal") pr.arrows -= qty; else pr.special[e.id] -= qty; }
     else if (e.kind === "potion") pr.potions -= qty;
+    else if (e.kind === "buffpot") { if (!buffPotTake(e.id, qty)) return; }
     pr.emeralds += gain;
     saveProfile();
     sfx.buy();

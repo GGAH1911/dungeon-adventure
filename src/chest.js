@@ -33,7 +33,8 @@ function chestInteractables() {
   }));
 }
 
-function openChest(c) {
+function openChest(c) { if (c.open) return; const r = openChestBase(c); hookRun("chestOpened", c); return r; } // 강화 물약 (buffpots.js)
+function openChestBase(c) {
   if (c.open) return;
   c.open = true;
   c.openT = 0;

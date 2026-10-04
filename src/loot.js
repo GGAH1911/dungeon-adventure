@@ -533,7 +533,7 @@ function bossRoomLoot(mapId) {
 // 던전이 끝나면 바닥에 남은 장비·화폐는 저절로 가방으로 (못 주워도 괜찮아요)
 hookOn("endRun", () => {
   if (game.result) return false;
-  for (const e of pickups) if (!e.taken && (e.type === "item" || e.type === "coin")) { e.taken = true; onPickup(e); }
+  for (const e of pickups) if (!e.taken && (e.type === "item" || e.type === "coin" || e.type === "buffpot")) { e.taken = true; onPickup(e); }
   pickups = pickups.filter((e) => !e.taken);
   return false;
 }, 10);

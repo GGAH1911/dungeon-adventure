@@ -96,7 +96,9 @@ function openMapSelect() {
   sfx.equip();
 }
 
-function tryStartMap(i) {
+// hookAny("tryStartMap", i) -> true 면 출발 안 해요 (같이 하기 친구: 지도는 보고, 출발은 방장이. netplay.js)
+function tryStartMap(i) { if (hookAny("tryStartMap", i)) return; return tryStartMapBase(i); }
+function tryStartMapBase(i) {
   if (!mapUnlocked(i)) {
     sfx.denied();
     const prev = unlockSource(i).name;
@@ -818,5 +820,6 @@ function drawMapInfoPanel() {
   text(`난이도 ${DIFFICULTY[pr.difficulty].name}${pr.hardMode ? " · 하드모드" : ""}`, ix, y, 13, "#ccc");
 
   const goH = 52;
-  drawButton(ix, y0 + ph - goH - 14, iw, goH, "출발!", () => tryStartMap(mapSel.index), { color: "rgba(140,90,220,0.55)", size: 22 });
+  const guestView = typeof netGuest === "function" && netGuest(); // 같이 하기 친구: 지도·내 기록은 보고, 출발은 방장이
+  drawButton(ix, y0 + ph - goH - 14, iw, goH, guestView ? "방장이 골라요" : "출발!", () => tryStartMap(mapSel.index), { color: guestView ? "rgba(90,90,110,0.55)" : "rgba(140,90,220,0.55)", size: guestView ? 18 : 22 });
 }
