@@ -274,17 +274,73 @@ function drawTrophy(spot, mapId, won) {
   drawBox(x - 0.32, y - 0.32, 0, 0.64, 0.64, 0.3, won ? "#8a6a42" : "#5a5048");
   drawBox(x - 0.36, y - 0.36, 0.3, 0.72, 0.72, 0.06, won ? "#c9a24a" : "#6a6058");
   if (!won) return;
-  const def = BOSS_DEFS[mapId];
-  const col = (def.material && def.material.color) || "#ffd23f";
-  const bob = Math.sin(game.time * 2 + x) * 0.02;
-  // 작은 보스 머리 모형 (몸 + 머리 + 눈)
-  drawBox(x - 0.18, y - 0.18, 0.36 + bob, 0.36, 0.36, 0.22, shadeHex(col, -0.25));
-  drawBox(x - 0.22, y - 0.22, 0.58 + bob, 0.44, 0.44, 0.36, col);
-  const e1 = toScreen(x + 0.22, y - 0.08, 0.8 + bob), e2 = toScreen(x + 0.22, y + 0.1, 0.8 + bob);
-  const r = 3.2 * ZOOM;
-  for (const e of [e1, e2]) { ctx.fillStyle = "#ffffff"; ctx.fillRect(e.x - r, e.y - r, r * 2, r * 2); ctx.fillStyle = "#1a1020"; ctx.fillRect(e.x - r * 0.4, e.y - r * 0.6, r * 1.1, r * 1.3); }
+  // 보스 미니어처: 그 보스의 진짜 모습을 작게 줄여 받침대 위에 세워요 (도감 그림과 같은 그리기)
+  if (!drawTrophyMini(mapId, x, y, 0.36)) {
+    // 그리기에 실패하면 예전 블록 머리 (보스 부품 색)
+    const def = BOSS_DEFS[mapId], col = (def.material && def.material.color) || "#ffd23f", bob = Math.sin(game.time * 2 + x) * 0.02;
+    drawBox(x - 0.18, y - 0.18, 0.36 + bob, 0.36, 0.36, 0.22, shadeHex(col, -0.25));
+    drawBox(x - 0.22, y - 0.22, 0.58 + bob, 0.44, 0.44, 0.36, col);
+  }
   // 금빛 반짝
   if (Math.sin(game.time * 3 + x * 2) > 0.97) { const s = toScreen(x, y, 1.1); drawStar(s.x, s.y, 7 * ZOOM, "#ffe27a"); }
+}
+// 미니어처 보스 (맵마다 한 번 만들어 두고 다시 써요)
+//   크기: 보스마다 덩치가 달라서, 처음 그릴 때 한 번 실제로 그려 보고(화면 한쪽을 잠깐 빌렸다가 그대로 되돌려요) 키·폭을 재서 줄여요
+const TROPHY_MINI = new Map();
+const TROPHY_MINI_H = 40, TROPHY_MINI_W = 36; // 미니어처 키·폭 (ZOOM 1 화면 픽셀). 받침대 윗면 폭이 약 46 픽셀이에요
+function trophyMini(mapId) {
+  if (TROPHY_MINI.has(mapId)) return TROPHY_MINI.get(mapId);
+  let out = null;
+  try {
+    const m = BOSS_DEFS[mapId].create(0, 0, 10);
+    m.faceX = Math.SQRT1_2; m.faceY = Math.SQRT1_2; m.appearTimer = 0; m.moving = false; m.flash = 0; m.hidden = false; m.aggro = false; m.hitT = 0;
+    m.trophy = true;
+    m.w2Dark = false; // 어둠 속에 숨는 보스(심해)도 트로피는 또렷하게
+    out = { m, k: null };
+  } catch (e) { out = null; }
+  TROPHY_MINI.set(mapId, out);
+  return out;
+}
+// 한 번 그려 보고 크기 재기 (k = 미니어처 배율)
+function trophyMiniMeasure(t) {
+  const k0 = 0.3, dpr = canvas.width / view.w;
+  const R = Math.round(Math.min(view.w, view.h, 420)), cx = R / 2, cy = R * 0.8;
+  const m = t.m, px = Math.round(R * dpr);
+  let saved = null;
+  try {
+    saved = ctx.getImageData(0, 0, px, px);
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, R, R);
+    ctx.beginPath(); ctx.rect(0, 0, R, R); ctx.clip();
+    m.x = camera.x; m.y = camera.y;
+    const base = toScreen(m.x, m.y, 0);
+    ctx.translate(cx, cy); ctx.scale(k0, k0); ctx.translate(-base.x, -base.y);
+    drawMonster(m);
+    ctx.restore();
+    const d = ctx.getImageData(0, 0, px, px).data;
+    let x0 = px, x1 = -1, y0 = px, y1 = -1;
+    for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) if (d[(y * px + x) * 4 + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    ctx.putImageData(saved, 0, 0);
+    if (x1 < 0) { t.k = 0.2; return; }
+    const h1 = (y1 - y0 + 1) / dpr / k0 / ZOOM, w1 = (x1 - x0 + 1) / dpr / k0 / ZOOM; // 배율 1·ZOOM 1 일 때 크기
+    t.k = Math.min(TROPHY_MINI_H / h1, TROPHY_MINI_W / w1, 0.6);
+  } catch (e) { if (saved) try { ctx.putImageData(saved, 0, 0); } catch (e2) { /* 그대로 */ } t.k = 0.2; }
+}
+function drawTrophyMini(mapId, x, y, z) {
+  const t = trophyMini(mapId);
+  if (!t) return false;
+  if (t.k === null) trophyMiniMeasure(t);
+  const m = t.m;
+  m.x = x; m.y = y;
+  const base = toScreen(x, y, 0), top = toScreen(x, y, z + Math.sin(game.time * 2 + x) * 0.015);
+  ctx.save();
+  try {
+    ctx.translate(top.x, top.y); ctx.scale(t.k, t.k); ctx.translate(-base.x, -base.y);
+    drawMonster(m);
+  } catch (e) { ctx.restore(); TROPHY_MINI.set(mapId, null); return false; }
+  ctx.restore();
+  return true;
 }
 function shadeHex(hex, k) {
   const n = parseInt(String(hex).replace("#", ""), 16);
