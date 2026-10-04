@@ -191,6 +191,13 @@ function drawImpacts() {
 function applyEffect(m, effect, dmg) {
   if (effect === "burn") { m.burn = 3; m.burnDmg = Math.max(m.burnDmg || 0, dmg * 0.15); m.burnTick = 0.5; }
   if (effect === "slow") m.slow = 2.5;
+  if (effect === "poison") { // 독: 겹칠수록 더 아파요 (items.js POISON)
+    m.poisonStack = Math.min(POISON.max, (m.poison > 0 ? m.poisonStack || 0 : 0) + 1);
+    m.poisonDmg = Math.max(m.poison > 0 ? m.poisonDmg || 0 : 0, dmg * POISON.per);
+    if (!(m.poison > 0)) m.poisonTick = POISON.tick;
+    m.poison = POISON.dur;
+    addFloatText(m.x, m.y, `독 ${m.poisonStack}겹`, "#9be35a", 15);
+  }
   if (effect === "chain") {
     // 근처 몬스터 2마리에게 번개
     const others = monsters.filter((o) => o !== m && o.hp > 0 && Math.hypot(o.x - m.x, o.y - m.y) < 3.5).slice(0, 2);

@@ -12,7 +12,7 @@ function createMonster(type, x, y, level = 1) {
   const size = def.size || 1;
   return {
     type, def, x, y, name: def.name,
-    burn: 0, burnDmg: 0, burnTick: 0, slow: 0, hitT: 0,
+    burn: 0, burnDmg: 0, burnTick: 0, slow: 0, hitT: 0, poison: 0, poisonStack: 0, poisonDmg: 0, poisonTick: 0,
     r: 0.3 * Math.max(0.7, size),
     faceX: Math.SQRT1_2, faceY: Math.SQRT1_2,
     hp: def.hp * hpMul, maxHp: def.hp * hpMul,
@@ -80,6 +80,15 @@ function faceToward(m, p) {
   m.faceX = dx / d; m.faceY = dy / d;
 }
 
+// 불·얼음·독이 붙은 몬스터 반짝이 (같이 하기 친구 기기도 이걸로 그려요: netplay.js netGuestUpdate)
+function monsterStatusFx(m, dt) {
+  if (!m || m.hp <= 0) return;
+  const j = () => (Math.random() - 0.5) * 0.4;
+  if (m.burn > 0 && Math.random() < dt * 14) addSparkle(m.x + j(), m.y + j(), 0.3 + Math.random() * 0.6, { vz: 1.2, life: 0.4, size: 0.55, gold: true });
+  if (m.slow > 0 && Math.random() < dt * 8) addSparkle(m.x + j(), m.y + j(), Math.random() * 0.9, { vz: 0.3, life: 0.5, size: 0.5, hue: 195 });
+  if (m.poison > 0 && Math.random() < dt * (5 + 4 * (m.poisonStack || 1))) addSparkle(m.x + j(), m.y + j(), 0.2 + Math.random() * 0.7, { vz: 0.8, life: 0.55, size: 0.5, hue: 100 });
+}
+
 // ----- 매 프레임 -----
 function updateMonster(m, p, dt) {
   // 불붙음: 0.5초마다 아파요
@@ -87,13 +96,19 @@ function updateMonster(m, p, dt) {
     m.burn -= dt;
     m.burnTick -= dt;
     if (m.burnTick <= 0 && m.hp > 0) { m.burnTick = 0.5; damageMonster(m, m.burnDmg, m.x, m.y, false, 0, { dot: true, color: "#ff9a3b" }); }
-    if (Math.random() < dt * 14) addSparkle(m.x + (Math.random() - 0.5) * 0.4, m.y + (Math.random() - 0.5) * 0.4, 0.3 + Math.random() * 0.6, { vz: 1.2, life: 0.4, size: 0.55, gold: true });
   }
+  // 독: 0.5초마다, 겹 수만큼 (combat.js applyEffect)
+  if (m.poison > 0) {
+    m.poison -= dt;
+    m.poisonTick -= dt;
+    if (m.poisonTick <= 0 && m.hp > 0) { m.poisonTick = POISON.tick; damageMonster(m, m.poisonDmg * (m.poisonStack || 1), m.x, m.y, false, 0, { dot: true, color: "#9be35a" }); }
+    if (m.poison <= 0) { m.poisonStack = 0; m.poisonDmg = 0; }
+  }
+  monsterStatusFx(m, dt);
   // 느려짐: 반만 움직여요
   const slowMul = m.slow > 0 ? 0.5 : 1;
   if (m.slow > 0) {
     m.slow -= dt;
-    if (Math.random() < dt * 8) addSparkle(m.x + (Math.random() - 0.5) * 0.4, m.y + (Math.random() - 0.5) * 0.4, Math.random() * 0.9, { vz: 0.3, life: 0.5, size: 0.5, hue: 195 });
   }
   m.hitT = Math.max(0, m.hitT - dt);
   m.strikeT = Math.max(0, (m.strikeT || 0) - dt);

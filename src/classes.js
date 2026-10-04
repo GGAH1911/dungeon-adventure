@@ -197,10 +197,12 @@ hookOn("basicAttack", (p) => {
 });
 
 function hunterShoot(p) {
-  const pr = game.profile, bow = p.bow;
-  let type = currentArrowType();
-  if (type !== "normal" && arrowCount(type) <= 0) type = "normal";
-  if (type !== "normal" && game.scene !== "lobby") pr.special[type]--;
+  const pr = game.profile, bow = p.bow, A = arrowFor(p); // 같이 하기 친구는 친구가 고른 화살 (bow.js arrowFor)
+  let type = A.type;
+  if (A.own) {
+    if (type !== "normal" && arrowCount(type) <= 0) type = "normal";
+    if (type !== "normal" && game.scene !== "lobby") pr.special[type]--;
+  }
   const aim = bowAim(p);
   p.faceX = aim.x; p.faceY = aim.y;
   const cd = Math.max(0.16, bow.cooldown * 0.8);

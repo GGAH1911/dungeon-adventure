@@ -66,7 +66,7 @@ function chestLoot(c) {
   for (let i = 0; i < extras; i++) {
     const r = Math.random() * 100;
     if (r < 40) pop("arrows");
-    else if (r < 62) pop("special", { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
+    else if (r < 62) pop("special", { arrowType: randomSpecialArrow() });
     else if (r < 82) pop("potion");
     else pop("apple");
   }

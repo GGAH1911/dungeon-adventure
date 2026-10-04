@@ -155,7 +155,7 @@ function killMonsterBase(m, legendary, opts = {}) {
   for (let i = 0; i < drops; i++) if (Math.random() < def.emerald + extra) dropPickup("emerald", m.x, m.y);
   if (Math.random() < CONFIG.monster.appleChance) dropPickup("apple", m.x, m.y);
   if (Math.random() < (def.arrowDrop || CONFIG.monster.arrowChance)) dropPickup("arrows", m.x, m.y);
-  if (Math.random() < 0.03) dropPickup("special", m.x, m.y, { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
+  if (Math.random() < 0.03) dropPickup("special", m.x, m.y, { arrowType: randomSpecialArrow() });
   // 슬라임은 쪼개져요!
   if (def.splits) {
     for (let i = 0; i < def.splitCount; i++) {

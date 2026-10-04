@@ -10,7 +10,7 @@ function newProfile() {
     version: SAVE_VERSION,
     level: 1, xp: 0, emeralds: 0, potions: 1,
     arrows: 10,                               // 보통 화살
-    special: { fire: 0, ice: 0, bomb: 0 },    // 특수 화살
+    special: { fire: 0, ice: 0, bomb: 0, poison: 0 }, // 특수 화살
     arrowType: "normal",
     name: "",       // 캐릭터 이름 (chars.js)
     eq: null, bag: [], // 장비 4칸과 가방 (loot.js)

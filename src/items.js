@@ -82,7 +82,12 @@ const ARROW_TYPES = [
   { id: "fire", name: "불화살", pack: 5, price: 5, color: "#ff8a2a", desc: "맞으면 불이 붙어요" },
   { id: "ice", name: "얼음 화살", pack: 5, price: 5, color: "#8fe0ff", desc: "맞으면 느려져요" },
   { id: "bomb", name: "폭탄 화살", pack: 3, price: 7, color: "#ff4a4a", desc: "맞으면 펑! 주변도 아파요" },
+  { id: "poison", name: "독화살", pack: 5, price: 6, color: "#7ad94a", desc: "맞으면 독! 여러 번 맞히면 더 아파요" },
 ];
+// 특수 화살 (보통 말고): 상자·우물·몬스터가 주는 화살은 여기서 골라요
+function randomSpecialArrow() { const ids = ARROW_TYPES.filter((a) => a.id !== "normal").map((a) => a.id); return ids[Math.floor(Math.random() * ids.length)]; }
+// 독: 맞힐 때마다 한 겹(3겹까지), 5초 동안 0.5초마다 (화살 피해 x 8%) x 겹
+const POISON = { max: 3, dur: 5, tick: 0.5, per: 0.08 };
 
 const POTION = { id: "potion", name: "체력 물약", price: 4, heal: 4 };
 

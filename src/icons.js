@@ -113,6 +113,7 @@ const ICON_DEFS = {
   arrow_normal: (g) => iconArrow(g, 4, 16, 15, 5, "g", "b", "w"),
   arrow_fire: (g) => { iconArrow(g, 4, 16, 13, 7, "o", "b", "w"); iconFlame(g, 15, 6, 0.55); },
   arrow_ice: (g) => { iconArrow(g, 4, 16, 15, 5, "c", "b", "w"); g.px(17, 2, "c"); g.px(18, 4, "c"); g.px(13, 2, "w"); },
+  arrow_poison: (g) => { iconArrow(g, 4, 16, 14, 6, "G", "b", "w"); g.disc(15.5, 4.5, 1.6, "D"); g.disc(17.5, 7, 1.1, "G"); g.px(13, 2, "G"); },
   arrow_bomb: (g) => { iconArrow(g, 3, 17, 11, 9, "g", "b", "w"); g.disc(14, 6, 3.6, "d"); g.disc(13, 5, 1, "g"); g.line(16, 3, 18, 1, "y"); g.px(18, 1, "o"); },
   lock: (g) => { g.arc(10, 8, 4, 180, 360, "g", 2); g.rect(4, 8, 15, 17, "y"); g.rect(9, 11, 10, 14, "B"); },
   menu: (g) => { g.rect(3, 4, 16, 5, "w"); g.rect(3, 9, 16, 10, "w"); g.rect(3, 14, 16, 15, "w"); },

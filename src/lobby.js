@@ -188,7 +188,7 @@ function wishResult() {
   else if (r < 63) { pr.arrows = Math.min(CONFIG.player.maxArrows, pr.arrows + 6); showMessage("화살 6개가 떠올랐어요!", 2, false, "#e8d0a0"); sfx.emerald(); }
   else if (r < 78) { pr.potions = Math.min(CONFIG.player.maxPotions, pr.potions + 1); showMessage("물약이 떠올랐어요!", 2, false, "#ff9ad8"); sfx.potion(); }
   else if (r < 88) { pr.emeralds += 8; showMessage("에메랄드 8개! 이득!", 2, false, "#7dffb0"); sfx.buy(); }
-  else if (r < 97) { const t = ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)]; pr.special[t] = Math.min(CONFIG.player.maxArrows, (pr.special[t] || 0) + 3); showMessage(`${arrowTypeById(t).name} 3개!`, 2, false, arrowTypeById(t).color); sfx.emerald(); }
+  else if (r < 97) { const t = randomSpecialArrow(); pr.special[t] = Math.min(CONFIG.player.maxArrows, (pr.special[t] || 0) + 3); showMessage(`${arrowTypeById(t).name} 3개!`, 2, false, arrowTypeById(t).color); sfx.emerald(); }
   else { pr.emeralds += 30; showMessage("대박!! 에메랄드 30개!", 2.5, true); sfx.cheat(); }
   saveProfile();
 }

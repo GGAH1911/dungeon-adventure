@@ -563,9 +563,20 @@ function netOnMessageHost(msg, slot) {
       return;
     }
     if (msg.t === "trade") { if (typeof tradeOnHost === "function") tradeOnHost(msg, slot); return; } // 아이템 교환 (trade.js)
-    if (msg.t === "input") { r.input = netCleanInput(msg.i); r.busy = netCleanBusy(msg.b); const rp = netCleanReport(msg.r); if (rp) r.rep = rp; return; }
+    if (msg.t === "input") { r.input = netCleanInput(msg.i); r.busy = netCleanBusy(msg.b); const rp = netCleanReport(msg.r); if (rp) r.rep = rp; r.arrow = netCleanArrow(msg.at); return; }
   } catch (e) { console.error(e); }
 }
+// 친구가 고른 화살 [종류, 다 떨어졌나]: 친구 화살은 친구 저장에서 (방장 화살·종류를 쓰면 안 돼요)
+function netMyArrow(p) { const t = currentArrowType(); return [t, p && !(p.bow && p.bow.infinite) && arrowCount(t) <= 0 ? 1 : 0]; }
+function netCleanArrow(a) {
+  if (!Array.isArray(a)) return null;
+  return { type: typeof a[0] === "string" && ARROW_TYPES.some((x) => x.id === a[0]) ? a[0] : "normal", empty: a[1] === 1 };
+}
+hookOn("arrowFor", (A, p) => {
+  if (!p || !p.remote) return A;
+  const r = netplay.remotes.get(p.pid), a = r && r.arrow;
+  return { type: a ? a.type : "normal", empty: !!(a && a.empty), own: false };
+}, 50);
 // 친구가 알려준 자기 위치 (숫자가 아니면 버려요. 벽·속도 검사는 netHostSyncRemotes)
 function netCleanReport(v) {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
@@ -626,7 +637,7 @@ function netGuestTick(dt) {
       Object.assign(i, netplay.presses);
       const R2 = (v) => Math.round(v * 1000) / 1000;
       const rp = { x: R2(p.x), y: R2(p.y), fx: R2(p.faceX || 0), fy: R2(p.faceY || 0), wv: p._wv ?? -1, xa: p._xa || 0 };
-      S.toHost({ t: "input", i, r: rp, b: netMyBusy() }, true);
+      S.toHost({ t: "input", i, r: rp, b: netMyBusy(), at: netMyArrow(p) }, true);
     }
   }
   // 장비가 바뀌면 알려요 (1초마다 확인)
@@ -904,7 +915,7 @@ function netGuestEvent(ev) {
 }
 // 떠오르는 글자: 숫자 모양이거나 게임이 쓰는 짧은 말만
 const NP_FLOAT_WORDS = new Set(["회피!", "숨었다!", "히익!", "쿵!", "정예 처치!", "으르렁!", "원래대로!", "약점!", "슝!", "수정 보호막!", "비틀!", "부활!", "보호막이 깨졌어요!", "보호막!", "보호막 깨짐!", "방패!", "물약 +1", "무적", "무적!", "막힘", "막음!", "덮쳐!", "덜덜", "닿지 않아요! 화살로!", "끊김!", "깨갱", "광폭화!", "가짜!", "♥", "!", "정중앙!", "명중!", "화살 가득", "높은 곳!"]);
-const NP_FLOAT_RES = [/^[+\-]?[0-9.]{1,7}$/, /^치명타! [0-9.]{1,7}$/, /^\+[0-9.]{1,7} 냠!$/, /^[0-9]{1,2}단계!$/, /^열쇠 조각 [0-9]\/[0-9]$/, /^화살 \+[0-9]{1,3}$/, /^(신속|공격력) \+[0-9]{1,2}%$/];
+const NP_FLOAT_RES = [/^[+\-]?[0-9.]{1,7}$/, /^치명타! [0-9.]{1,7}$/, /^\+[0-9.]{1,7} 냠!$/, /^[0-9]{1,2}단계!$/, /^열쇠 조각 [0-9]\/[0-9]$/, /^화살 \+[0-9]{1,3}$/, /^(신속|공격력) \+[0-9]{1,2}%$/, /^독 [1-9]겹$/];
 function netCleanFloat(t) {
   if (typeof t === "number" && Number.isFinite(t)) t = String(Math.round(t * 10) / 10);
   if (typeof t !== "string" || t.length > 24) return null;
@@ -1068,7 +1079,7 @@ function netGuestUpdate(dt) {
   // 숫자 칸 흘려보내기 (@빠르기), 위치는 모아 둔 것 사이로
   const R = nsRenderTime();
   const flow = (o) => { if (o._r) for (const n of Object.keys(o._r)) { const r = o._r[n]; if (r && typeof o[n] === "number") o[n] += r * dt; } };
-  for (const m of monsters) { flow(m); if (R !== null) nsPlace(m, R); }
+  for (const m of monsters) { flow(m); if (R !== null) nsPlace(m, R); monsterStatusFx(m, dt); } // 불·얼음·독 반짝이도 내 화면에
   for (const q of netplay.others.values()) { flow(q); if (R !== null) nsPlace(q, R); }
   nsAdvanceLists(dt);
   updateParticles(dt);

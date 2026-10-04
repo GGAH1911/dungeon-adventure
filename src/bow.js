@@ -38,12 +38,17 @@ function cycleArrowType() {
   sfx.click();
 }
 
+// 이 주인공이 쏠 화살: { type, empty(화살 없음), own(내 저장에서 빼요) }
+//   같이 하기 친구 주인공은 친구가 고른 화살·친구 저장 (netplay.js 가 hookFilter "arrowFor" 로 바꿔요)
+function arrowFor(p) { return hookFilter("arrowFor", { type: currentArrowType(), empty: false, own: true }, p); }
+
 function fireBow(p) {
   const bow = p.bow;
   const pr = game.profile;
   const practice = game.scene === "lobby";
-  const type = currentArrowType();
-  const free = bow.infinite || practice;
+  const A = arrowFor(p), type = A.type;
+  if (!A.own && A.empty && !practice) { p.bowCooldown = 0.4; return; } // 친구 화살이 다 떨어졌어요 (친구 화면에서 "화살이 없어요")
+  const free = bow.infinite || practice || !A.own;
   if (!free && arrowCount(type) <= 0) {
     if (!p.noArrowWarned) { showMessage("화살이 없어요! 가게에서 사거나 몬스터한테서 주워요", 1.8); p.noArrowWarned = true; }
     sfx.bowEmpty();
@@ -107,7 +112,7 @@ function updateShots(dt) {
         break;
       }
       const crit = Math.random() < CONFIG.player.critChance;
-      const eff = s.type === "fire" ? "burn" : s.type === "ice" ? "slow" : null;
+      const eff = s.type === "fire" ? "burn" : s.type === "ice" ? "slow" : s.type === "poison" ? "poison" : null;
       damageMonster(m, s.damage * (crit ? CONFIG.player.critDamage : 1), s.x - s.vx * 0.05, s.y - s.vy * 0.05, s.legendary, 0.5, { crit, effect: eff, melee: true });
       hitStop(0.03, crit);
       if (s.type === "bomb") bombBlast(s.x, s.y, s.damage);
@@ -118,6 +123,7 @@ function updateShots(dt) {
     if (s.legendary && Math.random() < 0.8) addSparkle(s.x, s.y, 0.6, { life: 0.35, size: 0.7, hue: s.hue + game.time * 400, vz: 0.2 });
     else if (s.type === "fire" && Math.random() < 0.6) addSparkle(s.x, s.y, 0.6, { life: 0.3, size: 0.5, gold: true });
     else if (s.type === "ice" && Math.random() < 0.5) addSparkle(s.x, s.y, 0.6, { life: 0.3, size: 0.5, hue: 195 });
+    else if (s.type === "poison" && Math.random() < 0.5) addSparkle(s.x, s.y, 0.6, { life: 0.35, size: 0.5, hue: 100 });
   }
   shots = shots.filter((s) => s.life > 0);
 }

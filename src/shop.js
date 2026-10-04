@@ -7,7 +7,7 @@ const SELL_CAT = 2, EXCHANGE_CAT = 3;
 // 파는 값 (에메랄드). 산 값의 절반쯤. 장비는 loot.js sellValue (그 등급 화폐로)
 const SELL = {
   potion: 2,
-  arrowPack: { normal: 1, fire: 2, ice: 2, bomb: 3 }, // 화살은 묶음(가게에서 사는 크기)으로 팔아요
+  arrowPack: { normal: 1, fire: 2, ice: 2, bomb: 3, poison: 2 }, // 화살은 묶음(가게에서 사는 크기)으로 팔아요
 };
 
 function openShop() { game.overlay = "shop"; shop.sel = 0; shop.noteTimer = 0; if (typeof shopRestock === "function") shopRestock(); sfx.equip(); }

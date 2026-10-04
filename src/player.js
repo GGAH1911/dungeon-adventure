@@ -150,7 +150,7 @@ function updatePlayer(p, dt) {
 
   // 활 쏘기 (누르고 있으면 계속)
   if (inp.bowHeld && p.bowCooldown <= 0 && p.swingTimer <= 0) fireBow(p);
-  if (inp.arrowTypePressed) cycleArrowType();
+  if (inp.arrowTypePressed && !p.remote) cycleArrowType(); // 친구 주인공의 Tab 은 친구 기기에서 (방장 화살 종류가 바뀌면 안 돼요)
 
   // 물약 마시기
   // 같이 하기 친구 기기의 나: 물약은 보내기 전에 이미 썼어요 (netplay.js netGuestTick). 여기서 또 쓰면 2개가 줄었어요
