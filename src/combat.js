@@ -112,6 +112,7 @@ function resolveMove(p, mv) {
   for (const m of allTargets()) {
     const dx = m.x - p.x, dy = m.y - p.y;
     const d = Math.hypot(dx, dy) || 0.001;
+    if (!sameLevel(p, m)) continue; // 칼은 다른 층에 안 닿아요 (terrain.js)
     let inside = false;
     if (mv.kind === "slam") {
       const cx = p.x + p.faceX * 0.8, cy = p.y + p.faceY * 0.8;

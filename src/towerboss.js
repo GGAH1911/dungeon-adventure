@@ -76,7 +76,7 @@ hookOn("lobbyThings", (things) => {
   const pr = game.profile;
   if (!pr.towerCrown) return;
   const s = towerTrophySpot();
-  things.push({ depth: s.x + s.y, draw: () => {
+  things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
     drawBox(s.x - 0.32, s.y - 0.32, 0, 0.64, 0.64, 0.18, "#5e5470");
     for (let i = 0; i < 4; i++) { const w = 0.42 - i * 0.08; drawBox(s.x - w / 2, s.y - w / 2, 0.18 + i * 0.28, w, w, 0.28, i % 2 ? "#ffe27a" : "#ffd23f"); }
     if (Math.sin(game.time * 3 + 1) > 0.7) { const c = toScreen(s.x, s.y, 1.5); drawStar(c.x, c.y, 8 * ZOOM, "#fff6c0"); }

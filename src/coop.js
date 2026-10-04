@@ -313,7 +313,7 @@ hookOn("castResolved", (c, p) => {
 hookOn("worldThings", (things) => {
   if (!coopActive()) return;
   for (const q of game.players) {
-    if (q.hp <= 0) things.push({ depth: q.x + q.y, draw: () => {
+    if (q.hp <= 0) things.push({ depth: q.x + q.y, e: q, draw: () => {
       ctx.save(); ctx.globalAlpha = 0.38 + 0.08 * Math.sin(game.time * 5); q.hurtTimer = 0; drawPlayer(q); ctx.restore();
       // 부활 게이지
       const k = Math.min(1, (q.reviveT || 0) / CONFIG.coop.reviveTime);
@@ -323,7 +323,7 @@ hookOn("worldThings", (things) => {
       ctx.strokeStyle = "#7dffb0"; ctx.beginPath(); ctx.arc(s.x, s.y, 14, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke(); ctx.restore();
       text("✚", s.x, s.y + 5, 14, "#ffffff", "center");
     } });
-    things.push({ depth: q.x + q.y + 50, draw: () => {
+    things.push({ depth: q.x + q.y + 50, e: q, draw: () => {
       const s = toScreen(q.x, q.y, 2.05);
       const col = coopColorOf(q.pid).label;
       text(playerLabel(q), s.x, s.y, 15, col, "center"); // 캐릭터 이름 (검사를 통과한 것만, 아니면 번호)

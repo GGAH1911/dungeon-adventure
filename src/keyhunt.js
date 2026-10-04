@@ -129,6 +129,13 @@ function khRandomRoomFar(p, minD) {
 }
 function khSpot(r, fx, fy, rad = 0.45) {
   const s = findFreeSpot(r.x + r.w * fx, r.y + r.h * fy, rad, 4);
+  // 계단 길은 비워 둬요 (terrain.js): 계단 옆이면 방 안에서 조금씩 옮겨 봐요
+  if (s && typeof nearStair === "function" && nearStair(s.x, s.y, 1.2)) {
+    for (let k = 1; k <= 8; k++) {
+      const a = k * 2.4, d = 0.8 + k * 0.4, t = findFreeSpot(s.x + Math.cos(a) * d, s.y + Math.sin(a) * d, rad, 1);
+      if (t && t.x > r.x && t.x < r.x + r.w && t.y > r.y && t.y < r.y + r.h && !nearStair(t.x, t.y, 1.2)) return t;
+    }
+  }
   return s || { x: r.cx, y: r.cy };
 }
 function khSpawn(n, x, y) {
@@ -261,7 +268,7 @@ const KEY_CHALLENGES = {
       if (ch.shards.every((s) => s.got)) khStepDone({ x: p.x + 0.8, y: p.y + 0.8 });
     },
     things(ch, list) {
-      for (const s of ch.shards) if (!s.got) list.push({ depth: s.x + s.y, draw: () => {
+      for (const s of ch.shards) if (!s.got) list.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
         const z = 0.45 + Math.sin(game.time * 3 + s.x) * 0.08;
         drawBox(s.x - 0.1, s.y - 0.1, z, 0.2, 0.2, 0.2, "#ffd23f");
         drawBox(s.x + 0.04, s.y - 0.04, z + 0.05, 0.22, 0.08, 0.08, "#e0b020");
@@ -304,7 +311,7 @@ const KEY_CHALLENGES = {
       if (Math.hypot(p.x - ch.alcove.x, p.y - ch.alcove.y) < 0.95) khStepDone(ch.alcove);
     },
     things(ch, list) {
-      list.push({ depth: ch.alcove.x + ch.alcove.y, draw: () => {
+      list.push({ depth: ch.alcove.x + ch.alcove.y, x: ch.alcove.x, y: ch.alcove.y, draw: () => {
         const z = 0.5 + Math.sin(game.time * 3) * 0.06;
         drawBox(ch.alcove.x - 0.18, ch.alcove.y - 0.18, 0, 0.36, 0.36, 0.3, "#d9a520");
         const c = toScreen(ch.alcove.x, ch.alcove.y, z);
@@ -355,7 +362,7 @@ const KEY_CHALLENGES = {
     },
     things(ch, list) {
       const s = ch.stone;
-      list.push({ depth: s.x + s.y, draw: () => { drawBox(s.x - 0.42, s.y - 0.42, 0, 0.84, 0.84, 0.8, "#8c8c94"); drawBox(s.x - 0.42, s.y - 0.42, 0.8, 0.84, 0.84, 0.05, "#6f9a55"); } });
+      list.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => { drawBox(s.x - 0.42, s.y - 0.42, 0, 0.84, 0.84, 0.8, "#8c8c94"); drawBox(s.x - 0.42, s.y - 0.42, 0.8, 0.84, 0.84, 0.05, "#6f9a55"); } });
     },
     interact(ch) {
       const h = ch.stone.home;
@@ -388,7 +395,7 @@ const KEY_CHALLENGES = {
       }
       if (ch.torches.every((t) => t.lit)) khStepDone({ x: ch.room.cx, y: ch.room.cy });
     },
-    things(ch, list) { for (const t of ch.torches) list.push({ depth: t.x + t.y, draw: () => khTorch(t.x, t.y, t.lit, false) }); },
+    things(ch, list) { for (const t of ch.torches) list.push({ depth: t.x + t.y, x: t.x, y: t.y, draw: () => khTorch(t.x, t.y, t.lit, false) }); },
     interact(ch) { return ch.torches.filter((t) => !t.lit).map((t) => ({ x: t.x, y: t.y, range: 1.2, short: "불 켜기", prompt: "횃불 켜기", action: () => khLight(ch, t) })); },
     lights(ch) { return ch.torches.filter((t) => t.lit).map((t) => ({ x: t.x, y: t.y, radius: 3, power: 0.8 })); },
     status(ch) { const n = ch.torches.filter((t) => t.lit).length; return ch.timer > 0 ? `횃불 ${n}/${ch.torches.length} · ${Math.ceil(ch.timer)}초!` : `횃불 ${ch.torches.length}개를 ${Math.round(ch.limit)}초 안에 켜요`; },
@@ -409,7 +416,7 @@ const KEY_CHALLENGES = {
       for (const sh of shots) if (sh.type === "fire") for (const t of ch.bowls) if (!t.lit && Math.hypot(sh.x - t.x, sh.y - t.y) < 0.6) khLight(ch, t);
       if (ch.bowls.every((t) => t.lit)) { world.theme = ch.theme; game.keyhunt.dark = false; khStepDone({ x: ch.bowls[3].x + 0.8, y: ch.bowls[3].y + 0.8 }); }
     },
-    things(ch, list) { for (const t of ch.bowls) list.push({ depth: t.x + t.y, draw: () => khTorch(t.x, t.y, t.lit, true) }); },
+    things(ch, list) { for (const t of ch.bowls) list.push({ depth: t.x + t.y, x: t.x, y: t.y, draw: () => khTorch(t.x, t.y, t.lit, true) }); },
     interact(ch) { return ch.bowls.filter((t) => !t.lit).map((t) => ({ x: t.x, y: t.y, range: 1.3, short: "불 켜기", prompt: "화로 켜기", action: () => khLight(ch, t) })); },
     lights(ch) { return ch.bowls.map((t) => (t.lit ? { x: t.x, y: t.y, radius: 6.5, power: 1 } : { x: t.x, y: t.y, radius: 1.2, power: 0.5 })); },
     status(ch) { return `어둠 속 화로 ${ch.bowls.filter((t) => t.lit).length}/4 켜기`; },
@@ -431,7 +438,7 @@ const KEY_CHALLENGES = {
     },
     update() {},
     things(ch, list) {
-      for (const l of ch.levers) list.push({ depth: l.x + l.y, draw: () => {
+      for (const l of ch.levers) list.push({ depth: l.x + l.y, x: l.x, y: l.y, draw: () => {
         drawBox(l.x - 0.2, l.y - 0.15, 0, 0.4, 0.3, 0.25, "#5a5652");
         const ang = l.pulled ? 0.6 : -0.6;
         const a = toScreen(l.x, l.y, 0.25), b = toScreen(l.x + Math.sin(ang) * 0.35, l.y, 0.25 + Math.cos(ang) * 0.45);
@@ -441,7 +448,7 @@ const KEY_CHALLENGES = {
         if (ktune().clue >= 2) { const t = toScreen(l.x, l.y, 1.2); text(`${ch.order.indexOf(l.idx) + 1}`, t.x, t.y, 16 * ZOOM * 0.8, "#fff", "center"); }
       } });
       const m = ch.mural;
-      list.push({ depth: m.x + m.y, draw: () => {
+      list.push({ depth: m.x + m.y, x: m.x, y: m.y, draw: () => {
         drawBox(m.x - 0.75, m.y - 0.1, 0, 1.5, 0.2, 1.35, "#9a8a72");
         const p = game.player;
         const see = ktune().clue >= 1 || Math.hypot(p.x - m.x, p.y - m.y) < (ktune().clue >= 0.5 ? 4 : 2.5);
@@ -512,7 +519,7 @@ const KEY_CHALLENGES = {
     things(ch, list) {
       ch.boxes.forEach((b, i) => {
         if (b.gone) return;
-        list.push({ depth: b.x + b.y, draw: () => {
+        list.push({ depth: b.x + b.y, x: b.x, y: b.y, draw: () => {
           const fake = i !== ch.real && !b.open;
           const breath = fake ? Math.max(0, Math.sin(game.time * 2.2 + b.phase)) * 0.05 * Math.min(1.5, ktune().clue) : 0;
           const w = 0.62, d = 0.44, x = b.x - w / 2, y = b.y - d / 2;
@@ -558,7 +565,7 @@ const KEY_CHALLENGES = {
     },
     things(ch, list) {
       const pt = ch.t.portal;
-      if (pt && ch.t.hp > 0) list.push({ depth: pt.x + pt.y, draw: () => {
+      if (pt && ch.t.hp > 0) list.push({ depth: pt.x + pt.y, x: pt.x, y: pt.y, draw: () => {
         const c = toScreen(pt.x, pt.y, 0.9);
         ctx.save(); ctx.globalCompositeOperation = "lighter";
         ctx.strokeStyle = "rgba(200,140,255,0.8)"; ctx.lineWidth = 4;
@@ -627,11 +634,11 @@ const KEY_CHALLENGES = {
         if (this.band(ch, i) !== 2) continue;
         for (let k = 0; k < 3; k++) {
           const x = ch.horiz ? r.x + i + 0.5 : r.x + (k + 0.5) * r.w / 3, y = ch.horiz ? r.y + (k + 0.5) * r.h / 3 : r.y + i + 0.5;
-          list.push({ depth: x + y, draw: () => { drawBox(x - 0.15, y - 0.15, 0, 0.3, 0.3, 0.9 + 0.2 * Math.sin(game.time * 20 + k), "#ff7a1a"); drawBox(x - 0.08, y - 0.08, 0, 0.16, 0.16, 0.6, "#fff2a8"); } });
+          list.push({ depth: x + y, x, y, draw: () => { drawBox(x - 0.15, y - 0.15, 0, 0.3, 0.3, 0.9 + 0.2 * Math.sin(game.time * 20 + k), "#ff7a1a"); drawBox(x - 0.08, y - 0.08, 0, 0.16, 0.16, 0.6, "#fff2a8"); } });
         }
       }
       const g = ch.goal;
-      list.push({ depth: g.x + g.y, draw: () => { drawBox(g.x - 0.3, g.y - 0.22, 0, 0.6, 0.44, 0.34, "#d9a520"); drawBox(g.x - 0.32, g.y - 0.24, 0.34, 0.64, 0.48, 0.14, "#ffe27a"); } });
+      list.push({ depth: g.x + g.y, x: g.x, y: g.y, draw: () => { drawBox(g.x - 0.3, g.y - 0.22, 0, 0.6, 0.44, 0.34, "#d9a520"); drawBox(g.x - 0.32, g.y - 0.24, 0.34, 0.64, 0.48, 0.14, "#ffe27a"); } });
     },
     lights(ch) { return [{ x: ch.goal.x, y: ch.goal.y, radius: 2.2, power: 0.7 }, { x: ch.room.cx, y: ch.room.cy, radius: 4, power: 0.5 }]; },
     status() { return "불기둥 사이를 지나 끝의 황금 상자로!"; },
@@ -706,7 +713,7 @@ const KEY_CHALLENGES = {
     },
     things(ch, list) {
       const d = ch.ped;
-      list.push({ depth: d.x + d.y, draw: () => {
+      list.push({ depth: d.x + d.y, x: d.x, y: d.y, draw: () => {
         drawBox(d.x - 0.22, d.y - 0.22, 0, 0.44, 0.44, 0.7, "#8a8178");
         const c = toScreen(d.x, d.y, 0.85);
         ctx.fillStyle = ch.phase === "input" ? "#7dffb0" : "#ffe27a";
@@ -852,7 +859,7 @@ function updateKeyHunt(p, dt) {
 
 function keyHuntTarget() {
   const kh = game.keyhunt;
-  if (!kh || kh.inBoss) return null;
+  if (!kh || kh.inBoss || game.upper) return null;
   if (kh.keyItem) return kh.keyItem;
   if (kh.hasKey) return kh.door;
   if (kh.ch) { const C = KEY_CHALLENGES[kh.ch.id]; return C.target ? C.target(kh.ch) : null; }
@@ -865,6 +872,7 @@ function keyHuntHintOn() {
 
 function keyHuntStatus() {
   const kh = game.keyhunt;
+  if (game.upper && game.mode === "dungeon") return chests.some((c) => c.gold && !c.open) ? "위층 · 황금 상자를 찾아요" : "위층 · 계단으로 내려가요";
   if (!kh || game.mode !== "dungeon") return null;
   if (kh.inBoss) return "보스전!";
   if (kh.keyItem) return "열쇠를 주워요!";
@@ -879,6 +887,7 @@ function keyHuntStatus() {
 
 function keyHuntInteractables() {
   const kh = game.keyhunt;
+  if (game.upper) return []; // 위층 (upper.js)
   if (!kh || game.mode !== "dungeon") return [];
   const list = [];
   if (!kh.inBoss) list.push(...bossDoorInteractables()); // bossroom.js
@@ -887,6 +896,7 @@ function keyHuntInteractables() {
 }
 
 function keyHuntFloor() {
+  if (game.upper) return; // 위층 (upper.js)
   const kh = game.keyhunt;
   if (!kh || game.mode !== "dungeon" || kh.inBoss) return;
   if (kh.ch) { const C = KEY_CHALLENGES[kh.ch.id]; if (C.floor) C.floor(kh.ch); }
@@ -895,6 +905,7 @@ function keyHuntFloor() {
 }
 
 function keyHuntThings(list) {
+  if (game.upper) return; // 위층 (upper.js)
   const kh = game.keyhunt;
   if (!kh || game.mode !== "dungeon") return;
   if (kh.inBoss) { bossRoomThings(list); return; }
@@ -902,11 +913,11 @@ function keyHuntThings(list) {
   if (kh.ch) { const C = KEY_CHALLENGES[kh.ch.id]; if (C.things) C.things(kh.ch, list); }
   for (const m of monsters) if ((m.keyGuard || m.def === MONSTERS.keyThief) && m.hp > 0 && onScreen(m.x, m.y)) {
     const S = (m.def.size || 1) * (m.scaleMul || 1);
-    list.push({ depth: m.x + m.y + 0.01, draw: () => khIconKey(m.x, m.y, 1.55 * S + Math.sin(game.time * 4) * 0.05, 0.9) });
+    list.push({ depth: m.x + m.y + 0.01, x: m.x, y: m.y, draw: () => khIconKey(m.x, m.y, 1.55 * S + Math.sin(game.time * 4) * 0.05, 0.9) });
   }
   if (kh.keyItem) {
     const k = kh.keyItem;
-    list.push({ depth: k.x + k.y, draw: () => {
+    list.push({ depth: k.x + k.y, x: k.x, y: k.y, draw: () => {
       const c = toScreen(k.x, k.y, 0.4);
       ctx.save(); ctx.globalCompositeOperation = "lighter";
       const g = ctx.createLinearGradient(c.x, c.y - 160 * ZOOM, c.x, c.y);
@@ -919,6 +930,7 @@ function keyHuntThings(list) {
 }
 
 function keyHuntLights(lights) {
+  if (game.upper) return; // 위층 (upper.js)
   const kh = game.keyhunt;
   if (!kh || game.mode !== "dungeon") return;
   if (kh.inBoss) return;

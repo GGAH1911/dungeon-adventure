@@ -107,7 +107,7 @@ function hitTarget(p, m, dmg, opts = {}) {
   damageMonster(m, dmg * (crit ? CONFIG.player.critDamage : 1), opts.fx !== undefined ? opts.fx : p.x, opts.fy !== undefined ? opts.fy : p.y, false, opts.knock || 0.4, { crit, effect: opts.effect || null, skill: true });
 }
 function hitArea(p, x, y, r, dmg, opts = {}) {
-  const list = targetsNear(x, y, r);
+  const list = targetsNear(x, y, r).filter((m) => !opts.melee || sameLevel(p, m)); // 근접 기술은 같은 층만 (terrain.js)
   for (const m of list) hitTarget(p, m, dmg, { fx: x, fy: y, ...opts });
   return list;
 }
@@ -251,7 +251,7 @@ hookOn("playerSkills", (p, inp, dt) => {
     p.spinT -= dt;
     if (p.spinT <= 0) {
       p.spinT = 0.25;
-      const hit = hitArea(p, p.x, p.y, 1.6, W(p) * 0.5, { effect: p.weapon.effect });
+      const hit = hitArea(p, p.x, p.y, 1.6, W(p) * 0.5, { effect: p.weapon.effect, melee: true });
       if (hit.length) { gainRes(p, 0); sfx.hit(); }
       if (skillMod(p, "s1") === "A") for (const m of hit) if (!m.boss && !m.dummy) moveEntity(m, (p.x - m.x) * 0.12, (p.y - m.y) * 0.12);
       if (skillMod(p, "s1") === "B") clsFx.push({ kind: "flame", owner: p, x: p.x, y: p.y, r: 0.8, life: 3, tick: 0, dmg: W(p) * 0.15 });
@@ -451,7 +451,7 @@ hookOn("playersUpdated", (dt) => {
         p.leap = null; p.rollTimer = 0;
         const B = skillMod(p, "s2") === "B", r = B ? 1.6 : 2.0;
         const land = () => {
-          for (const m of hitArea(p, p.x, p.y, r, W(p) * 2.0, { knock: 1.2 })) if (!m.dummy && !m.boss) m.stunTimer = Math.max(m.stunTimer || 0, 1);
+          for (const m of hitArea(p, p.x, p.y, r, W(p) * 2.0, { knock: 1.2, melee: true })) if (!m.dummy && !m.boss) m.stunTimer = Math.max(m.stunTimer || 0, 1);
           addRing(p.x, p.y, { speed: 10, life: 0.35, hue: 35 }); spawnDust(p.x, p.y); spawnDust(p.x, p.y);
           game.shake = Math.max(game.shake, 0.35); sfx.slam();
         };
@@ -564,7 +564,7 @@ function updateAllies(dt) {
     const reach = w.target ? (w.target.r || 0.4) + 0.45 : 0.5;
     w.moving = d > reach;
     if (w.moving) { moveEntity(w, dx / d * Math.min(speed * dt, d - reach * 0.9), dy / d * Math.min(speed * dt, d - reach * 0.9)); w.faceX = dx / d; w.faceY = dy / d; w.walk += dt; }
-    else if (w.target && w.bite <= 0) {
+    else if (w.target && w.bite <= 0 && sameLevel(w, w.target)) { // 늑대도 같은 층만 물어요
       w.bite = 0.8;
       const dmg = W(o) * 0.35 * w.k * (w.pounce > 0 ? 0.8 / 0.35 : 1);
       if (w.target.dummy) hitDummy(w.target, dmg, false, o); // 캠프 허수아비
@@ -751,20 +751,20 @@ function drawClsFx() {
 function flyingFxThings(things) {
   for (const f of clsFx) {
     if (f.delay > 0) continue;
-    if (f.kind === "orb" || f.kind === "fireball") things.push({ depth: f.x + f.y, draw: () => {
+    if (f.kind === "orb" || f.kind === "fireball") things.push({ depth: f.x + f.y, x: f.x, y: f.y, draw: () => {
       const c = toScreen(f.x, f.y, 0.6), r = (f.kind === "orb" ? 9 : 13 * (f.r / 0.32)) * ZOOM;
       ctx.save(); ctx.globalCompositeOperation = "lighter";
       const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
       g.addColorStop(0, "rgba(255,255,255,0.95)"); g.addColorStop(0.45, f.kind === "orb" ? "rgba(120,190,255,0.8)" : "rgba(255,140,40,0.85)"); g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     } });
-    if (f.kind === "tornado") things.push({ depth: f.x + f.y, draw: () => {
+    if (f.kind === "tornado") things.push({ depth: f.x + f.y, x: f.x, y: f.y, draw: () => {
       ctx.save(); ctx.globalAlpha = 0.75;
       for (let i = 0; i < 5; i++) { const z = i * 0.28, w = 0.18 + i * 0.09, a = game.time * 12 + i; drawBox(f.x - w / 2 + Math.cos(a) * 0.05, f.y - w / 2 + Math.sin(a) * 0.05, z, w, w, 0.22, i % 2 ? "#cfe8c0" : "#a8d890"); }
       ctx.restore();
     } });
   }
-  for (const w of allies) if (w.hp > 0) things.push({ depth: w.x + w.y, draw: () => {
+  for (const w of allies) if (w.hp > 0) things.push({ depth: w.x + w.y, x: w.x, y: w.y, draw: () => {
     drawParts(w, wolfParts(w), 1, w.owner.hp <= 0 ? 0.4 : 1);
     if (w.hp < w.maxHp) { const s = toScreen(w.x, w.y, 0.75); ctx.fillStyle = "#222"; ctx.fillRect(s.x - 14, s.y, 28, 4); ctx.fillStyle = "#7dffb0"; ctx.fillRect(s.x - 14, s.y, 28 * w.hp / w.maxHp, 4); }
   } });
@@ -846,7 +846,7 @@ function trainerSpot() {
 }
 function trainerThings(things) {
   const t = trainerSpot();
-  things.push({ depth: t.x + t.y, draw: () => {
+  things.push({ depth: t.x + t.y, x: t.x, y: t.y, draw: () => {
     drawBox(t.x - 0.35, t.y - 0.35, 0, 0.7, 0.7, 0.25, "#6b5a4a");
     CLASS_ORDER.forEach((c, i) => {
       const a = (i / 4) * Math.PI * 2 + 0.6, fx = t.x + Math.cos(a) * 0.25, fy = t.y + Math.sin(a) * 0.25;

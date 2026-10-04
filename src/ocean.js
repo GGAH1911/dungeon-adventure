@@ -117,7 +117,7 @@ hookOn("worldThings", (things) => {
   for (const k of world.w2.kelp) {
     if (!onScreen(k.x, k.y, 4)) continue;
     const busy = monsters.some((m) => m.hp > 0 && !m.boss && Math.hypot(m.x - k.x, m.y - k.y) < k.r); // 몬스터가 숨어 있으면 빨리 흔들려요 (단서)
-    for (const s of k.stalks) things.push({ depth: s.x + s.y, draw: () => {
+    for (const s of k.stalks) things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
       const sp = busy ? 6 : 2, sw = Math.sin(game.time * sp + s.ph) * (busy ? 0.1 : 0.05);
       for (let i = 0; i < 4; i++) drawBox(s.x - 0.06 + sw * i, s.y - 0.06, i * s.h / 4, 0.12, 0.12, s.h / 4, i % 2 ? "#3f8a4a" : "#4fa05a");
       if (busy && Math.random() < 0.05) addSparkle(s.x, s.y, s.h, { vz: 1, gravity: -0.2, life: 0.8, size: 0.4, hue: 190 });

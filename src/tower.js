@@ -250,7 +250,7 @@ function nextFloor() {
 function stairsThings(things) { const r = stairsThingsBase(things); hookRun("worldThings", things); return r; }
 function stairsThingsBase(things) {
   if (!stairs) return;
-  things.push({ depth: stairs.x + stairs.y, draw: drawStairs });
+  things.push({ depth: stairs.x + stairs.y, x: stairs.x, y: stairs.y, draw: drawStairs });
 }
 
 function drawStairs() {

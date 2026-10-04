@@ -25,6 +25,7 @@ function makeRandom(seed) {
 
 function resetWorld(W, H, fill, theme) {
   world.W = W; world.H = H; world.theme = theme; world.path = null;
+  world.hgt = null; world.sdir = null; world.raised = 0; // 높낮이 (terrain.js): 랜덤 던전만
   world.tiles = []; world.pattern = []; world.solids = []; world.rooms = [];
   for (let y = 0; y < H; y++) {
     world.tiles.push(new Array(W).fill(fill));
@@ -110,9 +111,11 @@ function generateDungeon(def, seed) {
     }
   }
 
-  finishWalls(rand);
   world.rooms = rooms;
   world.start = { x: rooms[0].cx, y: rooms[0].cy };
+  // 높은 단·2층 방·계단 (terrain.js). 같은 씨앗이면 같은 모양
+  if (typeof generateHeights === "function") generateHeights(rand, rooms, def);
+  finishWalls(rand);
   initExplore();
   return rand;
 }
@@ -149,10 +152,13 @@ function isWall(tx, ty) {
 }
 
 // 동그라미(x, y, 반지름 r)가 벽이나 장애물에 닿는지
-function hitsWall(x, y, r) {
+// refH: 지금 서 있는 바닥 높이 (없으면 (x, y) 칸). 그보다 0.5 넘게 높은 칸은 벽처럼 막혀요 (높은 단은 계단으로만)
+function hitsWall(x, y, r, refH) {
+  const hg = world.hgt;
+  if (hg && refH === undefined) refH = tileH(Math.floor(x), Math.floor(y));
   for (let ty = Math.floor(y - r); ty <= Math.floor(y + r); ty++) {
     for (let tx = Math.floor(x - r); tx <= Math.floor(x + r); tx++) {
-      if (!isWall(tx, ty)) continue;
+      if (!isWall(tx, ty) && !(hg && hg[ty * world.W + tx] - refH > 0.51)) continue;
       const nx = Math.max(tx, Math.min(x, tx + 1));
       const ny = Math.max(ty, Math.min(y, ty + 1));
       if ((x - nx) ** 2 + (y - ny) ** 2 < r * r) return true;
@@ -166,18 +172,20 @@ function hitsWall(x, y, r) {
 
 // 벽에 막히면 미끄러지듯 움직이기
 function moveEntity(e, dx, dy) {
-  // 혹시 벽 안에 끼어 있으면 그냥 움직이게 해서 빠져나오게 해요 (갇힘 방지)
-  if (hitsWall(e.x, e.y, e.r)) {
+  // 혹시 벽 안에 끼어 있으면 그냥 움직이게 해서 빠져나오게 해요 (갇힘 방지). 높이는 지금 닿은 가장 높은 칸 기준
+  if (hitsWall(e.x, e.y, e.r, world.hgt ? touchMaxH(e.x, e.y, e.r) : undefined)) {
     const free = findFreeSpot(e.x, e.y, e.r, 1.5);
     if (free) { e.x = free.x; e.y = free.y; }
     else { e.x += dx; e.y += dy; }
     return;
   }
-  // 너무 빠르면 나눠서 움직여요 (벽 뚫기 방지)
+  // 너무 빠르면 나눠서 움직여요 (벽 뚫기 방지). 높이는 "지금 닿아 있는 가장 높은 칸" 기준 (뛰어내리기는 돼요)
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.2));
   for (let i = 0; i < steps; i++) {
-    if (!hitsWall(e.x + dx / steps, e.y, e.r)) e.x += dx / steps;
-    if (!hitsWall(e.x, e.y + dy / steps, e.r)) e.y += dy / steps;
+    let h = world.hgt ? touchMaxH(e.x, e.y, e.r) : undefined;
+    if (!hitsWall(e.x + dx / steps, e.y, e.r, h)) e.x += dx / steps;
+    if (world.hgt) h = touchMaxH(e.x, e.y, e.r);
+    if (!hitsWall(e.x, e.y + dy / steps, e.r, h)) e.y += dy / steps;
   }
 }
 
@@ -231,6 +239,7 @@ function computePathDist(sx, sy) {
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const nx = x + dx, ny = y + dy;
       if (isWall(nx, ny) || dist[ny][nx] !== Infinity) continue;
+      if (world.hgt && !canStep(nx, ny, x, y)) continue; // 몬스터는 (nx,ny)에서 (x,y)로 와요: 올라가기는 계단으로만
       dist[ny][nx] = dist[y][x] + 1;
       queue.push([nx, ny]);
     }
@@ -264,6 +273,7 @@ function nextStepToward(x, y, target) {
     const nx = tx + dx, ny = ty + dy;
     if (isWall(nx, ny)) continue;
     if (dx !== 0 && dy !== 0 && (isWall(tx + dx, ty) || isWall(tx, ty + dy))) continue;
+    if (world.hgt && (!canStep(tx, ty, nx, ny) || (dx !== 0 && dy !== 0 && (!canStep(tx, ty, tx + dx, ty) || !canStep(tx, ty, tx, ty + dy))))) continue;
     const d = pathDist[ny][nx] + (dx !== 0 && dy !== 0 ? 0.4 : 0);
     if (d < bestD) { bestD = d; best = { x: nx + 0.5, y: ny + 0.5 }; }
   }
@@ -271,20 +281,27 @@ function nextStepToward(x, y, target) {
 }
 
 // ===== 그리기 =====
-// 바닥: 같은 색 칸끼리 묶어서 한 번에 칠해요 (빠르게!)
+// 바닥 한 칸 색 (높은 단 윗면도 같은 색: terrain.js)
+function floorColorAt(x, y, lavaPulse = 1) {
+  const th = world.theme, v = world.pattern[y][x];
+  const isMoss = v < 0.15;
+  let color = shade(isMoss ? th.moss : th.floor, 0.85 + (Math.round(v * 6) / 6) * 0.25);
+  if (world.path && world.path[y][x]) color = shade(th.path, 0.9 + (Math.round(v * 4) / 4) * 0.15);
+  if (isMoss && th.lava) color = shade(th.moss, Math.round(lavaPulse * 10) / 10);
+  return color;
+}
+// 바닥: 같은 색 칸끼리 묶어서 한 번에 칠해요 (빠르게!). 높은 칸·계단은 drawTerrain 이 그 위에
 function drawFloor() {
   const th = world.theme;
   const groups = {};
   const lavaPulse = th.lava ? 0.85 + 0.15 * Math.sin(game.time * 2.5) : 1;
+  const hg = world.hgt;
   for (let y = 0; y < world.H; y++) {
     for (let x = 0; x < world.W; x++) {
       if (world.tiles[y][x] !== 0) continue;
+      if (hg && hg[y * world.W + x]) continue;
       if (!onScreen(x + 0.5, y + 0.5)) continue;
-      const v = world.pattern[y][x];
-      const isMoss = v < 0.15;
-      let color = shade(isMoss ? th.moss : th.floor, 0.85 + (Math.round(v * 6) / 6) * 0.25);
-      if (world.path && world.path[y][x]) color = shade(th.path, 0.9 + (Math.round(v * 4) / 4) * 0.15);
-      if (isMoss && th.lava) color = shade(th.moss, Math.round(lavaPulse * 10) / 10);
+      const color = floorColorAt(x, y, lavaPulse);
       (groups[color] = groups[color] || []).push(x, y);
     }
   }
@@ -299,6 +316,7 @@ function drawFloor() {
     ctx.fillStyle = color;
     ctx.fill();
   }
+  if (hg && typeof drawTerrain === "function") drawTerrain();
 }
 
 // 화면에 보이는 벽을 그리기 목록에 넣어요
@@ -316,13 +334,15 @@ function collectWalls(things, p) {
 function drawWall(tx, ty, h, p) {
   // 주인공을 가리는 벽은 반투명하게
   const inFront = tx + ty + 1 > p.x + p.y && Math.abs((tx + 0.5 - p.x) - (ty + 0.5 - p.y)) < 2.5 && tx + ty + 1 - (p.x + p.y) < 3;
+  const base = world.hgt ? wallBase(tx, ty) : 0; // 위층 방의 벽은 위층 바닥부터 (terrain.js)
   ctx.save();
   if (h === LOW_WALL) {
-    drawBox(tx, ty, 0, 1, 1, 0.4, shade(world.theme.wall, 0.85));
+    drawBox(tx, ty, 0, 1, 1, base + 0.4, shade(world.theme.wall, 0.85));
   } else {
     if (inFront) ctx.globalAlpha = 0.35;
+    if (base > 0) drawBox(tx, ty, 0, 1, 1, base, shade(world.theme.wall, 0.82));
     for (let level = 0; level < h; level++) {
-      drawBox(tx, ty, level, 1, 1, 1, shade(world.theme.wall, 0.9 + level * 0.1));
+      drawBox(tx, ty, base + level, 1, 1, 1, shade(world.theme.wall, 0.9 + level * 0.1));
     }
   }
   ctx.restore();
@@ -360,7 +380,8 @@ function markExplored(tx, ty, mc = world.miniCtx) {
   world.explored[i] = 1;
   const t = world.tiles[ty][tx];
   if (t === VOID || !mc) return;
-  mc.fillStyle = t === 0 ? "#cfc6b0" : "#5a5248";
+  const hh = world.hgt ? world.hgt[i] : 0; // 위층은 밝게, 계단은 노랗게
+  mc.fillStyle = t !== 0 ? "#5a5248" : hh === 0.5 ? "#e8c860" : hh > 0 ? "#f2ecdc" : "#cfc6b0";
   mc.fillRect(tx, ty, 1, 1);
 }
 

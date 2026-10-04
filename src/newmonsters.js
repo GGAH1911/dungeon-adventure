@@ -68,7 +68,7 @@ const EXTRA_BEHAVIORS = {
     } else m.moving = false;
     faceToward(m, p); // 옆으로 걸어도 얼굴은 주인공 쪽
     m.pinch = Math.max(0, (m.pinch || 0) - dt);
-    if (dist < def.attackRange + p.r && m.attackTimer <= 0) {
+    if (dist < def.attackRange + p.r && m.attackTimer <= 0 && sameLevel(m, p)) {
       m.attackTimer = def.attackCooldown;
       m.pinch = 0.25;
       hurtPlayer(p, m.damage, m);
@@ -101,7 +101,7 @@ const EXTRA_BEHAVIORS = {
       if (m.stateTimer <= 0) {
         m.state = "chase";
         m.attackTimer = def.attackCooldown;
-        if (dist < def.attackRange + p.r + 0.3) hurtPlayer(p, m.damage, m);
+        if (dist < def.attackRange + p.r + 0.3 && sameLevel(m, p)) hurtPlayer(p, m.damage, m);
       }
       return;
     }

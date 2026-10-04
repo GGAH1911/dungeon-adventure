@@ -14,6 +14,7 @@ function placeChests(rand) {
     const spot = randomSpotInRoom(room, rand);
     if (chests.some((c) => Math.hypot(c.x - spot.x, c.y - spot.y) < 3)) continue;
     if (hitsWall(spot.x, spot.y, 0.5)) continue;
+    if (typeof nearStair === "function" && nearStair(spot.x, spot.y, 1.2)) continue; // 계단 길은 비워 둬요 (terrain.js)
     addChest(spot.x, spot.y, rand() < 0.22);
   }
 }
@@ -75,7 +76,7 @@ function updateChestsBase(dt) {
 }
 
 function chestThings(things) {
-  for (const c of chests) if (onScreen(c.x, c.y)) things.push({ depth: c.x + c.y, draw: () => drawChest(c) });
+  for (const c of chests) if (onScreen(c.x, c.y)) things.push({ depth: c.x + c.y, x: c.x, y: c.y, draw: () => drawChest(c) });
 }
 
 function drawChest(c) {

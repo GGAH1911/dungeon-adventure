@@ -511,7 +511,7 @@ function qolUsePortal() {
 hookOn("worldThings", (things) => {
   if (game.scene !== "dungeon" || !qolPortal || (game.keyhunt && game.keyhunt.inBoss)) return;
   const P = qolPortal;
-  things.push({ depth: P.x + P.y, draw: () => qolDrawPortal(P) });
+  things.push({ depth: P.x + P.y, x: P.x, y: P.y, draw: () => qolDrawPortal(P) });
 }, 60);
 
 function qolDrawPortal(P) {

@@ -79,7 +79,7 @@ function nearestNpc(p) {
 // 지금 장면에서 말 걸 수 있는 것들
 function interactables() {
   if (game.scene === "lobby") return [...npcs, ...hookFilter("lobbyInteractables", [])];
-  return [...chestInteractables(), ...stairsInteractables(), ...(typeof keyHuntInteractables === "function" ? keyHuntInteractables() : [])];
+  return hookFilter("dungeonInteractables", [...chestInteractables(), ...stairsInteractables(), ...(typeof keyHuntInteractables === "function" ? keyHuntInteractables() : [])]); // 위층 계단 (upper.js)
 }
 
 function updateLobby(p, dt) {
@@ -225,21 +225,21 @@ function drawDummy(d) {
 // ----- 그리기 -----
 function lobbyThings(things) {
   const L = lobby;
-  things.push({ depth: L.merchant.x + L.merchant.y, draw: () => drawCharacter(L.merchant, CONFIG.colors.merchant) });
-  things.push({ depth: L.smith.x + L.smith.y, draw: () => drawCharacter(L.smith, smithColors, { pose: npcPose(L.smith, "smith") }) });
-  for (const c of L.crates) things.push({ depth: c.x + c.y, draw: () => drawCrate(c) });
-  for (const t of L.trees) if (onScreen(t.x, t.y, 3)) things.push({ depth: t.x + t.y, draw: () => drawTree(t) });
+  things.push({ depth: L.merchant.x + L.merchant.y, x: L.merchant.x, y: L.merchant.y, draw: () => drawCharacter(L.merchant, CONFIG.colors.merchant) });
+  things.push({ depth: L.smith.x + L.smith.y, x: L.smith.x, y: L.smith.y, draw: () => drawCharacter(L.smith, smithColors, { pose: npcPose(L.smith, "smith") }) });
+  for (const c of L.crates) things.push({ depth: c.x + c.y, x: c.x, y: c.y, draw: () => drawCrate(c) });
+  for (const t of L.trees) if (onScreen(t.x, t.y, 3)) things.push({ depth: t.x + t.y, x: t.x, y: t.y, draw: () => drawTree(t) });
   for (const f of L.flowers) if (onScreen(f.x, f.y)) things.push({ depth: f.x + f.y - 0.5, draw: () => drawBox(f.x - 0.05, f.y - 0.05, 0, 0.1, 0.1, 0.12, f.c) });
-  for (const d of dummies) things.push({ depth: d.x + d.y, draw: () => drawDummy(d) });
-  things.push({ depth: L.table.x + L.table.y, draw: drawMapTable });
-  things.push({ depth: L.fire.x + L.fire.y, draw: drawCampfire });
+  for (const d of dummies) things.push({ depth: d.x + d.y, x: d.x, y: d.y, draw: () => drawDummy(d) });
+  things.push({ depth: L.table.x + L.table.y, x: L.table.x, y: L.table.y, draw: drawMapTable });
+  things.push({ depth: L.fire.x + L.fire.y, x: L.fire.x, y: L.fire.y, draw: drawCampfire });
   hookRun("lobbyThings", things); // 다른 파일이 캠프에 물건을 더해요 (예: 트로피)
-  things.push({ depth: L.well.x + L.well.y, draw: drawWell });
-  things.push({ depth: L.wardrobe.x + L.wardrobe.y, draw: drawWardrobeProp });
-  things.push({ depth: L.board.x + L.board.y, draw: drawBoard });
-  things.push({ depth: L.anvil.x + L.anvil.y, draw: drawAnvil });
-  things.push({ depth: L.furnace.x + L.furnace.y, draw: drawFurnace });
-  things.push({ depth: dog.x + dog.y, draw: drawDog });
+  things.push({ depth: L.well.x + L.well.y, x: L.well.x, y: L.well.y, draw: drawWell });
+  things.push({ depth: L.wardrobe.x + L.wardrobe.y, x: L.wardrobe.x, y: L.wardrobe.y, draw: drawWardrobeProp });
+  things.push({ depth: L.board.x + L.board.y, x: L.board.x, y: L.board.y, draw: drawBoard });
+  things.push({ depth: L.anvil.x + L.anvil.y, x: L.anvil.x, y: L.anvil.y, draw: drawAnvil });
+  things.push({ depth: L.furnace.x + L.furnace.y, x: L.furnace.x, y: L.furnace.y, draw: drawFurnace });
+  things.push({ depth: dog.x + dog.y, x: dog.x, y: dog.y, draw: drawDog });
 }
 
 function lobbyLights() {

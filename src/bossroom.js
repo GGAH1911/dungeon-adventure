@@ -86,7 +86,7 @@ function bossDoorThings(list) {
   const kh = game.keyhunt;
   if (!kh.door) return;
   const d = kh.door;
-  list.push({ depth: d.x + d.y, draw: () => {
+  list.push({ depth: d.x + d.y, x: d.x, y: d.y, draw: () => {
     drawGate(d.x, d.y, d.open);
     if (kh.hasKey && !d.open) { const c = toScreen(d.x, d.y, 3.4 + Math.sin(game.time * 4) * 0.1); drawStar(c.x, c.y, 12 * ZOOM, "#ffd23f"); }
   } });
@@ -100,6 +100,7 @@ function enterBossRoom() {
   kh.snap = {
     W: world.W, H: world.H, tiles: world.tiles, pattern: world.pattern, theme: world.theme, solids: world.solids,
     rooms: world.rooms, start: world.start, explored: world.explored, mini: world.mini, miniCtx: world.miniCtx, path: world.path,
+    hgt: world.hgt, sdir: world.sdir, raised: world.raised, // 높낮이 (terrain.js)
     monsters, chests,
   };
   kh.keepOnReset = true;
@@ -184,7 +185,7 @@ function updateBossRoom(p, dt) {
 
 function bossRoomThings(list) {
   const kh = game.keyhunt;
-  if (kh.gate) list.push({ depth: kh.gate.x + kh.gate.y, draw: () => {
+  if (kh.gate) list.push({ depth: kh.gate.x + kh.gate.y, x: kh.gate.x, y: kh.gate.y, draw: () => {
     // 주인공보다 앞에 있으면 반투명 (가리지 않게)
     const p = game.player;
     ctx.save();
@@ -235,7 +236,7 @@ function retryBoss() {
   kh.keepOnReset = true;
   resetEffects();
   kh.keepOnReset = false;
-  Object.assign(world, { W: S.W, H: S.H, tiles: S.tiles, pattern: S.pattern, theme: S.theme, solids: S.solids, rooms: S.rooms, start: S.start, explored: S.explored, mini: S.mini, miniCtx: S.miniCtx, path: S.path });
+  Object.assign(world, { W: S.W, H: S.H, tiles: S.tiles, pattern: S.pattern, theme: S.theme, solids: S.solids, rooms: S.rooms, start: S.start, explored: S.explored, mini: S.mini, miniCtx: S.miniCtx, path: S.path, hgt: S.hgt || null, sdir: S.sdir || null, raised: S.raised || 0 });
   monsters = S.monsters.filter((m) => m.hp > 0);
   chests = S.chests;
   kh.inBoss = false; kh.boss = null; kh.gate = null; kh.snap = null;
@@ -277,7 +278,7 @@ hookOn("dungeonTick", (dt) => {
   if (game.mode !== "dungeon" || !kh || game.result) return;
   if (kh.enterT > 0) { kh.enterT -= dt; if (kh.enterT <= 0) enterBossRoom(); return; }
   if (kh.inBoss) updateBossRoom(game.player, dt);
-  else updateKeyHunt(game.player, dt);
+  else if (!game.upper) updateKeyHunt(game.player, dt); // 위층에선 열쇠 찾기가 쉬어요 (upper.js)
 }, 50);
 
 // 그리기: 바닥 표시, 물건, 빛

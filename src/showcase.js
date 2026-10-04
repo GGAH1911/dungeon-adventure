@@ -155,10 +155,10 @@ function drawFallingBoss(b, k, side, fadeOut) {
 }
 hookOn("worldThings", (things) => {
   const d = SHOW.dying;
-  if (d && game.scene === "dungeon") { const k = Math.min(1, d.t / d.dur); things.push({ depth: d.boss.x + d.boss.y, draw: () => drawFallingBoss(d.boss, k, d.side, k > 0.7 ? 1 - (k - 0.7) / 0.3 * 0.5 : 1) }); }
+  if (d && game.scene === "dungeon") { const k = Math.min(1, d.t / d.dur); things.push({ depth: d.boss.x + d.boss.y, x: d.boss.x, y: d.boss.y, draw: () => drawFallingBoss(d.boss, k, d.side, k > 0.7 ? 1 - (k - 0.7) / 0.3 * 0.5 : 1) }); }
   const f = SHOW.fallen;
   if (f && game.scene === "dungeon" && game.result) {
-    things.push({ depth: f.boss.x + f.boss.y, draw: () => drawFallingBoss(f.boss, 1, f.side, Math.max(0, 0.5 - (3 - SHOW.celebrate) / 0.8)) });
+    things.push({ depth: f.boss.x + f.boss.y, x: f.boss.x, y: f.boss.y, draw: () => drawFallingBoss(f.boss, 1, f.side, Math.max(0, 0.5 - (3 - SHOW.celebrate) / 0.8)) });
   } else if (f && game.scene !== "dungeon") SHOW.fallen = null;
 }, 60);
 hookOn("reset", () => { SHOW.dying = null; SHOW.fallen = null; }, 60);
@@ -321,9 +321,9 @@ hookOn("lobbyThings", (things) => {
   trophyMaps().forEach((m, i) => {
     const s = TROPHY_SPOTS[i];
     if (!s) return;
-    things.push({ depth: s.x + s.y, draw: () => drawTrophy(s, m.id, !!(tr[m.id] && tr[m.id].wins)) });
+    things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => drawTrophy(s, m.id, !!(tr[m.id] && tr[m.id].wins)) });
   });
-  things.push({ depth: CODEX_STAND.x + CODEX_STAND.y, draw: drawCodexStand });
+  things.push({ depth: CODEX_STAND.x + CODEX_STAND.y, x: CODEX_STAND.x, y: CODEX_STAND.y, draw: drawCodexStand });
 }, 60);
 
 hookOn("lobbyInteractables", (list) => {

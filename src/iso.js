@@ -28,7 +28,7 @@ let BLOCK_H = 36 * ZOOM;  // 높이 1의 화면 크기
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const camera = { x: 0, y: 0 };
+const camera = { x: 0, y: 0, z: 0 };
 const view = { w: 0, h: 0 }; // 화면 크기
 
 // 그리는 해상도 (화면이 버벅이면 자동으로 낮춰요: 2 -> 1.5 -> 1.25 -> 1)
@@ -63,12 +63,16 @@ window.addEventListener("orientationchange", () => setTimeout(resizeCanvas, 200)
 resizeCanvas();
 
 // 세상 좌표(x, y, z) -> 화면 좌표
+// 높낮이(terrain.js): liftZ = 지금 그리는 캐릭터·물건의 바닥 높이, autoLift = 점마다 그 자리 바닥 높이를 더해요
+//   (그림자·예고 원·글자처럼 한 점에 붙은 것). camera.z = 화면이 주인공 높이를 따라가요
+let liftZ = 0, autoLift = false;
 function toScreen(x, y, z = 0) {
   const dx = x - camera.x;
   const dy = y - camera.y;
+  const zz = z + liftZ + (autoLift && world.hgt ? groundZ(x, y) : 0) - (camera.z || 0);
   return {
     x: (dx - dy) * TILE_W / 2 + view.w / 2,
-    y: (dx + dy) * TILE_H / 2 - z * BLOCK_H + view.h / 2 + 40,
+    y: (dx + dy) * TILE_H / 2 - zz * BLOCK_H + view.h / 2 + 40,
   };
 }
 
@@ -151,7 +155,7 @@ function faceSide(fx, fy) {
 
 // 바닥 그림자
 function drawShadow(x, y, r) {
-  const p = toScreen(x, y, 0);
+  const p = toScreen(x, y, world.hgt ? groundZ(x, y) : 0);
   ctx.beginPath();
   ctx.ellipse(p.x, p.y, r * TILE_W * 0.75, r * TILE_H * 0.75, 0, 0, Math.PI * 2);
   ctx.fillStyle = "rgba(0,0,0,0.28)";

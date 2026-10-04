@@ -470,6 +470,8 @@ function draw() {
   if (ct) { cx = ct.x; cy = ct.y; }
   camera.x += (cx - camera.x) * 0.12;
   camera.y += (cy - camera.y) * 0.12;
+  camera.z += ((world.hgt ? groundZ(p.x, p.y) : 0) - camera.z) * 0.12; // 위층에 올라가면 화면도 따라 올라가요
+  liftZ = 0; autoLift = false;
 
   ctx.save();
   if (game.shake > 0) {
@@ -478,8 +480,10 @@ function draw() {
   }
 
   drawFloor();
+  autoLift = true; // 바닥에 붙은 것(고리·예고 원·장판)은 그 자리 높이에 (terrain.js)
   drawLegendFloor();
   if (typeof drawTelegraphs === "function") drawTelegraphs();
+  autoLift = false;
 
   for (const q of allPlayers()) if (q.hp > 0) drawShadow(q.x, q.y, q.r);
   for (const m of monsters) if (onScreen(m.x, m.y)) drawShadow(m.x, m.y, m.r);
@@ -490,14 +494,17 @@ function draw() {
   if (game.scene !== "dungeon") lobbyThings(things);
   chestThings(things);
   stairsThings(things);
-  for (const q of allPlayers()) if (q.hp > 0) things.push({ depth: q.x + q.y, draw: () => drawPlayer(q) });
-  for (const m of monsters) if (onScreen(m.x, m.y)) things.push({ depth: m.x + m.y, draw: () => drawMonster(m) });
-  for (const e of pickups) things.push({ depth: e.x + e.y, draw: () => drawPickup(e) });
-  for (const a of arrows) things.push({ depth: a.x + a.y, draw: () => drawArrow(a) });
-  for (const sh of shots) things.push({ depth: sh.x + sh.y, draw: () => drawShot(sh) });
-  for (const q of particles) things.push({ depth: q.x + q.y, draw: () => drawBox(q.x - q.size / 2, q.y - q.size / 2, q.z, q.size, q.size, q.size, q.color) });
+  for (const q of allPlayers()) if (q.hp > 0) things.push({ depth: q.x + q.y, e: q, draw: () => drawPlayer(q) });
+  for (const m of monsters) if (onScreen(m.x, m.y)) things.push({ depth: m.x + m.y, e: m, draw: () => drawMonster(m) });
+  for (const e of pickups) things.push({ depth: e.x + e.y, x: e.x, y: e.y, draw: () => drawPickup(e) });
+  for (const a of arrows) things.push({ depth: a.x + a.y, x: a.x, y: a.y, draw: () => drawArrow(a) });
+  for (const sh of shots) things.push({ depth: sh.x + sh.y, x: sh.x, y: sh.y, draw: () => drawShot(sh) });
+  for (const q of particles) things.push({ depth: q.x + q.y, x: q.x, y: q.y, draw: () => drawBox(q.x - q.size / 2, q.y - q.size / 2, q.z, q.size, q.size, q.size, q.color) });
+  if (world.hgt) terrainOccluders(things, [...allPlayers(), ...monsters, ...chests]); // 절벽 뒤에 선 것 가리기 (terrain.js)
   things.sort((a, b) => a.depth - b.depth);
-  for (const t of things) t.draw();
+  // 높은 단 위의 것은 그 높이에 (캐릭터는 부드럽게 떨어져요)
+  for (const t of things) { liftZ = !world.hgt || t.lift !== undefined ? t.lift || 0 : t.e ? entityLift(t.e) : t.x !== undefined ? groundZ(t.x, t.y) : 0; t.draw(); }
+  liftZ = 0;
   ctx.restore();
 
   // 어둠 (빛이 있는 곳만 밝아요)
@@ -507,6 +514,7 @@ function draw() {
   if (game.scene !== "dungeon") lights.push(...lobbyLights());
   for (const c of chests) if (!c.open) lights.push({ x: c.x, y: c.y, radius: 1.6, power: 0.5 });
   if (stairs && stairs.open) lights.push({ x: stairs.x, y: stairs.y, radius: 3.5, power: 0.8 });
+  autoLift = true; // 빛·떠오르는 글자도 그 자리 높이에
   drawDarkness(lights);
 
   // 어둠 위에서 빛나는 것들
@@ -514,6 +522,7 @@ function draw() {
   drawImpacts();
   drawFloatTexts();
   drawNpcLabels();
+  autoLift = false;
   drawScreenFlash();
   if (game.fade > 0) {
     ctx.fillStyle = `rgba(0,0,0,${Math.min(1, game.fade / 0.4)})`;

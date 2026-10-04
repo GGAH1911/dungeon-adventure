@@ -219,6 +219,15 @@ hookOn("playersUpdated", (dt) => {
   netplay.wt += dt || 0;
   for (const q of allPlayers()) if (q.remote) q._pp = { x: q.x, y: q.y };
 }, 95);
+// 방장이 모두를 다른 곳으로 옮겼어요 (위층 오르내리기 등): 친구 기기도 방장 자리로 (순간이동 번호 올리기)
+hookOn("playersTeleported", () => {
+  if (netplay.role !== "host") return;
+  for (const [slot, r] of netplay.remotes) {
+    const q = allPlayers().find((x) => x.pid === slot && x.remote);
+    if (!q || !r.ext) continue;
+    r.wv++; r.ext = []; r.extOpen = null; r.lastAcc = null; r.rep = null; q._pp = { x: q.x, y: q.y };
+  }
+}, 50);
 // 같이 하는 중엔 치트를 쳐도 게임이 멈추지 않아요 (나도, 친구도)
 hookOn("cheatKeepsRunning", () => netOn(), 50);
 // 누가 창을 보고 있으면 방장 세상도 멈춰요 (모두에게 무엇을 보고 있는지 알려줘요)
@@ -389,12 +398,13 @@ function netBuildSnap(tm = game.time) {
 function netSceneKey() {
   const kh = game.keyhunt;
   const tw = game.mode === "tower" && game.tower ? `t${game.tower.floor}:${JSON.stringify(game.tower.bossMaps || {})}` : "";
-  return [game.scene, game.scene === "dungeon" && game.mapDef ? game.mapDef.id : "", game.mapLevel || 0, game.scene === "dungeon" && !tw ? netplay.runSeed || 0 : 0, kh && kh.inBoss ? "boss" : "", tw].join("|");
+  return [game.scene, game.scene === "dungeon" && game.mapDef ? game.mapDef.id : "", game.mapLevel || 0, game.scene === "dungeon" && !tw ? netplay.runSeed || 0 : 0, kh && kh.inBoss ? "boss" : "", tw, game.upper ? "up" : ""].join("|");
 }
 function netSceneMsg() {
   const kh = game.keyhunt;
   const tower = game.mode === "tower" && game.tower ? { floor: game.tower.floor, bossMaps: game.tower.bossMaps || {} } : undefined;
-  return { t: "scene", s: game.scene, map: game.mapDef ? game.mapDef.id : null, level: game.mapLevel, seed: netplay.runSeed, boss: !!(kh && kh.inBoss), diff: game.profile.difficulty, tower, key: netSceneKey() };
+  const ups = game.upStairs ? { x: game.upStairs.x, y: game.upStairs.y } : null; // 위층 계단 자리 (upper.js)
+  return { t: "scene", s: game.scene, map: game.mapDef ? game.mapDef.id : null, level: game.mapLevel, seed: netplay.runSeed, boss: !!(kh && kh.inBoss), diff: game.profile.difficulty, tower, up: !!game.upper, ups, key: netSceneKey() };
 }
 
 function netHostTick(dt) {
@@ -469,7 +479,7 @@ function netHostSyncRemotes(dt) {
     // 지난 화면에 내 기기가 움직인 뒤로 더 움직인 만큼 = 방장만 아는 밀림
     if (q._pp) {
       const dx = q.x - q._pp.x, dy = q.y - q._pp.y, d = Math.hypot(dx, dy);
-      if (d > 2.5) warp();
+      if (d > 1) warp(); // 한 번에 1칸 넘게 = 순간이동 (밀림은 0.4칸쯤. 큰 이동을 밀림으로 보내면 친구 기기에서 벽에 걸려 어긋나요)
       else if (d > 0.0005 && alive) { const o = r.extOpen || (r.extOpen = { dx: 0, dy: 0 }); o.dx += dx; o.dy += dy; }
     }
     r.budget = Math.min(NP.moveBudget, (r.budget ?? NP.moveBudget) + NP.moveRefill * dt);
@@ -668,6 +678,15 @@ function netGuestScene(msg) {
         startDungeon(def, Math.round(netNum(msg.level, 1, 999, 1)));
         netplay.forceSeed = undefined;
         if (msg.boss && game.keyhunt) enterBossRoom();
+      }
+      // 위층: 방장이 정한 계단 자리로 맞추고, 다 같이 오르내려요 (upper.js)
+      if (typeof enterUpperFloor === "function" && !msg.boss) {
+        if (msg.ups && typeof msg.ups === "object" && !game.upper) {
+          const ux = netNum(msg.ups.x, 0, world.W, 0), uy = netNum(msg.ups.y, 0, world.H, 0);
+          if (!game.upStairs || game.upStairs.x !== ux || game.upStairs.y !== uy) { world.solids = world.solids.filter((s) => !s.upStairs); game.upStairs = { x: ux, y: uy }; world.solids.push({ x: ux, y: uy, r: 0.55, upStairs: true }); }
+        }
+        if (msg.up && !game.upper) enterUpperFloor();
+        else if (!msg.up && game.upper) leaveUpperFloor();
       }
       game.result = null; game.overlay = null;
     }
@@ -880,7 +899,7 @@ function netGuestEvent(ev) {
   else if (kind === "sfx") { if (src !== netplay.slot && typeof a[0] === "string" && Object.hasOwn(sfx, a[0]) && typeof sfx[a[0]] === "function") sfx[a[0]](...a.slice(1, 4).filter((x) => typeof x === "number" || typeof x === "boolean" || typeof x === "string")); }
 }
 // 떠오르는 글자: 숫자 모양이거나 게임이 쓰는 짧은 말만
-const NP_FLOAT_WORDS = new Set(["회피!", "숨었다!", "히익!", "쿵!", "정예 처치!", "으르렁!", "원래대로!", "약점!", "슝!", "수정 보호막!", "비틀!", "부활!", "보호막이 깨졌어요!", "보호막!", "보호막 깨짐!", "방패!", "물약 +1", "무적", "무적!", "막힘", "막음!", "덮쳐!", "덜덜", "닿지 않아요! 화살로!", "끊김!", "깨갱", "광폭화!", "가짜!", "♥", "!", "정중앙!", "명중!", "화살 가득"]);
+const NP_FLOAT_WORDS = new Set(["회피!", "숨었다!", "히익!", "쿵!", "정예 처치!", "으르렁!", "원래대로!", "약점!", "슝!", "수정 보호막!", "비틀!", "부활!", "보호막이 깨졌어요!", "보호막!", "보호막 깨짐!", "방패!", "물약 +1", "무적", "무적!", "막힘", "막음!", "덮쳐!", "덜덜", "닿지 않아요! 화살로!", "끊김!", "깨갱", "광폭화!", "가짜!", "♥", "!", "정중앙!", "명중!", "화살 가득", "높은 곳!"]);
 const NP_FLOAT_RES = [/^[+\-]?[0-9.]{1,7}$/, /^치명타! [0-9.]{1,7}$/, /^\+[0-9.]{1,7} 냠!$/, /^[0-9]{1,2}단계!$/, /^열쇠 조각 [0-9]\/[0-9]$/, /^화살 \+[0-9]{1,3}$/];
 function netCleanFloat(t) {
   if (typeof t === "number" && Number.isFinite(t)) t = String(Math.round(t * 10) / 10);

@@ -57,7 +57,7 @@ function portalSpot() {
 function portalTarget() { const i = WORLD_ORDER.indexOf(curWorld()); return WORLD_ORDER[(i + 1) % WORLD_ORDER.length]; }
 hookOn("lobbyThings", (things) => {
   const s = portalSpot();
-  things.push({ depth: s.x + s.y, draw: () => drawPortal(s) });
+  things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => drawPortal(s) });
 }, 70);
 hookOn("lobbyInteractables", (list) => {
   const s = portalSpot(), to = portalTarget(), open = worldUnlocked(to);

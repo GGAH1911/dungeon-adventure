@@ -47,7 +47,7 @@ function spawnMonstersBase(mapDef, level, rand) {
 // ----- 움직임 도우미 -----
 function chaseMove(m, p, dist, dt, speedMul = 1) {
   let mx = 0, my = 0;
-  const step = dist > 1.5 ? nextStepToward(m.x, m.y, p) : null;
+  const step = dist > 1.5 || !sameLevel(m, p) ? nextStepToward(m.x, m.y, p) : null; // 다른 층이면 가까워도 계단 쪽 길로
   if (step) {
     const sx = step.x - m.x, sy = step.y - m.y, sd = Math.hypot(sx, sy) || 1;
     mx = sx / sd; my = sy / sd;
@@ -179,13 +179,14 @@ function updateMelee(m, p, dist, dt) {
         game.shake = Math.max(game.shake, 0.2);
         sfx.slam();
       }
-      if (dist < def.attackRange + p.r + 0.35) hurtPlayer(p, m.damage, m);
+      if (dist < def.attackRange + p.r + 0.35 && sameLevel(m, p)) hurtPlayer(p, m.damage, m);
     }
     return;
   }
-  if (dist > def.attackRange * 0.85) chaseMove(m, p, dist, dt);
+  const same = sameLevel(m, p); // 다른 층이면 칼이 안 닿아요: 계단으로 돌아와요
+  if (dist > def.attackRange * 0.85 || !same) chaseMove(m, p, dist, dt);
   else { m.moving = false; faceToward(m, p); }
-  if (dist < def.attackRange + p.r && m.attackTimer <= 0) {
+  if (same && dist < def.attackRange + p.r && m.attackTimer <= 0) {
     m.state = "windup";
     m.windupDur = m.stateTimer = def.windup || (def.heavy ? 0.5 : 0.28);
   }
@@ -208,7 +209,7 @@ function updatePouncer(m, p, dist, dt) {
   if (m.state === "leap") {
     moveEntity(m, m.leapX * 8 * dt, m.leapY * 8 * dt);
     m.moving = false;
-    if (!m.hitThisLeap && dist < 0.65) { m.hitThisLeap = true; hurtPlayer(p, m.damage, m); }
+    if (!m.hitThisLeap && dist < 0.65 && sameLevel(m, p)) { m.hitThisLeap = true; hurtPlayer(p, m.damage, m); }
     if (m.stateTimer <= 0) { m.state = "chase"; m.attackTimer = def.attackCooldown; }
     return;
   }
@@ -278,7 +279,7 @@ function updateFlyer(m, p, dist, dt) {
   const weave = Math.sin(m.flyT * 6) * 0.8;
   if (dist > 4) chaseMove(m, p, dist, dt);
   else moveWithSeparation(m, ux - uy * weave, uy + ux * weave, dt, m.speed);
-  if (dist < 0.65 && m.attackTimer <= 0) {
+  if (dist < 0.65 && m.attackTimer <= 0 && sameLevel(m, p)) {
     m.attackTimer = def.attackCooldown;
     hurtPlayer(p, m.damage, m);
     m.state = "retreat";
