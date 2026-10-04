@@ -132,7 +132,7 @@ function drawHUDBase() {
     drawMinimap(p, monsters);
     if (monsters.some((m) => m.boss && m.aggro)) drawBossBar(); // 보스가 깨어나면 체력 막대
   } else if (game.scene === "lobby") {
-    text("캠프", RX, 40, 20, "#ffe27a", "right");
+    text(typeof WORLDS !== "undefined" ? WORLDS[curWorld()].camp : "캠프", RX, 40, 20, "#ffe27a", "right");
   }
 
   // 가운데 메시지

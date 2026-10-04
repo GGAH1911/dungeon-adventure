@@ -23,6 +23,7 @@ const dog = { x: 17, y: 12.5, r: 0.25, faceX: 1, faceY: 0, moving: false, walkTi
 const smithColors = { skin: "#d9a07a", hair: "#3a2a1a", shirt: "#5a4632", pants: "#3f3428", eyes: "#2a1a10" };
 
 function buildLobby() {
+  if (typeof applyWorldLobby === "function") applyWorldLobby(); // 월드마다 마을 바닥 색 (worlds.js)
   buildLobbyWorld();
   const L = lobby;
   const f = L.fire;
@@ -52,14 +53,15 @@ function buildLobby() {
   for (let i = 0; i < 45; i++) {
     const x = 1.5 + rand() * (LOBBY.width - 3), y = 1.5 + rand() * (LOBBY.height - 3);
     if (world.path[Math.floor(y)][Math.floor(x)] || hitsWall(x, y, 0.5)) continue;
-    L.flowers.push({ x, y, c: ["#ffdf5a", "#ff7aa8", "#ffffff", "#a98aff"][Math.floor(rand() * 4)] });
+    const sea = typeof worldLook === "function" && worldLook() === 2; // 바닷속: 조개·불가사리·해초
+    L.flowers.push({ x, y, c: (sea ? ["#ff9a7a", "#ffd6e8", "#7fe0c0", "#ffb84a"] : ["#ffdf5a", "#ff7aa8", "#ffffff", "#a98aff"])[Math.floor(rand() * 4)] });
   }
   npcs = [
     { x: L.merchant.x, y: L.merchant.y, range: 1.9, label: "상인", short: "가게", prompt: "가게 열기", action: openShop },
     { x: L.table.x, y: L.table.y, range: 2, label: "모험 지도", short: "지도", prompt: "맵 고르기", action: openMapSelect },
     { x: L.smith.x, y: L.smith.y, range: 1.9, label: "대장장이", short: "강화", prompt: "장비 강화", action: openSmith },
     { x: L.wardrobe.x, y: L.wardrobe.y, range: 1.8, label: "옷장", short: "옷장", prompt: "옷 갈아입기", action: openWardrobe },
-    { x: L.well.x, y: L.well.y, range: 1.9, label: "소원 우물", short: "소원", prompt: "에메랄드 3개 던지기", action: wishWell },
+    { x: L.well.x, y: L.well.y, range: 1.9, label: typeof worldLook === "function" && worldLook() === 2 ? "소원 조개" : "소원 우물", short: "소원", prompt: "에메랄드 3개 던지기", action: wishWell },
     { x: L.board.x, y: L.board.y, range: 1.8, label: "기록판", short: "기록", prompt: "내 기록 보기", action: openRecords },
     { dog: true, x: dog.x, y: dog.y, range: 1.4, label: "강아지", short: "쓰담", prompt: "쓰다듬기", action: petDog },
   ];
@@ -258,6 +260,7 @@ function drawCrate(c) {
 }
 
 function drawTree(t) {
+  if (typeof worldLook === "function" && worldLook() === 2) return drawCoralTree(t);
   drawBox(t.x - 0.15, t.y - 0.15, 0, 0.3, 0.3, 1.2, "#6b4a2a");
   drawBox(t.x - 0.6, t.y - 0.6, 1.0, 1.2, 1.2, 0.8, "#3f7a3a");
   drawBox(t.x - 0.4, t.y - 0.4, 1.8, 0.8, 0.8, 0.5, "#4f9346");
@@ -278,7 +281,34 @@ function drawMapTable() {
   ctx.setLineDash([]);
 }
 
+// 바닷속 마을: 나무 대신 산호, 모닥불 대신 빛나는 말미잘 등불, 우물 대신 큰 조개
+function drawCoralTree(t) {
+  const k = (Math.floor(t.x * 7 + t.y * 3) % 3 + 3) % 3, col = ["#ff7a8a", "#ffb04a", "#c87aff"][k], dk = ["#c84a5a", "#c8802a", "#8a4ac8"][k];
+  drawBox(t.x - 0.18, t.y - 0.18, 0, 0.36, 0.36, 0.7, dk);
+  drawBox(t.x - 0.5, t.y - 0.12, 0.6, 0.3, 0.24, 0.8, col); drawBox(t.x + 0.2, t.y - 0.1, 0.5, 0.26, 0.24, 1.0, col);
+  drawBox(t.x - 0.1, t.y - 0.4, 0.7, 0.24, 0.26, 1.1, col);
+  const sw = Math.sin(game.time * 1.6 + t.x) * 0.06;
+  drawBox(t.x + 0.45 + sw, t.y + 0.3, 0, 0.1, 0.1, 1.2, "#3f9a6a"); drawBox(t.x - 0.55 - sw, t.y + 0.25, 0, 0.1, 0.1, 0.9, "#4fae7a");
+}
+function drawSeaLantern() {
+  const f = lobby.fire, t = game.time;
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; drawBox(f.x + Math.cos(a) * 0.5 - 0.1, f.y + Math.sin(a) * 0.5 - 0.1, 0, 0.2, 0.2, 0.12, "#6a8a92"); }
+  drawBox(f.x - 0.25, f.y - 0.25, 0, 0.5, 0.5, 0.25, "#3a7a8a");
+  for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2 + t * 0.5; const h = 0.35 + 0.12 * Math.sin(t * 3 + i); drawBox(f.x + Math.cos(a) * 0.18 - 0.05, f.y + Math.sin(a) * 0.18 - 0.05, 0.25, 0.1, 0.1, h, i % 2 ? "#7ff0ff" : "#c8a8ff"); }
+  drawBox(f.x - 0.1, f.y - 0.1, 0.3, 0.2, 0.2, 0.3 + 0.05 * Math.sin(t * 4), "#e6fbff");
+  glowAt(f.x, f.y, 0.4, 60, "120,220,255", 0.4);
+}
+function drawGiantClam(w) {
+  drawBox(w.x - 0.7, w.y - 0.6, 0, 1.4, 1.2, 0.35, "#e8c8b8");
+  drawBox(w.x - 0.62, w.y - 0.52, 0.35, 1.24, 1.04, 0.06, "#ffe6f0");
+  const open = 0.25 + 0.08 * Math.sin(game.time * 1.5);
+  drawBox(w.x - 0.7, w.y - 0.75, 0.42 + open, 1.4, 0.3, 0.5, "#dcb4a4");
+  drawBox(w.x - 0.12, w.y - 0.12, 0.42, 0.24, 0.24, 0.22, "#ffffff");
+  glowAt(w.x, w.y, 0.6, 30, "255,240,255", 0.3);
+}
+
 function drawCampfire() {
+  if (typeof worldLook === "function" && worldLook() === 2) return drawSeaLantern();
   const f = lobby.fire;
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
@@ -311,6 +341,7 @@ function glowAt(x, y, z, r, rgb, a) {
 
 function drawWell() {
   const w = lobby.well;
+  if (typeof worldLook === "function" && worldLook() === 2) return drawGiantClam(w);
   // 둥근 돌 우물
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;

@@ -267,7 +267,8 @@ for (let i = 0; i < 12; i++) TROPHY_SPOTS.push({ x: 19.4 + (i % 6) * 0.95, y: 16
 const CODEX_STAND = { x: 19.2, y: 8.6 };
 
 function trophyMaps() {
-  return (typeof MAPS !== "undefined" ? MAPS : []).filter((m) => m.type !== "tower" && typeof BOSS_DEFS !== "undefined" && BOSS_DEFS[m.id]);
+  // 지금 월드의 보스만 (마을마다 그 월드 트로피 선반·도감: worlds.js)
+  return (typeof MAPS !== "undefined" ? MAPS : []).filter((m) => m.type !== "tower" && typeof BOSS_DEFS !== "undefined" && BOSS_DEFS[m.id] && (typeof mapWorld !== "function" || mapWorld(m) === curWorld()));
 }
 
 function drawTrophy(spot, mapId, won) {

@@ -660,9 +660,15 @@ function clsSkillPose(p) {
   const pose = playerPose(p);
   if (!pose.weapon) return null;
   const k = spin ? 1 : Math.min(1, p.castPose / 0.15);
-  if (spin) {
+  if (spin && pose.lhPull) {
+    // 두손 무기 (anim.js TWO_HAND): 두 손으로 잡고 옆으로 쭉 (왼손은 rig.js 가 자루에 붙여요)
+    pose.rh = handAt(1.0, 0.34, 0.58); pose.weapon.dir = dirAt(1.45, 0.06); pose.twist = 0.6; pose.lean = 0.05;
+  } else if (spin) {
     pose.rh = handAt(1.35, 0.36, 0.56); pose.weapon.dir = dirAt(1.45, 0.06);
     pose.lh = handAt(-1.35, 0.3, 0.56); pose.twist = 0.35; pose.lean = 0.05; pose.lhShaft = null;
+  } else if (cls === "warrior" && pose.lhPull) {
+    // 함성: 두 손으로 무기를 번쩍
+    pose.rh = handAt(0.3, 0.18, 0.62 + 0.38 * k); pose.weapon.dir = dirAt(0.3, 0.6 + 0.75 * k); pose.lean = -0.08 * k;
   } else if (cls === "warrior") {
     pose.rh = handAt(0.55, 0.2, 0.6 + 0.35 * k); pose.weapon.dir = dirAt(0.3, 0.6 + 0.75 * k);
     pose.lh = handAt(-0.7, 0.24, 0.6 + 0.3 * k); pose.lean = -0.08 * k; pose.lhShaft = null;

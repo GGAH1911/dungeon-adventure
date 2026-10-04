@@ -204,7 +204,8 @@ const ABILITY_TUNING = {
 const MIN_TELEGRAPH = 0.45; // 아픈 기술 예고는 어떤 난이도에서도 이보다 짧지 않아요
 // 따라오는 예고(조준선·따라오는 낙인)는 끝나기 전에 꼭 멈춰요. 멈춘 뒤 남는 시간 = 보고 반응하는 시간 + 걸어서 빠져나가는 시간
 // (예전엔 "마지막 30%" 라서 빛줄기는 0.2초만 멈췄어요: 사람이 반응하기 전에 맞았어요)
-const FOLLOW_REACT = { easy: 0.45, normal: 0.35, hard: 0.3, nightmare: 0.25 };
+// 아이 반응 시간 기준 (8~10살은 어른보다 약 1.5배 느려요: 설계서 world2-ocean.md 1-4)
+const FOLLOW_REACT = { easy: 0.6, normal: 0.5, hard: 0.4, nightmare: 0.3 };
 function followLockAt(c) {
   const d = (typeof game !== "undefined" && game.profile && game.profile.difficulty) || "normal";
   const shape = c.ab.telegraph.shape;

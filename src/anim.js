@@ -35,7 +35,22 @@ const IDLE_GRIP = {
   dagger: { hy: 0.95, hr: 0.27, hz: 0.45, wy: 0.3, wp: -0.35 },
   spear: { hy: 0.45, hr: 0.2, hz: 0.52, wy: 0.1, wp: 0.28, tw: 0.5, shaft: [0.08, 0.45] },
   heavy: { hy: 0.55, hr: 0.24, hz: 0.5, wy: -0.55, wp: 1.0, shaft: [-0.32, -0.08] },
+  // 전사 두손 잡기 (TWO_HAND): 칼은 두 손으로 몸 앞에 모아 쥐고 칼끝을 앞으로 비스듬히 내려요
+  sword2h: { hy: 0.55, hr: 0.27, hz: 0.48, wy: 0.4, wp: -0.4, tw: 0.3 },
 };
+
+// 전사 두손 잡기: 칼·창·낫·도끼·망치는 두 손으로 잡아요 (쌍단검은 한 손에 하나씩, 다른 직업은 그대로)
+//   shaft: 왼손이 잡는 자루 구간 (오른손에서 무기 방향으로 거리, - 는 손잡이 끝 쪽)
+//   hilt: 칼 손잡이 길이 (두 손이 들어가게 길게)
+const TWO_HAND = {
+  sword: { shaft: [-0.15, -0.12], hilt: 0.23 },
+  spear: { shaft: [0.1, 0.45] },
+  heavy: { shaft: [-0.3, -0.12] },
+};
+function twoHandGrip(p, cls) {
+  if (typeof playerCls === "function" && playerCls(p) !== "warrior") return null;
+  return TWO_HAND[cls] || null;
+}
 
 // 공격 동작 키프레임 (t: 0~1). impact = 실제로 맞는 순간
 const MOVE_ANIMS = {
@@ -84,6 +99,51 @@ const MOVE_ANIMS = {
   ] },
 };
 
+// 전사 두손 무기용 휘두르기 (무기 묶음 -> 동작 이름, 없으면 MOVE_ANIMS 그대로)
+// impact 는 MOVE_ANIMS 와 같아야 해요 (맞는 순간은 combat.js 가 MOVE_ANIMS 로 정해요)
+// 두 손으로 휘두를 땐: 손이 몸 가까이, 어깨를 크게 돌리고(tw), 팔이 몸 앞을 가로질러요
+const MOVE_ANIMS_2H = {
+  sword: {
+    // 오른쪽 어깨 위로 크게 들었다가 왼쪽으로 가로베기
+    slash: { impact: 0.42, keys: [
+      { t: 0, hy: 0.55, hr: 0.27, hz: 0.48, wy: 0.4, wp: -0.4, tw: 0.3 },
+      { t: 0.28, hy: 1.25, hr: 0.22, hz: 0.72, wy: 2.2, wp: 0.25, lean: -0.04, tw: 1.0, ease: "out" },
+      { t: 0.56, hy: -0.55, hr: 0.3, hz: 0.6, wy: -1.3, wp: -0.05, lean: 0.08, tw: -0.75, ease: "fast" },
+      { t: 1, hy: -0.85, hr: 0.24, hz: 0.52, wy: -1.85, wp: -0.35, lean: 0.03, tw: -0.95, ease: "out" },
+    ] },
+    // 왼쪽 어깨 위로 들었다가 오른쪽으로 되베기
+    backslash: { impact: 0.42, keys: [
+      { t: 0, hy: -0.85, hr: 0.24, hz: 0.52, wy: -1.85, wp: -0.35, tw: -0.95 },
+      { t: 0.25, hy: -0.75, hr: 0.22, hz: 0.72, wy: -1.9, wp: 0.25, lean: -0.03, tw: -1.05, ease: "out" },
+      { t: 0.56, hy: 1.0, hr: 0.3, hz: 0.6, wy: 1.6, wp: 0, lean: 0.08, tw: 0.75, ease: "fast" },
+      { t: 1, hy: 1.2, hr: 0.26, hz: 0.52, wy: 2.0, wp: -0.35, lean: 0.03, tw: 0.85, ease: "out" },
+    ] },
+    // 머리 위로 번쩍 들었다가 어깨를 바로 하고 내려찍기
+    overhead: { impact: 0.58, keys: [
+      { t: 0, hy: 1.2, hr: 0.26, hz: 0.52, wy: 2.0, wp: -0.35, tw: 0.85 },
+      { t: 0.42, hy: 0.15, hr: 0.12, hz: 1.0, wy: 0.1, wp: 2.3, lean: -0.08, hop: 0.03, tw: 0.1, ease: "out" },
+      { t: 0.6, hy: 0.05, hr: 0.36, hz: 0.52, wy: 0.03, wp: -0.55, lean: 0.16, tw: -0.1, ease: "fast" },
+      { t: 1, hy: 0.05, hr: 0.34, hz: 0.46, wy: 0.03, wp: -0.8, lean: 0.1, tw: -0.05, ease: "out" },
+    ] },
+  },
+};
+
+// 전사 점프 찍기 (두손 무기): t = 도약 진행 0~1 (그림만, 맞는 건 classes.js). 첫 자세는 서 있던 자세
+const LEAP_2H = { spear: { keys: [
+  // 창: 어깨 위로 들어 창끝을 앞으로, 내려오며 아래로 푹
+  { t: 0, hy: 0.45, hr: 0.2, hz: 0.52, wy: 0.1, wp: 0.28, tw: 0.5 },
+  { t: 0.4, hy: 0.4, hr: 0.15, hz: 0.85, wy: 0.05, wp: -0.15, lean: -0.08, tw: 0.5, ease: "out" },
+  { t: 0.7, hy: 0.4, hr: 0.15, hz: 0.88, wy: 0.05, wp: -0.2, lean: -0.05, tw: 0.5 },
+  { t: 0.92, hy: 0.15, hr: 0.3, hz: 0.55, wy: 0.0, wp: -0.6, lean: 0.18, crouch: 0.2, tw: 0.45, ease: "fast" },
+  { t: 1, hy: 0.15, hr: 0.3, hz: 0.5, wy: 0.0, wp: -0.65, lean: 0.14, crouch: 0.25, tw: 0.45, ease: "out" },
+] }, keys: [
+  { t: 0, hy: 0.55, hr: 0.27, hz: 0.48, wy: 0.4, wp: -0.4, tw: 0.3 },
+  { t: 0.4, hy: 0.15, hr: 0.12, hz: 1.0, wy: 0.1, wp: 2.3, lean: -0.1, tw: 0.1, ease: "out" },
+  { t: 0.7, hy: 0.15, hr: 0.14, hz: 1.0, wy: 0.1, wp: 2.1, lean: -0.06, tw: 0.1 },
+  { t: 0.92, hy: 0.05, hr: 0.36, hz: 0.5, wy: 0.03, wp: -0.6, lean: 0.18, crouch: 0.2, tw: -0.1, ease: "fast" },
+  { t: 1, hy: 0.05, hr: 0.35, hz: 0.47, wy: 0.03, wp: -0.75, lean: 0.14, crouch: 0.25, tw: -0.05, ease: "out" },
+] };
+
 // 연속기 동작 이름 고르기
 function moveAnimName(mv, w) {
   if (mv.kind === "slash") return mv.dir === -1 ? "backslash" : "slash";
@@ -119,6 +179,7 @@ function playerPose(p) {
   };
   const style = weaponStyle(w);
   const glow = EFFECT_GLOW[w.effect];
+  const two = twoHandGrip(p, cls);
   const weaponSpec = (dir) => ({ style, color: w.color, len: w.length, dir, glow, butt: cls === "heavy" ? 0.32 : 0.35 });
 
   // --- 활 쏘는 자세 ---
@@ -145,8 +206,15 @@ function playerPose(p) {
   // --- 칼 자세 (가만히 / 공격) ---
   let g;
   let bodyYaw = 0;
-  if (p.move && p.swingTimer > 0) {
-    const anim = MOVE_ANIMS[moveAnimName(p.move, w)];
+  if (two && p.leap && p.leap.dur > 0) {
+    // 점프 찍기 (classes.js 도약): 뛰어오르며 머리 위로 들었다가 내려오며 쾅
+    const from = { ...((IDLE_GRIP[cls + "2h"]) || IDLE_GRIP[cls]), t: 0 }; // 서 있던 자세에서 시작
+    g = sampleKeys([from, ...(LEAP_2H[cls] || LEAP_2H).keys.slice(1)], 1 - Math.max(0, p.leap.t) / p.leap.dur);
+    pose.lean = g.lean || 0;
+    pose.crouch = g.crouch || 0;
+  } else if (p.move && p.swingTimer > 0) {
+    const name = moveAnimName(p.move, w);
+    const anim = (two && MOVE_ANIMS_2H[cls] && MOVE_ANIMS_2H[cls][name]) || MOVE_ANIMS[name]; // 맞는 순간(impact)은 MOVE_ANIMS 그대로 (combat.js)
     const t = 1 - p.swingTimer / p.move.dur;
     g = sampleKeys(anim.keys, t);
     bodyYaw = g.body || 0;
@@ -154,7 +222,7 @@ function playerPose(p) {
     pose.hop = g.hop || 0;
     pose.crouch = g.crouch || 0;
   } else {
-    const idle = IDLE_GRIP[cls];
+    const idle = (two && IDLE_GRIP[cls + "2h"]) || IDLE_GRIP[cls];
     g = { ...idle };
     if (p.moving) { g.hy += Math.sin(p.walkTime * 11) * 0.12; g.hz += Math.abs(Math.sin(p.walkTime * 11)) * 0.02; }
   }
@@ -164,11 +232,14 @@ function playerPose(p) {
   pose.twist = g.tw !== undefined ? g.tw : Math.max(-0.6, Math.min(0.6, g.hy * 0.35));
   const wdir = dirAt(g.wy, g.wp);
   pose.weapon = weaponSpec(wdir);
+  if (two && two.hilt) pose.weapon.hilt = two.hilt; // 두 손이 들어가게 긴 손잡이 (등에 멘 칼은 그대로)
   pose.bodyYaw = bodyYaw;
 
   // 왼손: 두손 무기는 자루를 잡고, 아니면 균형 잡기
   const idle = IDLE_GRIP[cls];
-  if (idle.shaft) {
+  if (two) {
+    pose.lhShaft = two.shaft; pose.lhPull = true; // 두 손으로 꽉 (rig.js 가 오른손을 당겨서라도 왼손이 닿게 해요)
+  } else if (idle.shaft) {
     pose.lhShaft = idle.shaft; // rig.js 가 닿는 자리를 찾아 잡아요
   } else if (cls === "dagger") {
     pose.lh = handAt(-0.95 + (p.moving ? Math.sin(p.walkTime * 11) * 0.12 : 0), 0.27, 0.45);

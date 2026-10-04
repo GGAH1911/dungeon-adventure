@@ -441,13 +441,14 @@ function qolRecommendSlot() {
 function qolRecommendedMap() {
   const L = qolRecommendedLevel();
   let best = -1, bestMin = -1;
+  const inW = (i) => typeof mapWorld !== "function" || mapWorld(MAPS[i]) === curWorld(); // 지금 월드의 맵만
   for (let i = 0; i < MAPS.length; i++) {
     const m = MAPS[i];
-    if (m.type === "tower" || !mapUnlocked(i)) continue;
+    if (m.type === "tower" || !mapUnlocked(i) || !inW(i)) continue;
     const r = levelRange(m);
     if (L >= r.min && L <= r.max && r.min > bestMin) { best = i; bestMin = r.min; }
   }
-  if (best < 0) for (let i = 0; i < MAPS.length; i++) if (MAPS[i].type !== "tower" && mapUnlocked(i)) best = i; // 맞는 곳이 없으면 가장 뒤에 열린 맵
+  if (best < 0) for (let i = 0; i < MAPS.length; i++) if (MAPS[i].type !== "tower" && mapUnlocked(i) && inW(i)) best = i; // 맞는 곳이 없으면 가장 뒤에 열린 맵
   return best;
 }
 

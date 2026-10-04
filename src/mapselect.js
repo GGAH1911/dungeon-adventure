@@ -74,11 +74,13 @@ function focusPlace(i, zoom) {
   mapSel.vel.x = mapSel.vel.y = 0;
 }
 
+// 지금 월드의 맵인가 (worlds.js). 모험 지도는 지금 월드의 맵만 보여줘요
+function inMapWorld(i) { return typeof mapWorld !== "function" || mapWorld(MAPS[i]) === curWorld(); }
 function openMapSelect() {
   game.overlay = "maps";
   // 가장 최근에 열린 맵(탑 말고)을 골라서 가운데로
-  let last = 0;
-  for (let i = 0; i < MAPS.length; i++) if (mapUnlocked(i) && MAPS[i].type !== "tower") last = i;
+  let last = MAPS.findIndex((m, i) => inMapWorld(i)); if (last < 0) last = 0;
+  for (let i = 0; i < MAPS.length; i++) if (inMapWorld(i) && mapUnlocked(i) && MAPS[i].type !== "tower") last = i;
   const recMap = typeof qolRecommendedMap === "function" ? qolRecommendedMap() : -1;
   if (recMap >= 0) last = recMap; // 추천 맵을 먼저 보여줘요
   selectMap(last);
@@ -317,7 +319,7 @@ function updateMapSelect() {
     const from = placeOf(MAPS[mapSel.index]);
     let best = -1, bestScore = Infinity;
     MAPS.forEach((m, i) => {
-      if (i === mapSel.index) return;
+      if (i === mapSel.index || !inMapWorld(i)) return;
       const p = placeOf(m), vx = p.x - from.x, vy = p.y - from.y;
       const along = vx * dx + vy * dy;
       if (along <= 0) return;
@@ -518,7 +520,9 @@ function greyish(col, locked) {
   return `rgb(${w},${w},${w})`;
 }
 
-function drawPlaceIcon(m, x, y, s, locked) {
+// 장소 그림 (다른 월드 맵은 그 월드 파일이 "drawPlaceIcon" 으로 대신 그려요: ocean.js)
+function drawPlaceIcon(m, x, y, s, locked) { if (hookAny("drawPlaceIcon", m, x, y, s, locked)) return; return drawPlaceIconBase(m, x, y, s, locked); }
+function drawPlaceIconBase(m, x, y, s, locked) {
   const g = ctx, C = (c) => greyish(c, locked);
   const poly = (pts, col) => { g.beginPath(); pts.forEach(([px, py], i) => (i ? g.lineTo(x + px * s, y + py * s) : g.moveTo(x + px * s, y + py * s))); g.closePath(); g.fillStyle = col; g.fill(); g.strokeStyle = "rgba(30,20,10,0.7)"; g.lineWidth = 1.5; g.stroke(); };
   const rect = (rx, ry, w, h, col) => { g.fillStyle = col; g.fillRect(x + rx * s, y + ry * s, w * s, h * s); g.strokeStyle = "rgba(30,20,10,0.7)"; g.lineWidth = 1.5; g.strokeRect(x + rx * s, y + ry * s, w * s, h * s); };
@@ -635,7 +639,7 @@ function drawRoads() {
   ctx.lineCap = "round";
   MAPS.forEach((m, i) => {
     const src = unlockSource(i);
-    if (!src) return;
+    if (!src || !inMapWorld(i) || (typeof mapWorld === "function" && mapWorld(src) !== mapWorld(m))) return; // 다른 월드에서 오는 길은 안 그려요
     const a = placeOf(src), b = placeOf(m);
     const open = mapUnlocked(i);
     const A = worldToScreen(a.x, a.y), B = worldToScreen(b.x, b.y);
@@ -673,7 +677,8 @@ function drawMapSelect() {
   ctx.fillRect(0, 0, W, H);
 
   // 지도
-  if (!mapSel.terrain) mapSel.terrain = buildTerrain();
+  const tw = typeof curWorld === "function" ? curWorld() : 1;
+  if (!mapSel.terrain || mapSel.terrainWorld !== tw) { mapSel.terrain = tw === 2 && typeof buildSeaTerrain === "function" ? buildSeaTerrain() : buildTerrain(); mapSel.terrainWorld = tw; }
   ctx.save();
   ctx.beginPath(); ctx.rect(a.x, a.y, a.w, a.h); ctx.clip();
   const tl = worldToScreen(0, 0);
@@ -684,7 +689,7 @@ function drawMapSelect() {
   // 장소
   mapSel.hits = [];
   const s = Math.max(0.75, Math.min(1.6, 0.55 + c.z * 0.7)) * (Math.min(W, H) < 450 ? 0.85 : 1);
-  const order = MAPS.map((m, i) => i).sort((i, j) => placeOf(MAPS[i]).y - placeOf(MAPS[j]).y);
+  const order = MAPS.map((m, i) => i).filter(inMapWorld).sort((i, j) => placeOf(MAPS[i]).y - placeOf(MAPS[j]).y);
   const recIdx = typeof qolRecommendedMap === "function" ? qolRecommendedMap() : -1;
   for (const i of order) {
     const m = MAPS[i];
@@ -715,7 +720,7 @@ function drawMapSelect() {
 
   // 지도 위 버튼 (실제 화면 크기)
   const bs = Math.min(W, H) < 450 ? 40 : 48;
-  text("모험 지도", a.x + 16, a.y + 36, Math.min(28, H * 0.07), "#ffe27a");
+  text(typeof WORLDS !== "undefined" ? WORLDS[curWorld()].mapTitle : "모험 지도", a.x + 16, a.y + 36, Math.min(28, H * 0.07), "#ffe27a");
   text(`내 레벨 ${pr.level}`, a.x + 16, a.y + 36 + Math.min(26, H * 0.065), Math.min(17, H * 0.045), "#7dd3ff");
   drawButton(a.x + a.w - bs - 12, a.y + a.h - bs * 2 - 20, bs, bs, "+", () => { mapSel.goal = null; zoomAt(a.x + a.w / 2, a.y + a.h / 2, 1.35); }, { size: 24, color: "rgba(40,30,20,0.6)" });
   drawButton(a.x + a.w - bs - 12, a.y + a.h - bs - 12, bs, bs, "−", () => { mapSel.goal = null; zoomAt(a.x + a.w / 2, a.y + a.h / 2, 1 / 1.35); }, { size: 24, color: "rgba(40,30,20,0.6)" });

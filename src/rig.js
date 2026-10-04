@@ -63,7 +63,7 @@ function solveArm(sh, target, hint) {
 // pose: anim.js 가 만들어요
 //   bodyYaw 몸 전체 돌기, twist 윗몸 돌기, lean 앞으로 기울기, hop 뛰어오르기, crouch 웅크리기
 //   walk { phase, amp }, rh/lh 손 위치(없으면 팔을 옆에 내려요)
-//   weapon { item, style, dir, len, twoHand }, offWeapon(왼손 무기), bow { draw, aim, arrow, item }
+//   weapon { item, style, dir, len, hilt(칼 손잡이 길이) }, lhShaft [a, b] 왼손이 잡는 자루 구간, lhPull 두손으로 꽉 잡기, offWeapon(왼손 무기), bow { draw, aim, arrow, item }
 //   back [ 등에 멘 것들 ]
 function buildRigItems(e, look, pose, opts = {}) {
   const items = [];
@@ -96,17 +96,33 @@ function buildRigItems(e, look, pose, opts = {}) {
 
   // 팔: 어깨에서 손까지 (IK)
   const arms = {};
+  const reach = RIG.upper + RIG.lower - 0.01;
+  // 자루에서 sh 에 가장 가까운 곳 (손 grip, 그려지는 무기 방향 그대로)
+  const shaftNear = (grip, sh) => {
+    const d = weaponDrawDir(grip, pose.weapon);
+    const a = vadd(grip, vmul(d, pose.lhShaft[0])), b = vadd(grip, vmul(d, pose.lhShaft[1]));
+    const ab = vsub(b, a);
+    const t = Math.max(0, Math.min(1, vdot(vsub(sh, a), ab) / Math.max(1e-6, vdot(ab, ab))));
+    return vadd(a, vmul(ab, t));
+  };
   for (const [key, side] of [["rh", -1], ["lh", 1]]) {
     const sh = upper(V(0, side * RIG.shoulderS, RIG.shoulderZ));
     let target = pose[key];
+    // 두손으로 꽉 잡기(lhPull): 왼손이 자루에 못 닿으면 오른손을 몸 쪽으로 당겨서 두 손이 다 닿게 해요
+    if (key === "rh" && pose.lhPull && pose.lhShaft && pose.weapon && target) {
+      const shL = upper(V(0, RIG.shoulderS, RIG.shoulderZ));
+      for (let i = 0; i < 4; i++) {
+        const toR = vsub(target, sh), lr = vlen(toR);
+        if (lr > reach - 0.02) target = vadd(sh, vmul(toR, (reach - 0.02) / lr));
+        const v = vsub(shaftNear(target, shL), shL), l = vlen(v);
+        if (l <= reach - 0.03) break;
+        target = vsub(target, vmul(v, (l - (reach - 0.04)) / l));
+      }
+    }
     // 두손 무기: 왼손은 자루에서 "닿는 가장 가까운 곳"을 잡아요. 못 닿으면 놓아요.
     if (key === "lh" && pose.lhShaft && pose.weapon && arms.rh) {
-      const d = vnorm(pose.weapon.dir);
-      const a = vadd(arms.rh.hand, vmul(d, pose.lhShaft[0])), b = vadd(arms.rh.hand, vmul(d, pose.lhShaft[1]));
-      const ab = vsub(b, a);
-      const t = Math.max(0, Math.min(1, vdot(vsub(sh, a), ab) / Math.max(1e-6, vdot(ab, ab))));
-      const near = vadd(a, vmul(ab, t));
-      target = vlen(vsub(near, sh)) <= RIG.upper + RIG.lower - 0.01 ? near : null;
+      const near = shaftNear(arms.rh.hand, sh);
+      target = vlen(vsub(near, sh)) <= reach ? near : null;
     }
     if (!target) {
       // 손을 옆으로 내리고 걸을 때 흔들기 (반대쪽 다리와 엇갈리게)
@@ -141,16 +157,21 @@ function buildRigItems(e, look, pose, opts = {}) {
 }
 
 // 무기 조각들. grip = 손 위치, dir = 칼끝 방향
-function addWeaponItems(items, grip, w) {
+// 그려지는 무기 방향: 칼끝이 바닥 밑으로 가면 (그림에서 바닥에 눌려 칼이 휘어 보여요) 칼을 곧게 둔 채 살짝 들어 올려요
+function weaponDrawDir(grip, w) {
   let dir = vnorm(w.dir);
   const L = w.len;
-  // 칼끝이 바닥 밑으로 가면 (그림에서 바닥에 눌려 칼이 휘어 보여요) 칼을 곧게 둔 채 살짝 들어 올려요
   const minZ = 0.05;
   if (grip.z + dir.z * L < minZ) {
     const nz = Math.max(-1, Math.min(1, (minZ - grip.z) / L));
     const h = Math.hypot(dir.f, dir.s), nh = Math.sqrt(Math.max(0, 1 - nz * nz));
     dir = h > 1e-4 ? V(dir.f / h * nh, dir.s / h * nh, nz) : V(nh, 0, nz);
   }
+  return dir;
+}
+function addWeaponItems(items, grip, w) {
+  const dir = weaponDrawDir(grip, w);
+  const L = w.len;
   const style = w.style;
   const color = w.color;
   const pieces = Math.max(2, Math.round(L / 0.22));
@@ -165,7 +186,7 @@ function addWeaponItems(items, grip, w) {
   const tip = vadd(grip, vmul(dir, L));
 
   if (style === "blade" || style === "legend" || style === "dagger") {
-    const pommel = vadd(grip, vmul(dir, -0.11));
+    const pommel = vadd(grip, vmul(dir, -(w.hilt || 0.11))); // 두손 칼은 손잡이가 길어요 (hilt)
     const guardP = vadd(grip, vmul(dir, 0.07));
     items.push({ type: "seg", a: pommel, b: guardP, color: "#6b4423", width: 6, outline: true });
     items.push({ type: "seg", a: vadd(guardP, vmul(side, 0.1)), b: vadd(guardP, vmul(side, -0.1)), color: style === "legend" ? "#ffd23f" : "#8a6a2a", width: 4.5, outline: true });
