@@ -16,7 +16,7 @@ function setShopCat(c) { shop.cat = c; shop.sel = 0; shop.page = 0; shop.confirm
 
 function shopEntries() {
   if (shop.cat === 0) return game.profile.shopStock.map((it) => ({ kind: "gear", id: it.u, it, item: { name: itemLabel(it), color: itemRarity(it).color } }));
-  return [...ARROW_TYPES.map((item) => ({ kind: "arrows", id: item.id, item })), { kind: "potion", id: "potion", item: POTION }, ...shopBuffEntries()];
+  return [...ARROW_TYPES.map((item) => ({ kind: "arrows", id: item.id, item })), { kind: "potion", id: "potion", item: POTION }, ...shopBuffEntries(), ...(typeof shopFoodEntries === "function" ? shopFoodEntries() : [])];
 }
 // 강화 물약: 작은·큰 것만 팔아요 (최상급은 던전에서 줍기만, buffpots.js)
 function shopBuffEntries() {
@@ -74,6 +74,7 @@ function shopAction() {
     saveProfile(); sfx.buy();
     return shopNote(`${it.name} ${it.pack}개를 샀어요! (${arrowCount(it.id)}개)`, "#7dffb0");
   }
+  if (e.kind === "food") return shopBuyFood(e.id); // 음식 (hunger.js)
   if (e.kind === "buffpot") {
     if (!pay({ cur: "emerald", n: e.item.price })) return notEnough(e.item.price);
     buffPotAdd(e.id, 1);
@@ -136,6 +137,7 @@ function drawShop() {
     }
     if (e.kind === "arrows") { desc = `${e.item.desc} · ${e.item.pack}개 묶음 · ${arrowCount(e.id)}개 있음`; price = { cur: "emerald", n: e.item.price }; }
     else if (e.kind === "buffpot") { desc = `${buffPotDesc(e.id)} · ${buffPotCount(e.id)}개 있음`; price = { cur: "emerald", n: e.item.price }; }
+    else if (e.kind === "food") { desc = shopFoodDesc(e.id); price = { cur: "emerald", n: e.item.price }; }
     else { desc = `던전에서 마시면 하트 ${POTION.heal}개 회복 · ${pr.potions}개 있음`; price = { cur: "emerald", n: POTION.price }; }
     ctx.fillStyle = e.item.color || (e.kind === "potion" ? "#c64fa0" : "#a0784a");
     ctx.fillRect(cx + 10, ry + rowH / 2 - 14, 20, 20);

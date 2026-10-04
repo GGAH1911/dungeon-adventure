@@ -1,4 +1,4 @@
-// ===== 버티기: 가만히 있으면 체력이 차올라요 (배고픔 게이지도 여기에 넣을 자리) =====
+// ===== 버티기: 가만히 있으면 체력이 차올라요 (배고픔 게이지는 hunger.js) =====
 // 3초 넘게 가만히 있으면(걷기·휘두르기·구르기·활 없이, 안 맞고) 하트가 천천히 차오르고, 오래 쉴수록 빨라져요.
 //   1초에 최대 체력의 2% 에서 시작해 4초 동안 7% 까지. 맞거나 움직이면 처음부터.
 // 같이 하기: 방장 기기가 모든 주인공(친구 포함)을 계산해요 (친구 하트는 방장이 보내요)
@@ -32,6 +32,7 @@ hookOn("hudDraw", () => {
   if (!p || game.scene === "title" || p.hp <= 0) return;
   const now = game.time, dt = Math.min(0.2, Math.max(0, now - regenHudT)); regenHudT = now;
   if (typeof netGuest === "function" && netGuest()) p.stillT = regenStill(p) && !(p.hurtTimer > 1.5) ? (p.stillT || 0) + dt : 0;
+  if (typeof hungerStarving === "function" && hungerStarving()) return; // 배고프면 안 차요 (hunger.js)
   if (p.hp >= p.maxHp || (p.stillT || 0) < REGEN.wait) return;
   const a = 0.6 + 0.4 * Math.sin(now * 6);
   text("쉬는 중 · 하트 +", 282, 18, 12, `rgba(125,255,150,${a})`);

@@ -1,7 +1,8 @@
 // ===== 월드 4 보스 6: 수정 골렘 반짝돌이 (crystalhall) — 설계서 docs/design/world4-underworld.md 5-6 =====
 // 새 아이디어: 반짝돌이의 레이저가 나를 따라오다 멈춰요. 아레나의 수정 거울 4개 뒤 금색 칸에 서 있으면
 //   레이저가 거울에 맞아 반짝돌이에게 튕겨 4초 비틀 + 4%! 거울은 두 번 튕기면 금이 가서 10초 쉬어요 (쉬는 거울은 레이저를 못 막아요).
-//   레이저는 거울에서 끊겨요: 거울 뒤는 안전해요. 3단계엔 레이저가 두 줄(V자), 지나간 자리에 반짝 줄이 1초 남아요.
+//   레이저는 거울에서 끊겨요: 거울 뒤는 안전해요. 3단계엔 레이저가 부채(V자 두 줄 사이 전부)로 퍼져요: 거울 뒤에서만 피해요(구르기는 늘 피해요).
+//   지나간 자리에 반짝 줄이 1초 남아요.
 // 같이 하기: 거울은 소품 몬스터(맞은 수·쉬는 시간 칸)라 친구 화면에 그대로 가요. 튕김 그림은 보스 칸(cgRef*). 계산은 방장만.
 
 // ----- 월드 4 보스 5~8 공용 도우미 (네 파일이 같은 것을 가져요. 먼저 읽힌 파일 것을 써요: 읽는 순서가 바뀌어도 괜찮게) -----
@@ -75,7 +76,7 @@ const CG_BEAM = { tags: ["boss", "line", "follow"], telegraph: { shape: "line", 
 Object.assign(ABILITIES, {
   w4_cgBeam: { ...CG_BEAM, name: "수정 레이저", desc: "가슴 핵에서 굵은 레이저! 나를 따라오다 멈춰요. 거울에 맞으면 거기서 끊기고, 거울 뒤 금색 칸에 서 있으면 튕겨 돌아가요.", counter: "거울 뒤 금색 칸으로! 멈추면 옆으로",
     effect: { type: "w4_cgLaser" } },
-  w4_cgBeam2: { ...CG_BEAM, name: "수정 레이저 두 줄", desc: "레이저가 V자로 두 줄! 거울 뒤로 숨어요.", counter: "거울 뒤 금색 칸으로",
+  w4_cgBeam2: { ...CG_BEAM, name: "수정 레이저 부채", desc: "레이저가 V자로 활짝! 두 줄 사이도 다 뜨거워요. 거울 뒤로만 숨을 수 있어요.", counter: "거울 뒤 금색 칸으로",
     effect: { type: "w4_cgLaser", trail: true } },
   w4_cgSmash: { name: "수정 주먹 쾅", desc: "수정 주먹으로 앞을 쾅! 그 뒤 숨을 골라요.", counter: "빨간 원 밖으로! 숨 고를 때 공격",
     tags: ["boss", "area", "stagger"], telegraph: { shape: "circle", radius: 2.2, at: "front", offset: 1.8, time: 1.25 },
@@ -101,7 +102,7 @@ W4E.make({ mapId: "crystalhall", type: CG.type, name: "반짝돌이", title: "�
   ],
   onPhase(m, idx) {
     if (idx === 1) showMessage("수정 딱정벌레! 레이저는 거울 뒤 금색 칸으로", 2.6, false, "#c8a8ff");
-    if (idx === 2) showMessage("레이저가 두 줄! 거울 뒤로 숨어요", 3, false, "#c8a8ff");
+    if (idx === 2) showMessage("레이저가 부채처럼 활짝! 거울 뒤로만 숨을 수 있어요", 3, false, "#c8a8ff");
   } });
 
 // ----- 거울 -----
@@ -125,19 +126,23 @@ hookOn("dungeonTick", (dt) => {
   if (b.cgRefT > 0) b.cgRefT -= dt;
 }, 40);
 
-// 3단계 두 줄: 예고가 시작되면 짝 예고를 하나 더 (방장만), 그리면서 V자로 벌려요
+// 3단계 부채: 가운데 예고(부채 전체를 맞혀요) + 양쪽 가장자리 예고 2개 (방장만 만들어요), 그리면서 V자로 벌려요
+//   cgTwin: 0 = 가운데(부채), 1 / -1 = 가장자리 줄
 hookOn("castStarted", (m, id) => {
   if (id !== "w4_cgBeam2" || !m || m.type !== CG.type || W4E.guest() || (typeof netplay !== "undefined" && netplay.replaying)) return;
   const c = casts.find((q) => q.m === m && q.id === id && !q.cgTwin); if (!c) return;
-  const t = makeCast(m, c.ab, id, c.target || nearestPlayer(m.x, m.y), c.time, c.tune);
-  t.cgTwin = true; t.lockAt = c.lockAt; casts.push(t);
+  c.cgFan = true;
+  for (const sd of [1, -1]) {
+    const t = makeCast(m, c.ab, id, c.target || nearestPlayer(m.x, m.y), c.time, c.tune);
+    t.cgTwin = sd; t.lockAt = c.lockAt; casts.push(t);
+  }
 }, 50);
 hookOn("abilitiesUpdated", () => {
   for (const c of casts) {
     if (c.id !== "w4_cgBeam2" || !c.m || c.m.type !== CG.type) continue; // 반짝돌이만 V자 (다른 몬스터가 쓰면 한 줄)
     // 따라오는 동안은 바로 위 updateAbilities 가 dir 을 주인공 쪽으로 다시 맞춰요: 그 값을 바탕(cgB)으로 삼고, 멈춘 뒤엔 바탕을 그대로 둬요
     if (c.t < (c.lockAt ?? c.time * 0.6) || c.cgBX === undefined) { c.cgBX = c.dirX; c.cgBY = c.dirY; }
-    const a = Math.atan2(c.cgBY, c.cgBX) + (c.cgTwin ? -CG.twin : CG.twin);
+    const a = Math.atan2(c.cgBY, c.cgBX) + (c.cgTwin ? c.cgTwin * CG.twin : 0);
     c.dirX = Math.cos(a); c.dirY = Math.sin(a);
   }
 }, 50);
@@ -153,9 +158,28 @@ function cgBeamHit(c) {
   }
   return { stop: Math.max(0.5, stop), mirror: hitMirror, half, b };
 }
+// 부채 안인가: 가운데 줄에서 각도 CG.twin 안 (줄 굵기만큼 조금 더)
+function cgInFan(c, x, y, pad = 0) {
+  const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy);
+  if (d < 0.3) return true;
+  if (d > c.length + pad) return false;
+  const ang = Math.abs(Math.atan2(-dx * c.dirY + dy * c.dirX, dx * c.dirX + dy * c.dirY));
+  return ang <= CG.twin + Math.atan2(c.width / 2 + pad, d);
+}
+// 그 자리와 레이저 사이에 (쉬지 않는) 거울이 있으면 그 거울 (= 거울 뒤 그림자)
+function cgShadowOf(c, x, y) {
+  const dx = x - c.x, dy = y - c.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
+  for (const o of cgMirrors()) {
+    if (!cgReady(o)) continue;
+    const ox = o.x - c.x, oy = o.y - c.y, along = ox * ux + oy * uy, perp = Math.abs(-ox * uy + oy * ux);
+    if (along > 0 && along < d && perp <= (o.r || 0.5) + 0.3) return o;
+  }
+  return null;
+}
 hookOn("resolveCast", (c) => {
   if (c.ab.effect.type !== "w4_cgLaser") return false;
   const b = c.m; if (!b || b.hp <= 0) return true;
+  if (c.cgFan) return cgFanResolve(c, b);
   const { stop, mirror, half } = cgBeamHit(c);
   const dmg = abilityDamage(c);
   // 레이저 그림 (끊긴 길이만큼)
@@ -183,6 +207,40 @@ hookOn("resolveCast", (c) => {
   W4E.stun(b, CG.stun, CG.frac, "번쩍! 눈부셔!", "#e0c8ff");
   return true;
 }, 15);
+
+// 3단계 부채: 부채 안은 다 맞아요. 거울 그림자(거울 뒤)만 안전하고, 그 거울의 금색 칸에 있으면 튕겨요
+function cgFanResolve(c, b) {
+  const dmg = abilityDamage(c);
+  lineBurst(c, "#e0c8ff");
+  game.shake = Math.max(game.shake, 0.3);
+  let bounced = null;
+  for (const p of allPlayers()) {
+    if (!p || p.hp <= 0 || !cgInFan(c, p.x, p.y, (p.r || 0.35) * 0.6)) continue;
+    const o = cgShadowOf(c, p.x, p.y);
+    if (o) { const g = cgGoldSpot(o, b); if (!bounced && Math.hypot(p.x - g.x, p.y - g.y) < CG.goldR) bounced = o; continue; }
+    if (p.rollTimer > 0) { addFloatText(p.x, p.y, "회피!", "#9be8ff", 18); continue; }
+    hurtPlayer(p, dmg, b);
+  }
+  if (c.ab.effect.trail) for (let d = 1; d < c.length; d += 1.6) if (!cgShadowOf(c, c.x + c.dirX * d, c.y + c.dirY * d)) zones.push({ x: c.x + c.dirX * d, y: c.y + c.dirY * d, radius: 0.55, life: 1, max: 1, tick: 0.5, tickT: 0.3, damage: dmg * 0.2, kind: "fire" });
+  if (!bounced) return true;
+  spawnBurst(bounced.x, bounced.y, ["#e0c8ff", "#ffffff"], 10);
+  b.cgRefX = bounced.x; b.cgRefY = bounced.y; b.cgRefT = 0.4;
+  bounced.cgHits = (bounced.cgHits || 0) + 1;
+  if (bounced.cgHits >= CG.hitsToRest) { bounced.cgRest = CG.rest; addFloatText(bounced.x, bounced.y, "쩍! 금이 갔어요", "#c8e8ff", 18); }
+  if (b.invuln > 0) return true;
+  W4E.stun(b, CG.stun, CG.frac, "번쩍! 눈부셔!", "#e0c8ff");
+  return true;
+}
+// 부채 예고 그림: 두 가장자리 사이를 옅게 칠해요 (두 기기 모두, 예고는 친구에게도 가요)
+hookOn("drawFloor", () => {
+  if (game.scene !== "dungeon" || typeof casts === "undefined") return;
+  for (const c of casts) {
+    if (c.id !== "w4_cgBeam2" || c.cgTwin || !c.m || c.m.type !== CG.type) continue;
+    const k = Math.min(1, c.t / (c.time || 1)), a0 = Math.atan2(c.dirY, c.dirX), pts = [toScreen(c.x, c.y, 0.03)];
+    for (let i = 0; i <= 12; i++) { const a = a0 - CG.twin + (2 * CG.twin * i) / 12; pts.push(toScreen(c.x + Math.cos(a) * c.length, c.y + Math.sin(a) * c.length, 0.03)); }
+    ctx.save(); ctx.fillStyle = `rgba(255,70,90,${0.1 + 0.18 * k})`; ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+}, 45);
 
 // ----- 그리기: 금색 칸, 튕김 줄 -----
 hookOn("drawFloor", () => {
@@ -236,10 +294,10 @@ Object.assign(EXTRA_SHAPES, {
 // ----- 안내 -----
 if (typeof GUIDE_TEXT !== "undefined") Object.assign(GUIDE_TEXT, {
   w4_cgBeam: { text: "거울 뒤 금색 칸으로! 레이저가 튕겨요", do: true, voice: true },
-  w4_cgBeam2: { text: "두 줄! 거울 뒤로", do: true },
+  w4_cgBeam2: { text: "활짝 부채! 거울 뒤로만", do: true },
   w4_cgSmash: { text: "원 밖으로! 숨 고를 때 공격" },
   w4_cgShards: { text: "원 사이로 걸어가요" },
   w4_cgSpikes: { text: "가시 줄 옆으로" },
   w4_cgBugs: { text: "딱정벌레부터 잡아요" },
 });
-if (typeof GUIDE_PHASE_VOICE !== "undefined") GUIDE_PHASE_VOICE.crystalhall = { 0: "레이저가 오면 거울 뒤 금색 칸에 서요!", 1: "딱정벌레를 먼저 잡아요", 2: "레이저 두 줄! 거울 뒤로" };
+if (typeof GUIDE_PHASE_VOICE !== "undefined") GUIDE_PHASE_VOICE.crystalhall = { 0: "레이저가 오면 거울 뒤 금색 칸에 서요!", 1: "딱정벌레를 먼저 잡아요", 2: "레이저 부채! 거울 뒤로만 숨어요" };

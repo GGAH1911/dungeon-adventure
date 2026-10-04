@@ -946,6 +946,7 @@ function netGuestEvent(ev) {
   const [kind, args, src] = ev;
   if (kind === "xp") { const n = netCleanXp(args); if (n) gainXp(n); return; }
   if (kind === "rec") { if (typeof recFromHost === "function") recFromHost(args); return; } // 함께 쌓는 기록 (records.js)
+  if (hookAny("netGuestEvent", kind, args)) return; // 다른 파일의 사건 (배고픔 사과 "food": hunger.js)
   const a = netDec(args);
   if (!Array.isArray(a)) return;
   const X = (v) => netNum(v, -1000, 1000, 0), col = (c) => (typeof c === "string" && NP_COLOR_RE.test(c) ? c : undefined);

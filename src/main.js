@@ -282,7 +282,9 @@ function levelUp() {
   saveProfile();
 }
 
-function onPickup(item, picker) {
+// 주운 뒤: hookRun("pickedUp", item, 주운 사람) (배고픔 사과 hunger.js)
+function onPickup(item, picker) { const r = onPickupBase(item, picker); hookRun("pickedUp", item, picker || game.player); return r; }
+function onPickupBase(item, picker) {
   const p = picker || game.player;
   const pr = game.profile;
   const max = CONFIG.player.maxArrows;
