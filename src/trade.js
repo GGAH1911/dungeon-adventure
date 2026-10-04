@@ -7,6 +7,8 @@
 
 const TRADE_ASK_TIMEOUT = 20; // 초
 const trade = { phase: null, with: null, mine: null, theirs: null, myOk: false, theirOk: null, note: "", noteColor: "#ddd", noteT: 0, page: 0, askAt: 0 };
+// 화살·물약은 최대치가 없지만, 친구에게서 받은 숫자는 이 정도에서 잘라요 (이상한 값 막기)
+const TRADE_COUNT_MAX = 99999;
 function tradeEmpty() { return { items: [], arrows: {}, potions: 0 }; }
 function tradeReset() { Object.assign(trade, { phase: null, with: null, mine: tradeEmpty(), theirs: tradeEmpty(), myOk: false, theirOk: null, page: 0 }); }
 tradeReset();
@@ -49,8 +51,8 @@ function tradeCleanOffer(o) {
   const out = tradeEmpty();
   if (!o || typeof o !== "object") return out;
   for (const x of Array.isArray(o.items) ? o.items.slice(0, BAG_MAX) : []) { const it = tradeCleanItem(x); if (it) out.items.push(it); }
-  for (const at of ARROW_TYPES) { const n = Math.round(netNum(o.arrows && o.arrows[at.id], 0, CONFIG.player.maxArrows, 0)); if (n > 0) out.arrows[at.id] = n; }
-  out.potions = Math.round(netNum(o.potions, 0, CONFIG.player.maxPotions, 0));
+  for (const at of ARROW_TYPES) { const n = Math.round(netNum(o.arrows && o.arrows[at.id], 0, Math.min(CONFIG.player.maxArrows, TRADE_COUNT_MAX), 0)); if (n > 0) out.arrows[at.id] = n; }
+  out.potions = Math.round(netNum(o.potions, 0, Math.min(CONFIG.player.maxPotions, TRADE_COUNT_MAX), 0));
   return out;
 }
 // 보낼 모양 (장비는 필요한 칸만)

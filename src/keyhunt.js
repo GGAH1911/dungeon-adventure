@@ -348,7 +348,7 @@ const KEY_CHALLENGES = {
       }
       for (const pl of ch.plates) {
         const near = (o) => Math.hypot(o.x - pl.x, o.y - pl.y) < 0.5;
-        pl.on = near(p) || near(s) || monsters.some((m) => m.hp > 0 && !m.home && near(m));
+        pl.on = khPlayers().some(near) || near(s) || monsters.some((m) => m.hp > 0 && !m.home && near(m)); // 누구든 밟으면
       }
       if (ch.plates.every((pl) => pl.on)) { ch.holdT += dt; if (ch.holdT > 0.6) { sfx.anvil(); khStepDone({ x: ch.room.cx, y: ch.room.cy }); } }
       else ch.holdT = 0;
@@ -368,8 +368,7 @@ const KEY_CHALLENGES = {
     interact(ch) {
       const h = ch.stone.home;
       return [{ x: h.x, y: h.y, range: 1.2, short: "되돌리기", prompt: "돌을 제자리로", action: () => {
-        const p = game.player;
-        if (Math.hypot(p.x - h.x, p.y - h.y) < 0.9) { showMessage("한 걸음 비켜서 눌러요", 1.5); return; }
+        if (khPlayers().some((p) => Math.hypot(p.x - h.x, p.y - h.y) < 0.9)) { showMessage("한 걸음 비켜서 눌러요", 1.5); return; } // 누가 제자리에 서 있으면 (같이 하기)
         ch.stone.x = h.x; ch.stone.y = h.y; sfx.click();
       } }];
     },
@@ -489,7 +488,7 @@ const KEY_CHALLENGES = {
       return true;
     },
     update(ch, p, dt) {
-      const inside = Math.hypot(p.x - ch.c.x, p.y - ch.c.y) < ch.rad;
+      const inside = khPlayers().some((q) => Math.hypot(q.x - ch.c.x, q.y - ch.c.y) < ch.rad); // 누구든 원 안이면
       if (inside && !ch.started) { ch.started = true; showMessage("원 안에서 버텨요! 몬스터가 몰려와요", 2.5); sfx.wave(); }
       if (!ch.started) return;
       ch.gauge = Math.max(0, ch.gauge + (inside ? dt : -dt * 0.35));
@@ -684,10 +683,11 @@ const KEY_CHALLENGES = {
       const near = Math.hypot(p.x - (ch.gx + 1.5), p.y - (ch.gy + 1.5)) < 6;
       easeFocusZoom((ch.phase === "show" || ch.phase === "input") && near ? 1.35 : 1, dt);
       const step = 0.75 * Math.max(0.7, ktune().time);
-      if (ch.phase === "show" && ch.t > ch.seq.length * step + 0.3) { ch.phase = "input"; ch.k = 0; ch.last = this.tileAt(ch, p.x, p.y); showMessage("이제 같은 순서로 밟아요! (첫 타일부터)", 2); }
+      if (ch.phase === "show" && ch.t > ch.seq.length * step + 0.3) { ch.phase = "input"; ch.k = 0; ch.lastBy = {}; for (const q of khPlayers()) ch.lastBy[q.pid || 0] = this.tileAt(ch, q.x, q.y); showMessage("이제 같은 순서로 밟아요! (첫 타일부터)", 2); }
       if (ch.phase !== "input") return;
       const tile = this.tileAt(ch, p.x, p.y);
-      if (tile !== ch.last && tile >= 0) {
+      ch.lastBy = ch.lastBy || {}; const who = p.pid || 0; // 같이 하기: 주인공마다 마지막으로 밟은 타일
+      if (tile !== (ch.lastBy[who] ?? -1) && tile >= 0) {
         if (tile === ch.seq[ch.k]) {
           ch.k++; ch.flash = { tile, ok: true, t: 0.4 }; sfx.coin(); game.keyhunt.hint = 0;
           if (ch.k === ch.seq.length) { ch.phase = "done"; khZoomBack(); khStepDone({ x: ch.ped.x - 0.8, y: ch.ped.y - 0.8 }); }
@@ -699,7 +699,7 @@ const KEY_CHALLENGES = {
           khSpawn(2, ch.room.cx, ch.room.cy);
         }
       }
-      if (tile >= 0) ch.last = tile; // 가장자리·밖에 있을 땐 마지막 타일을 기억해요 (같은 타일을 두 번 친 걸로 안 쳐요)
+      if (tile >= 0) ch.lastBy[who] = tile; // 가장자리·밖에 있을 땐 마지막 타일을 기억해요 (같은 타일을 두 번 친 걸로 안 쳐요)
     },
     floor(ch) {
       const step = 0.75 * Math.max(0.7, ktune().time);
@@ -842,13 +842,20 @@ function setupKeyHunt(def) {
   showMessage(`${def.name} Lv ${game.mapLevel} · 보스방 열쇠를 찾아요! (${KEY_CHALLENGES[kh.ch.id].name})`, 3.5);
 }
 
-function updateKeyHunt(p, dt) {
+// 같이 하기: 방장과 친구는 차이가 없어요. 살아 있는 주인공 모두가 열쇠를 줍고 도전 물건을 써요
+//   도전 update 는 첫 주인공에게 시간(dt)을 주고, 다른 주인공에게는 dt 0 으로 한 번씩 더 불러요 (닿기·밟기·맞기만, 시간은 한 번만 흘러요)
+function khPlayers() { return (typeof allPlayers === "function" ? allPlayers() : [game.player]).filter((q) => q && q.hp > 0); }
+function updateKeyHunt(p0, dt) {
   const kh = game.keyhunt;
-  if (!kh || p.hp <= 0) return;
-  if (kh.ch) KEY_CHALLENGES[kh.ch.id].update(kh.ch, p, dt);
+  const ps = khPlayers();
+  if (!kh || !ps.length) return;
+  const p = ps.includes(p0) ? p0 : ps[0];
+  if (kh.ch) { const ch = kh.ch, C = KEY_CHALLENGES[ch.id]; C.update(ch, p, dt); for (const q of ps) if (q !== p && kh.ch === ch) C.update(ch, q, 0); } // 도전이 끝나 다음 도전으로 바뀌면 그만
   if (kh.keyItem) {
     kh.keyItem.t += dt;
-    if (Math.hypot(p.x - kh.keyItem.x, p.y - kh.keyItem.y) < 0.75) {
+    const taker = ps.find((q) => Math.hypot(q.x - kh.keyItem.x, q.y - kh.keyItem.y) < 0.75);
+    if (taker) {
+      const p = taker;
       kh.keyItem = null; kh.hasKey = true; kh.hint = 0;
       game.profile.keys[kh.mapId] = true; saveProfile();
       sfx.levelUp();

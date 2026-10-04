@@ -222,13 +222,8 @@ function drawHeroDetail(x, y, w, h) {
   let by = y + h - bh - 8;
   const btn = (label, fn, color) => { drawButton(x + 12, by, bw, bh, label, fn, { size: 14, color }); by -= bh + 6; };
   if (f.where !== "eq") {
-    const sv = sellValue(it), conf = hero.confirm === "sell:" + it.u;
-    btn(it.lock ? "잠겨 있어요" : conf ? "정말 팔까요? 한 번 더!" : `팔기 (${priceText(sv)})`, () => {
-      if (it.lock) return heroNote("잠금을 풀어야 팔 수 있어요", "#ffb070");
-      if (it.r >= 2 && !conf) { hero.confirm = "sell:" + it.u; return; }
-      const r = sellItemU(it.u);
-      if (r.ok) { heroNote(`${josa(itemName(it), "을/를")} 팔았어요! ${priceText(r.price)}`); hero.sel = null; sfx.buy(); } else heroNote(r.why, "#ffb070");
-    }, conf ? "rgba(255,200,60,0.5)" : "rgba(160,90,60,0.4)");
+    // 팔기는 캠프 상점에서만 (값만 알려줘요)
+    btn(`상점에서 팔면 ${priceText(sellValue(it))}`, () => heroNote("팔기는 캠프 상점의 \"팔기\" 칸에서 해요", "#ffe27a"), "rgba(90,90,90,0.35)");
     if (game.scene === "lobby") {
       if (f.where === "bag") btn("보관함에 넣기", () => {
         const st = sharedStash(); if (st.length >= STASH_MAX) return heroNote("보관함이 꽉 찼어요", "#ffb070");

@@ -121,7 +121,7 @@ function drawShop() {
       return;
     }
     if (e.kind === "arrows") { desc = `${e.item.desc} · ${e.item.pack}개 묶음 · ${arrowCount(e.id)}개 있음`; price = { cur: "emerald", n: e.item.price }; }
-    else { desc = `던전에서 마시면 하트 ${POTION.heal}개 회복 · ${pr.potions}/${CONFIG.player.maxPotions}`; price = { cur: "emerald", n: POTION.price }; }
+    else { desc = `던전에서 마시면 하트 ${POTION.heal}개 회복 · ${pr.potions}개 있음`; price = { cur: "emerald", n: POTION.price }; }
     ctx.fillStyle = e.item.color || (e.kind === "potion" ? "#c64fa0" : "#a0784a");
     ctx.fillRect(cx + 10, ry + rowH / 2 - 14, 20, 20);
     text(e.item.name, cx + 40, ry + 25, 18, "#fff");
@@ -218,7 +218,7 @@ function updateSellTab() {
 function drawSellTab(x0, y0, pw, ph) {
   const pr = game.profile;
   const list = sellEntries();
-  text("화살·물약·가방 장비를 팔아요. 장비는 그 색깔 화폐로 받아요 (끼고 있는 것·잠근 것은 안 팔려요)", x0 + 24, y0 + 124, 13, "#999");
+  text("화살·물약·가방 장비를 팔아요. 장비 값은 등급·레벨·강화·마법으로 정해요 (끼고 있는 것·잠근 것은 안 팔려요)", x0 + 24, y0 + 124, 13, "#999");
   if (!list.length) { text("팔 수 있는 게 없어요. 던전에서 장비를 모아 와요!", x0 + pw / 2, y0 + ph / 2, 18, "#ccc", "center"); return; }
   const pages = Math.max(1, Math.ceil(list.length / SELL_PER_PAGE));
   shop.page = Math.max(0, Math.min(pages - 1, shop.page));

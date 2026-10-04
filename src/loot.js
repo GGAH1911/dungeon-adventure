@@ -281,17 +281,20 @@ function giveItem(it, opts = {}) {
   it.n = true;
   codexGear(it);
   if (game.run && game.scene === "dungeon") { game.run.items = game.run.items || []; game.run.items.push(it.u); }
+  // 팔기는 캠프 상점에서만: 가방이 꽉 차도 넣어 두고(넘쳐도 돼요) 캠프에서 팔거나 보관함에 넣어요.
+  // 너무 넘치면(가방 2배) 공용 보관함으로, 거기도 꽉 차면 가장 약한 장비를 두고 와요 (팔지 않아요)
   let sold = null;
-  if (pr.bag.length >= BAG_MAX && it.r < 3) {
-    const cand = pr.bag.filter((x) => !x.lock && x.r < 3).sort((a, b) => itemScore(a) - itemScore(b))[0];
-    if (cand && itemScore(cand) < itemScore(it)) { pr.bag = pr.bag.filter((x) => x !== cand); sold = cand; }
-    else sold = it;
+  if (pr.bag.length >= BAG_MAX && !(pr.bagFullT > game.time)) { pr.bagFullT = game.time + 20; showMessage("가방이 넘쳐요! 캠프 상점에서 팔거나 보관함에 넣어요", 2.5, false, "#ffb070"); }
+  if (pr.bag.length >= BAG_MAX * 2) {
+    const st = typeof sharedStash === "function" ? sharedStash() : null;
+    if (st && st.length < STASH_MAX) { st.push(it); if (typeof saveShared === "function") saveShared(); sold = it; showMessage(`가방이 너무 넘쳐서 ${josa(itemName(it), "을/를")} 공용 보관함에 넣었어요`, 2.5, false, "#ffb070"); }
+    else {
+      const cand = pr.bag.filter((x) => !x.lock && x.r < 3).sort((a, b) => itemScore(a) - itemScore(b))[0];
+      if (cand && itemScore(cand) < itemScore(it)) { pr.bag = pr.bag.filter((x) => x !== cand); showMessage(`가방·보관함이 꽉 차서 ${josa(itemName(cand), "을/를")} 두고 왔어요`, 2.5, false, "#ffb070"); }
+      else { sold = it; showMessage(`가방·보관함이 꽉 차서 ${josa(itemName(it), "을/를")} 못 가져왔어요`, 2.5, false, "#ffb070"); }
+    }
   }
   if (sold !== it) pr.bag.push(it);
-  if (sold) {
-    const v = sellValue(sold); curAdd(v.cur, v.n);
-    showMessage(`가방이 꽉 찼어요! ${josa(itemName(sold), "을/를")} 팔았어요 (${priceText(v)})`, 2.5, false, "#ffb070");
-  }
   if (sold !== it && !opts.quiet) {
     const p = game.player;
     if (p) addFloatText(p.x, p.y, `${itemRarity(it).name} ${itemName(it)}!`, itemRarity(it).color, it.r >= 3 ? 22 : 17);
@@ -341,14 +344,26 @@ function buyPrice(it) {
   if (r === 3) return { cur: "gold", n: 3 + Math.floor(l / 10) };
   return { cur: "diamond", n: 2 + Math.floor(l / 15) };
 }
-// 파는 값 (강화한 만큼 더 쳐줘요)
+// ----- 파는 값: 장비가 얼마나 좋은지 따져요 (가게에서만 팔아요) -----
+// 값(에메랄드로 쳐서) = 가게에서 사는 값(등급·레벨)의 40% × 강화(+1마다 25%) × 마법 부여(1.3) × 보스 전설(2)
+// 그 값을 "2개 이상 나오는 가장 높은 화폐"로 줘요 (그 장비 등급 화폐까지). 전에는 희귀 이상이 거의 다 화폐 1개였어요
+const SELL_RATE = 0.4;
+function itemWorth(it) {
+  const bp = buyPrice(it), b = itemBase(it) || {};
+  let v = bp.n * CUR[bp.cur].value * SELL_RATE;
+  v *= 1 + 0.25 * (it.p || 0);
+  if (it.e) v *= 1.3;
+  if (b.legend) v *= 2;
+  return v;
+}
 function sellValue(it) {
-  const r = it.r, l = it.l, p = it.p || 0;
-  if (r === 0) return { cur: "emerald", n: Math.round((6 + 2 * l) * (1 + 0.25 * p)) };
-  return { cur: RARITIES[r].cur, n: Math.max(1, Math.round((1 + l / 15) * (1 + 0.3 * p))) };
+  const v = itemWorth(it), top = CUR[RARITIES[it.r].cur].tier;
+  for (let t = top; t > 0; t--) { const n = v / CURRENCIES[t].value; if (n >= 2) return { cur: CURRENCIES[t].id, n: Math.round(n) }; }
+  return { cur: "emerald", n: Math.max(1, Math.round(v)) };
 }
 function sellItemU(u) {
   const pr = game.profile, f = findItem(u);
+  if (!(game.scene === "lobby" && game.overlay === "shop")) return { ok: false, why: "팔기는 캠프 상점에서만 해요" }; // 던전·캐릭터 창에선 못 팔아요
   if (!f || f.where === "eq") return { ok: false, why: "끼고 있는 건 못 팔아요" };
   if (f.it.lock) return { ok: false, why: "잠근 장비는 못 팔아요 (잠금을 풀어요)" };
   const v = sellValue(f.it);
