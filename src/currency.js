@@ -1,7 +1,8 @@
 // ===== 화폐 5가지 =====
 // 에메랄드 < 은 < 자수정 < 금 < 다이아몬드
 // - 좋은 장비일수록 높은 화폐로만 살 수 있어요 (장비 등급 색 = 화폐 색: 은=파랑 희귀, 자수정=보라 영웅, 금=전설, 다이아=신화)
-// - 높은 화폐는 낮은 물건 값으로도 써져요 (은 1 = 에메랄드 10). 낮은 화폐를 높은 화폐로 바꾸는 건 안 돼요
+// - 높은 화폐는 낮은 물건 값으로도 써져요 (은 1 = 에메랄드 10)
+// - 낮은 화폐를 모아 바로 위 화폐로 바꿀 수 있어요 (가게 "바꾸기"). 값의 1.5배를 내요: 높은 맵에 갈 이유가 남게
 // - 맵 레벨이 높거나 보스를 잡으면 좋은 화폐가 나와요
 // 에메랄드는 예전처럼 game.profile.emeralds, 나머지는 game.profile.money = { silver, amethyst, gold, diamond }
 
@@ -14,6 +15,21 @@ const CURRENCIES = [
 ];
 const CUR = Object.fromEntries(CURRENCIES.map((c, i) => [c.id, { ...c, tier: i }]));
 const CUR_ORDER = CURRENCIES.map((c) => c.id);
+// 바꾸기: 낮은 화폐 n개 -> 바로 위 화폐 1개 (값의 1.5배, 올림)
+const CUR_EXCHANGE = CURRENCIES.slice(1).map((c, i) => ({ from: CURRENCIES[i].id, to: c.id, n: Math.ceil(1.5 * c.value / CURRENCIES[i].value) }));
+// 몇 번까지 바꿀 수 있나
+function exchangeMax(i, pr = game.profile) { const x = CUR_EXCHANGE[i]; return x ? Math.floor(curHave(x.from, pr) / x.n) : 0; }
+// times 번 바꾸기 (모자라면 안 바꿔요)
+function exchangeCur(i, times = 1, pr = game.profile) {
+  const x = CUR_EXCHANGE[i];
+  times = Math.floor(times);
+  if (!x || !(times > 0)) return { ok: false, why: "바꿀 수 없어요" };
+  const need = x.n * times;
+  if (curHave(x.from, pr) < need) return { ok: false, why: `${josa(CUR[x.from].name, "이/가")} ${need - curHave(x.from, pr)}개 모자라요` };
+  curSet(x.from, curHave(x.from, pr) - need, pr);
+  curSet(x.to, curHave(x.to, pr) + times, pr);
+  return { ok: true, paid: need, got: times };
+}
 // 맵 레벨마다 나오는 화폐 (보스는 한 단계 위)
 const CUR_MAP_LEVEL = { silver: 5, amethyst: 12, gold: 20 };
 

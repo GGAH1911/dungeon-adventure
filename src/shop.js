@@ -1,9 +1,9 @@
 // ===== 상인의 가게 =====
-// 장비 사기(등급 화폐로), 화살·물약 사기, 가진 것 팔기 (장비 강화는 대장장이에서!)
+// 장비 사기(등급 화폐로, 찜해 두기), 화살·물약 사기, 가진 것 팔기, 화폐 바꾸기 (장비 강화는 대장장이에서!)
 
 const shop = { cat: 0, sel: 0, page: 0, confirm: null, note: "", noteColor: "#fff", noteTimer: 0 };
-const SHOP_CATS = ["장비", "화살 · 물약", "팔기"];
-const SELL_CAT = 2;
+const SHOP_CATS = ["장비", "화살 · 물약", "팔기", "바꾸기"];
+const SELL_CAT = 2, EXCHANGE_CAT = 3;
 // 파는 값 (에메랄드). 산 값의 절반쯤. 장비는 loot.js sellValue (그 등급 화폐로)
 const SELL = {
   potion: 2,
@@ -23,6 +23,7 @@ function updateShop(dt) {
   shop.noteTimer -= dt;
   for (let i = 0; i < SHOP_CATS.length; i++) if (wasPressed("Digit" + (i + 1))) setShopCat(i);
   if (shop.cat === SELL_CAT) return updateSellTab();
+  if (shop.cat === EXCHANGE_CAT) return updateExchangeTab();
   const n = shopEntries().length;
   if (wasPressed("ArrowUp", "KeyW")) shop.sel -= 2;
   if (wasPressed("ArrowDown", "KeyS")) shop.sel += 2;
@@ -30,7 +31,17 @@ function updateShop(dt) {
   if (wasPressed("ArrowRight", "KeyD")) shop.sel += 1;
   shop.sel = Math.max(0, Math.min(n - 1, shop.sel));
   if (wasPressed("Enter", "Space")) shopAction();
+  if (wasPressed("KeyF") && shop.cat === 0) shopHoldAction();
   if (wasPressed("Escape", "KeyE")) closeOverlay();
+}
+// 찜하기 / 풀기 (고른 장비)
+function shopHoldAction() {
+  const e = shopEntries()[shop.sel];
+  if (!e || e.kind !== "gear") return;
+  const r = toggleShopHold(e.it.u);
+  if (!r.ok) { sfx.denied(); return shopNote(r.why, "#ffb070"); }
+  sfx.equip();
+  shopNote(r.held ? `${josa(itemLabel(e.it), "을/를")} 찜했어요! 던전을 다녀와도 남아 있어요` : "찜을 풀었어요", r.held ? "#ff9ad5" : "#ddd");
 }
 
 function notEnough(price) { sfx.denied(); shopNote(lackText(typeof price === "number" ? { cur: "emerald", n: price } : price), "#ff8080"); }
@@ -78,7 +89,8 @@ function drawShop() {
   const catW = (pw - 40 - 10 * (SHOP_CATS.length - 1)) / SHOP_CATS.length;
   SHOP_CATS.forEach((name, i) => drawButton(x0 + 20 + i * (catW + 10), y0 + 60, catW, 40, name, () => setShopCat(i), { selected: shop.cat === i, size: 16 }));
   if (shop.cat === SELL_CAT) { drawSellTab(x0, y0, pw, ph); drawShopNote(x0, y0, ph); return; }
-  text(shop.cat === 0 ? "좋은 장비일수록 높은 화폐로만 살 수 있어요 · 던전을 다녀오면 물건이 바뀌어요" : "화살과 물약은 에메랄드로 사요", x0 + 24, y0 + 124, 13, "#999");
+  if (shop.cat === EXCHANGE_CAT) { drawExchangeTab(x0, y0, pw, ph); drawShopNote(x0, y0, ph); return; }
+  text(shop.cat === 0 ? `좋은 장비일수록 높은 화폐로만 살 수 있어요 · 던전을 다녀오면 물건이 바뀌어요 (♥ 찜하면 남아요, ${SHOP_HOLD_MAX}개까지)` : "화살과 물약은 에메랄드로 사요", x0 + 24, y0 + 124, 13, "#999");
 
   const entries = shopEntries();
   if (!entries.length) text("다 팔렸어요! 던전을 다녀오면 새 물건이 와요", x0 + pw / 2, y0 + ph / 2, 18, "#ccc", "center");
@@ -105,6 +117,7 @@ function drawShop() {
       else text(d > 0 ? `▲ 지금보다 ${d} 좋아요` : d < 0 ? `▼ 지금보다 약해요` : "지금과 같아요", cx + rowH + 2, ry + 63, 12, d > 0 ? "#7dffb0" : "#999");
       price = buyPrice(it);
       drawPrice(price, cx + colW - 12, ry + 32, 18, "right", canPay(price));
+      if (isShopHeld(it.u)) text("♥ 찜", cx + colW - 12, ry + 58, 14, "#ff9ad5", "right");
       return;
     }
     if (e.kind === "arrows") { desc = `${e.item.desc} · ${e.item.pack}개 묶음 · ${arrowCount(e.id)}개 있음`; price = { cur: "emerald", n: e.item.price }; }
@@ -116,6 +129,9 @@ function drawShop() {
     drawPrice(price, cx + colW - 12, ry + 30, 18, "right", canPay(price));
   });
   if (entries[shop.sel]) drawButton(x0 + pw - 170, y0 + ph - 54, 150, 42, "사기", shopAction, { color: "rgba(80,200,120,0.35)", size: 19 });
+  const se = entries[shop.sel];
+  if (se && se.kind === "gear") { const held = isShopHeld(se.it.u); drawButton(x0 + pw - 330, y0 + ph - 54, 150, 42, held ? "♥ 찜 풀기" : "♡ 찜하기", shopHoldAction, { color: held ? "rgba(255,120,190,0.35)" : "rgba(255,255,255,0.08)", size: 17 }); }
+  drawShopNote(x0, y0, ph);
 }
 
 function drawShopNote(x0, y0, ph) {
@@ -236,4 +252,52 @@ function drawSellTab(x0, y0, pw, ph) {
     text(`${shop.page + 1} / ${pages}`, x0 + pw - 130, y0 + ph - 26, 16, "#ddd", "center");
     drawButton(x0 + pw - 96, y0 + ph - 54, 56, 42, "▶", () => { shop.page = (shop.page + 1) % pages; shop.sel = shop.page * SELL_PER_PAGE; shop.confirm = null; }, { size: 18 });
   }
+}
+
+// ===== 화폐 바꾸기 =====
+// 낮은 화폐 n개 -> 바로 위 화폐 1개 (currency.js CUR_EXCHANGE, 값의 1.5배)
+function updateExchangeTab() {
+  const n = CUR_EXCHANGE.length;
+  if (wasPressed("ArrowUp", "KeyW")) { shop.sel -= 1; shop.confirm = null; }
+  if (wasPressed("ArrowDown", "KeyS")) { shop.sel += 1; shop.confirm = null; }
+  shop.sel = Math.max(0, Math.min(n - 1, shop.sel));
+  if (wasPressed("Enter", "Space")) exchangeAction(shop.sel, false);
+  if (wasPressed("KeyR")) exchangeAction(shop.sel, true);
+  if (wasPressed("Escape", "KeyE")) closeOverlay();
+}
+// all: 바꿀 수 있는 만큼 모두 (5번 넘으면 한 번 더 눌러야)
+function exchangeAction(i, all) {
+  const x = CUR_EXCHANGE[i]; if (!x) return;
+  const max = exchangeMax(i), times = all ? max : 1;
+  if (times <= 0) { sfx.denied(); return shopNote(`${josa(CUR[x.from].name, "이/가")} ${x.n - curHave(x.from)}개 모자라요`, "#ff8080"); }
+  const key = `ex:${i}:${all ? "all" : "one"}`;
+  if (all && times >= 5 && shop.confirm !== key) {
+    shop.confirm = key;
+    return shopNote(`한 번 더 누르면 ${CUR[x.from].name} ${times * x.n}개를 ${CUR[x.to].name} ${times}개로 바꿔요`, "#ffe27a");
+  }
+  shop.confirm = null;
+  const r = exchangeCur(i, times);
+  if (!r.ok) { sfx.denied(); return shopNote(r.why, "#ff8080"); }
+  saveProfile(); sfx.buy();
+  shopNote(`${CUR[x.from].name} ${r.paid}개 → ${CUR[x.to].name} ${r.got}개로 바꿨어요!`, "#7dffb0");
+}
+function drawExchangeTab(x0, y0, pw, ph) {
+  text("낮은 화폐를 모아 바로 위 화폐로 바꿔요 (조금 손해예요. 높은 맵·보스에서 모으면 이득!)", x0 + 24, y0 + 124, 13, "#999");
+  const top = y0 + 140, bottom = y0 + ph - 64, rowH = Math.min(84, (bottom - top) / CUR_EXCHANGE.length);
+  CUR_EXCHANGE.forEach((x, i) => {
+    const ry = top + i * rowH, cx = x0 + 20, w = pw - 40, sel = shop.sel === i, max = exchangeMax(i);
+    roundRectPath(cx, ry, w, rowH - 8, 8);
+    ctx.fillStyle = sel ? "rgba(255,226,122,0.18)" : "rgba(255,255,255,0.04)"; ctx.fill();
+    if (sel) { ctx.strokeStyle = "#ffe27a"; ctx.lineWidth = 2; ctx.stroke(); }
+    addUI(cx, ry, w * 0.45, rowH - 8, () => { shop.sel = i; shop.confirm = null; });
+    const my = ry + (rowH - 8) / 2;
+    drawPrice({ cur: x.from, n: x.n }, cx + 16, my + 7, 22, "left", curHave(x.from) >= x.n);
+    text("→", cx + 120, my + 8, 22, "#ddd");
+    drawPrice({ cur: x.to, n: 1 }, cx + 152, my + 7, 22);
+    text(`${CUR[x.from].name} ${curHave(x.from)}개 있음 · ${max}번 바꿀 수 있어요`, cx + 230, my + 7, 13, max > 0 ? "#bbb" : "#777");
+    const bw = Math.min(110, w * 0.16), bh = Math.min(40, rowH - 22);
+    const confA = shop.confirm === `ex:${i}:all`;
+    drawButton(cx + w - 2 * bw - 20, my - bh / 2, bw, bh, "1번 바꾸기", () => { shop.sel = i; exchangeAction(i, false); }, { size: 14, color: max > 0 ? "rgba(80,200,120,0.35)" : "rgba(255,255,255,0.06)" });
+    drawButton(cx + w - bw - 10, my - bh / 2, bw, bh, confA ? "정말?" : `모두 (${max}번)`, () => { shop.sel = i; exchangeAction(i, true); }, { size: 14, color: confA ? "rgba(255,200,60,0.5)" : max > 1 ? "rgba(60,160,220,0.35)" : "rgba(255,255,255,0.06)" });
+  });
 }

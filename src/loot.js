@@ -213,6 +213,8 @@ function lootFields(pr) {
   if (!pr.eq.armor) pr.eq.armor = makeItem("a_cloth", 0, 0);
   if (pr.eq.charm === undefined) pr.eq.charm = null;
   pr.shopStock = Array.isArray(pr.shopStock) ? pr.shopStock.filter((it) => it && ITEM_BASES[it.b]) : [];
+  // 가게 찜: 다음 판에 물건이 바뀌어도 남겨 둘 장비 (가게에 있는 것만, SHOP_HOLD_MAX 개까지)
+  pr.shopHold = Array.isArray(pr.shopHold) ? [...new Set(pr.shopHold.filter((u) => pr.shopStock.some((it) => it.u === u)))].slice(0, SHOP_HOLD_MAX) : [];
   pr.legends = pr.legends || {}; // 받은 보스 전설 (맵 id)
 }
 
@@ -521,10 +523,12 @@ hookOn("endRun", () => {
 }, 10);
 
 // ===== 가게 물건 (던전을 다녀올 때마다 바뀌어요) =====
+const SHOP_HOLD_MAX = 2;
 function shopRestock(force) {
   const pr = game.profile;
   if (!force && pr.shopStock.length && pr.shopRuns === pr.stats.runs) return;
   pr.shopRuns = pr.stats.runs;
+  const held = (pr.shopHold || []).map((u) => pr.shopStock.find((it) => it.u === u)).filter(Boolean);
   const L = Math.max(0, Math.round(0.85 * (pr.level - 1)));
   const rars = [0, 0, 1, 1, 2, 3];
   if (pr.level >= 25) rars.push(4);
@@ -537,7 +541,28 @@ function shopRestock(force) {
     if (slot === "weapon" && !canUseItem({ b: base }, cls)) base = bestBaseFor("weapon", l, (b) => b.cls && b.cls.includes(cls)) || STARTER[cls];
     return makeItem(base, r, l);
   });
+  // 찜한 장비는 그대로 두고, 같은 칸(무기·갑옷...)의 새 물건 하나를 빼서 개수를 맞춰요
+  for (const h of held) {
+    const slot = itemBase(h).slot;
+    let j = pr.shopStock.findIndex((it) => itemBase(it).slot === slot);
+    if (j < 0) j = 0;
+    pr.shopStock.splice(j, 1);
+  }
+  pr.shopStock = [...held, ...pr.shopStock];
+  pr.shopHold = held.map((it) => it.u);
 }
+// 찜하기 / 풀기
+function toggleShopHold(u) {
+  const pr = game.profile;
+  if (!pr.shopStock.some((it) => it.u === u)) return { ok: false, why: "없어요" };
+  pr.shopHold = pr.shopHold || [];
+  const i = pr.shopHold.indexOf(u);
+  if (i >= 0) { pr.shopHold.splice(i, 1); saveProfile(); return { ok: true, held: false }; }
+  if (pr.shopHold.length >= SHOP_HOLD_MAX) return { ok: false, why: `찜은 ${SHOP_HOLD_MAX}개까지예요. 다른 찜을 먼저 풀어요` };
+  pr.shopHold.push(u); saveProfile();
+  return { ok: true, held: true };
+}
+function isShopHeld(u) { return (game.profile.shopHold || []).includes(u); }
 function buyShopItem(u) {
   const pr = game.profile;
   const i = pr.shopStock.findIndex((x) => x.u === u); if (i < 0) return { ok: false, why: "없어요" };
@@ -545,6 +570,7 @@ function buyShopItem(u) {
   if (pr.bag.length >= BAG_MAX) return { ok: false, why: "가방이 꽉 찼어요 (팔거나 보관함에 넣어요)" };
   if (!pay(price)) return { ok: false, why: lackText(price) };
   pr.shopStock.splice(i, 1);
+  pr.shopHold = (pr.shopHold || []).filter((x) => x !== u);
   giveItem(it, { quiet: true });
   saveProfile();
   return { ok: true, price };
