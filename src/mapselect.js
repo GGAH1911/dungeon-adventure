@@ -802,10 +802,13 @@ function drawMapInfoPanel() {
   y += 24;
   text(`클리어 보너스 에메랄드 ${Math.round(clearBonus(m, L) * rewardFactor())}개 · 경험치 ×${rewardMul(L).toFixed(2)}`, ix, y, 13, "#7dffb0");
   y += 20;
-  // 받을 부품 미리보기 (처음 깨면 더 많이)
+  // 받을 화폐 미리보기 (처음 깨면 더 많이)
   const first = !pr.firstClears[`${m.id}:${pr.difficulty}`];
-  const mats = stageMaterials(L, first);
-  text("부품: " + Object.entries(mats).map(([id, n]) => `${MATERIALS[id].name} ${n}`).join(", ") + (first ? " (첫 클리어!)" : ""), ix, y, 13, "#7dd3ff");
+  const coins = stageCoins(L, first);
+  const ct = mapCoinTier(L);
+  const nextAt = ct < 3 ? [CUR_MAP_LEVEL.silver, CUR_MAP_LEVEL.amethyst, CUR_MAP_LEVEL.gold][ct] : null;
+  const coinTxt = Object.keys(coins).length ? "깨면: " + Object.entries(coins).map(([id, n]) => `${CUR[id].name} ${n}`).join(", ") + (first ? " (첫 클리어!)" : "") : "깨면: 에메랄드 (은은 Lv 5부터)";
+  text(coinTxt + (nextAt ? ` · Lv ${nextAt}부터 ${CUR[coinIdOfTier(ct + 1)].name}` : ""), ix, y, 13, "#7dd3ff");
   y += 20;
   text(`난이도 ${DIFFICULTY[pr.difficulty].name}${pr.hardMode ? " · 하드모드" : ""}`, ix, y, 13, "#ccc");
 

@@ -1,6 +1,6 @@
 // ===== 화면 정보 (하트, 레벨, 에메랄드, 미니맵, 터치 버튼) =====
 
-function drawHUD() { const r = drawHUDBase(); hookRun("hudDraw"); return r; }
+function drawHUD() { if (hookAny("hudSkip")) return; const r = drawHUDBase(); hookRun("hudDraw"); return r; } // hudSkip: 캐릭터 창처럼 화면을 다 쓰는 창
 
 // ----- 알림이 터치 버튼에 가리지 않게 -----
 // 터치 버튼은 화면 글씨보다 나중에(위에) 그려져서, 겹치면 알림이 안 보여요.
@@ -67,7 +67,7 @@ function drawHUDBase() {
   text(`Lv ${pr.level}`, 16, y + 16, 18, "#7dd3ff");
   const bx = 70, bw = 190;
   ctx.fillStyle = "#2b2f38"; ctx.fillRect(bx, y + 4, bw, 10);
-  ctx.fillStyle = "#56c7ff"; ctx.fillRect(bx, y + 4, bw * (pr.level >= CONFIG.level.max ? 1 : pr.xp / need), 10);
+  ctx.fillStyle = "#56c7ff"; ctx.fillRect(bx, y + 4, bw * Math.min(1, pr.xp / need), 10);
   y += 26;
 
   // 에메랄드, 물약
@@ -84,6 +84,16 @@ function drawHUDBase() {
   ctx.beginPath(); ctx.moveTo(158, y + 18); ctx.lineTo(174, y + 2); ctx.stroke();
   ctx.fillStyle = at.color; ctx.fillRect(171, y - 1, 7, 7);
   text(p.bow.infinite ? "∞" : `${arrowCount(at.id)}`, 182, y + 18, 20, at.id === "normal" ? "#fff" : at.color);
+  // 다른 화폐 (가진 것만): 은·자수정·금·다이아몬드
+  let mx = 236;
+  for (const id of ["silver", "amethyst", "gold", "diamond"]) {
+    const n = curHave(id); if (!n) continue;
+    const cb = game.coinBumpAt && game.coinBumpAt.id === id ? Math.max(0, 1 - (game.time - game.coinBumpAt.t) / 0.3) : 0;
+    drawCurrencyIcon(id, mx + 8, y + 10, 8.5 * (1 + 0.45 * cb));
+    text(`${n}`, mx + 20, y + 17, 17 + 3 * cb, cb > 0 ? CUR[id].color : "#fff");
+    ctx.font = 'bold 17px "Apple SD Gothic Neo", sans-serif';
+    mx += 30 + ctx.measureText(String(n)).width;
+  }
   y += 30;
 
   // 구르기 준비
@@ -98,7 +108,7 @@ function drawHUDBase() {
   const aColor = p.armor.legendary ? `hsl(45, 100%, ${65 + 15 * Math.sin(game.time * 6)}%)` : "#fff";
   const eqY = touch.show ? 150 : H - 70;
   if (!touch.show) {
-    text(`무기: ${p.weapon.name} Lv ${gearLevel("weapon")} · 활: ${p.bow.name} Lv ${gearLevel("bow")}`, 16, eqY - 24, 16, wColor);
+    text(`무기: ${p.weapon.name} · 활: ${p.bow.name} · 가방 C`, 16, eqY - 24, 16, wColor);
     text(`갑옷: ${p.armor.name} · 난이도 ${DIFFICULTY[game.profile.difficulty].name}${game.profile.hardMode ? " · 하드모드" : ""}`, 16, eqY, 16, aColor);
   }
 
@@ -107,21 +117,22 @@ function drawHUDBase() {
   // 전체 화면 버튼 (터치 기기에서 아직 전체 화면이 아닐 때)
   if (touch.show && canFullscreen() && !isFullscreen()) drawButton(W - 112, 12, 44, 40, "⛶", enterFullscreen, { size: 22 });
 
-  // 장소 정보
+  // 장소 정보 (오른쪽 위 단추들 왼쪽에)
+  const RX = W - (touch.show && canFullscreen() && !isFullscreen() ? 178 : 124);
   if (game.scene === "dungeon" && game.mode === "tower") {
-    text(`시련의 탑 ${game.tower.floor}층 / ${TOWER.floors}`, W - 124, 40, 20, "#ffe27a", "right");
+    text(`시련의 탑 ${game.tower.floor}층 / ${TOWER.floors}`, RX, 40, 20, "#ffe27a", "right");
     const lvText = `Lv ${game.mapLevel + Math.floor((game.tower.floor - 1) * 0.6)}`;
     const left = game.tower.waveDelay <= 0 && !game.tower.cleared ? ` · 남은 몬스터 ${monsters.length}` : "";
-    text(lvText + left, W - 124, 64, 15, monsters.length <= 3 && left ? "#ff8080" : "#ccc", "right");
+    text(lvText + left, RX, 64, 15, monsters.length <= 3 && left ? "#ff8080" : "#ccc", "right");
     drawBossBar();
   } else if (game.scene === "dungeon") {
-    text(`${game.mapDef.name} Lv ${game.mapLevel}`, W - 124, 40, 20, "#ffe27a", "right");
+    text(`${game.mapDef.name} Lv ${game.mapLevel}`, RX, 40, 20, "#ffe27a", "right");
     const khs = typeof keyHuntStatus === "function" ? keyHuntStatus() : null; // 열쇠 찾기 진행 (keyhunt.js)
-    text(khs || `남은 몬스터 ${monsters.length}`, W - 124, 64, 16, khs ? "#ffd23f" : monsters.length <= 3 ? "#ff8080" : "#fff", "right");
+    text(khs || `남은 몬스터 ${monsters.length}`, RX, 64, 16, khs ? "#ffd23f" : monsters.length <= 3 ? "#ff8080" : "#fff", "right");
     drawMinimap(p, monsters);
     if (monsters.some((m) => m.boss && m.aggro)) drawBossBar(); // 보스가 깨어나면 체력 막대
   } else if (game.scene === "lobby") {
-    text("캠프", W - 124, 40, 20, "#ffe27a", "right");
+    text("캠프", RX, 40, 20, "#ffe27a", "right");
   }
 
   // 가운데 메시지
@@ -153,8 +164,9 @@ function drawTouchControls() {
   if (!touch.show) return;
   // 조이스틱
   const js = touchScale();
-  const baseX = touch.joyId !== null ? touch.joyX0 : 120 * Math.max(0.8, js);
-  const baseY = touch.joyId !== null ? touch.joyY0 : view.h - 120 * Math.max(0.8, js);
+  const rest = hookFilter("joyRest", { x: 120 * Math.max(0.8, js), y: view.h - 120 * Math.max(0.8, js) }); // 쉬는 자리 (btnlayout.js 에서 옮겨요)
+  const baseX = touch.joyId !== null ? touch.joyX0 : rest.x;
+  const baseY = touch.joyId !== null ? touch.joyY0 : rest.y;
   ctx.save();
   ctx.globalAlpha = touch.joyId !== null ? 0.6 : 0.25;
   ctx.fillStyle = "#ffffff";
@@ -187,7 +199,9 @@ function drawTouchControls() {
   hookRun("touchDraw"); // 둘이 하기: 2번 조이스틱 (coop.js)
 }
 
-function drawTitle() {
+// 처음 화면 (캐릭터 고르기는 chars.js 가 "titleDraw" 로 대신 그려요)
+function drawTitle() { if (hookAny("titleDraw")) return; return drawTitleBase(); }
+function drawTitleBase() {
   const W = view.w, H = view.h;
   ctx.fillStyle = "rgba(0,0,0,0.6)";
   ctx.fillRect(0, 0, W, H);

@@ -3,9 +3,11 @@
 //
 // 쓰는 법
 //   const s = Net;                       // 기본 세션 (new NetSession() 으로 더 만들 수도 있어요: 시험용)
-//   const code = await s.host();         // 방 만들기 -> "4719"
-//   await s.join("4719");                // 방 들어가기
-//   s.on("join", (slot, info) => ...)    // 친구가 들어옴 (방장만)
+//   const code = await s.host();         // 방 만들기 -> "471953" (6자리, crypto 난수)
+//   await s.join("471953");              // 방 들어가기
+//   s.on("ask", (req) => s.answer(req.id, true/false))  // 새 친구 들여보낼까요? (방장만, 30초 안에)
+//   s.autoApprove = true / s.locked = true               // 시험용 자동 허락 / 방 잠그기
+//   s.on("join", (slot, info) => ...)    // 친구가 들어옴 (방장만, 허락한 뒤)
 //   s.on("leave", (slot, why) => ...)    // 친구가 나감 / 방장이 끊김(slot 1)
 //   s.on("message", (msg, fromSlot) => ...)
 //   s.on("rtt", (slot, ms) => ...)       // 2초마다 왕복 시간
@@ -22,7 +24,16 @@
 // PeerJS 는 같이 하기를 누를 때만 불러와요 (혼자 할 때·인터넷 없을 때 게임에 영향 없음).
 
 const NET_PROTOCOL = 1;          // 메시지 규칙 버전 (바꾸면 서로 다른 버전끼리 못 붙어요)
-const NET_ID_PREFIX = "dadv-";   // PeerJS 아이디 = dadv-4719
+const NET_BUILD = "2026-10-netsec-1"; // 게임 빌드 (같이 하기 규칙이 바뀌면 올려요. 다르면 못 붙어요)
+const NET_ID_PREFIX = "dadv-";   // PeerJS 아이디 = dadv-471953
+const NET_CODE_LEN = 6;          // 방 번호 자리 수
+const NET_HI_TIMEOUT = 5000;     // 연결하고 이 안에 인사(hi)가 없으면 끊어요
+const NET_MAX_WAITING = 4;       // 인사 기다리는 연결 최대 수
+const NET_ASK_TIMEOUT = 30000;   // 방장이 이 안에 "예"를 안 누르면 끊어요
+const NET_RATE = 80;             // 연결 하나가 1초에 보낼 수 있는 메시지 수 (넘으면 끊어요)
+const NET_BURST = 160;           // 잠깐 몰려도 되는 양
+const NET_PART_MAX = 64;         // 조각 수 최대
+const NET_PART_BUFS = 4;         // 다 못 모은 조각 묶음 최대 (넘으면 오래된 것부터 버려요)
 const NET_MAX_PLAYERS = 4;       // 방장 1 + 친구 3
 const NET_JOIN_TIMEOUT = 15000;  // 들어가기 시간 제한 (ms)
 const NET_PING_EVERY = 2000;
@@ -36,7 +47,10 @@ const NET_TEXT = {
   full: () => "방이 꽉 찼어요 (최대 4명)",
   lib: () => "같이 하기 준비물을 못 불러왔어요. 인터넷을 확인하고 새로고침해요",
   browser: () => "이 브라우저는 같이 하기를 못 해요. 크롬으로 열어요",
-  version: () => "게임 버전이 달라요. 두 기기 모두 새로고침해요",
+  version: () => "게임 버전이 달라요. 둘 다 새로고침해 주세요",
+  locked: () => "방이 잠겨 있어요. 방장에게 열어 달라고 해요",
+  denied: () => "방장이 들여보내 주지 않았어요",
+  later: () => "방장이 다른 친구를 받는 중이에요. 조금 뒤에 다시 해봐요",
   lost: () => "연결이 끊겼어요",
   busy: () => "방 번호를 만들지 못했어요. 다시 해봐요",
 };
@@ -89,14 +103,27 @@ function netWrapPeerConn(c) {
     const id = ++partSeq, step = Math.floor(NET_PART_SIZE / 3), n = Math.ceil(str.length / step); // 한글은 UTF-8 로 3바이트까지
     for (let i = 0; i < n; i++) c.send({ _n: "part", id, i, n, s: str.slice(i * step, (i + 1) * step) });
   };
-  const parts = new Map();
+  // 받은 조각: 모양을 꼼꼼히 보고, 이상하면 연결을 끊어요 (아주 큰 번호로 메모리를 채우는 장난 막기)
+  const parts = new Map(); // id -> { n, got, a }  (넣은 순서 = 오래된 순서)
+  const step = Math.floor(NET_PART_SIZE / 3);
+  const bad = () => { parts.clear(); conn.close(); };
   const deliver = (d) => {
+    if (closed) return;
     if (d && d._n === "part") {
-      let a = parts.get(d.id); if (!a) { a = []; parts.set(d.id, a); }
-      a[d.i] = d.s;
-      if (a.filter((x) => x !== undefined).length < d.n) return;
-      parts.delete(d.id);
-      try { d = JSON.parse(a.join("")); } catch (e) { return; }
+      const { id, i, n, s } = d;
+      if (!Number.isInteger(id) || !Number.isInteger(n) || !Number.isInteger(i) || n < 2 || n > NET_PART_MAX || i < 0 || i >= n || typeof s !== "string" || s.length > step) return bad();
+      let b = parts.get(id);
+      if (b && b.n !== n) return bad();
+      if (!b) {
+        b = { n, got: 0, a: new Array(n) };
+        parts.set(id, b);
+        while (parts.size > NET_PART_BUFS) parts.delete(parts.keys().next().value);
+      }
+      if (b.a[i] === undefined) b.got++;
+      b.a[i] = s;
+      if (b.got < n) return;
+      parts.delete(id);
+      try { d = JSON.parse(b.a.join("")); } catch (e) { return bad(); }
     }
     for (const f of conn._data) f(d);
   };
@@ -143,7 +170,11 @@ class NetPeerTransport {
   // 방장: 들어오는 연결 받기
   listen(id, onConn) {
     return this.start(id).then(() => {
-      this.peer.on("connection", (c) => onConn(netWrapPeerConn(c)));
+      this.peer.on("connection", (c) => {
+        // 우리 게임은 json 으로만 이야기해요. 다른 방식(binary 등)은 바로 끊어요
+        if (c.serialization !== "json") { try { c.close(); } catch (e) { /* 무시 */ } return; }
+        onConn(netWrapPeerConn(c));
+      });
     });
   }
   // 친구: 방장에게 연결
@@ -194,7 +225,7 @@ class NetLoopTransport {
   async connect(id) {
     const onConn = NetLoopback.servers.get(id);
     if (!onConn) throw netError("no-room", id.replace(NET_ID_PREFIX, ""));
-    this.id = this.id || "guest-" + (++netLoopSeq);
+    this.id = this.id || "guest-" + (++netLoopSeq) + "-" + Math.random().toString(36).slice(2, 8); // 게임마다 따로 세도 겹치지 않게
     const [mine, theirs] = NetLoopback.pair(this.id, id);
     netLater(() => onConn(theirs));
     return mine;
@@ -275,6 +306,31 @@ class NetSession {
     this.stats = { sent: 0, recv: 0, bytesSent: 0, bytesRecv: 0 };
     this.timer = null;
     this.info = opts.info || {};
+    this.autoApprove = !!opts.autoApprove; // 시험용: 새 친구를 묻지 않고 들여보내요
+    this.locked = false;       // 방 잠그기: 새 친구를 받지 않아요
+    this.waiting = new Map();  // 방장: 인사(hi) 기다리는 연결 -> 연결된 때
+    this.pending = [];         // 방장: 허락 기다리는 친구 [{ id, conn, info, t0 }] (보여주는 것 1 + 줄 1)
+    this.askSeq = 0;
+    this.closing = new Map();  // 방장: "안 돼요" 를 보낸 뒤 곧 끊을 연결
+  }
+  get asking() { return this.pending[0] || null; }
+  now() { return Date.now(); }
+  // 연결 하나당 1초에 NET_RATE 개 (토큰 통). 넘치면 false
+  rateOk(conn, now = this.now()) {
+    if (this.opts.rate === 0) return true;
+    const rate = this.opts.rate || NET_RATE, burst = rate * (NET_BURST / NET_RATE);
+    if (conn._tokT === undefined) { conn._tok = burst; conn._tokT = now; }
+    conn._tok = Math.min(burst, conn._tok + (now - conn._tokT) * rate / 1000); conn._tokT = now;
+    if (conn._tok < 1) return false;
+    conn._tok -= 1;
+    return true;
+  }
+  // 너무 많이 보내는 연결은 끊어요
+  flood(conn) {
+    if (conn._flood) return; conn._flood = true;
+    if (conn._slot && this.peers.get(conn._slot) && this.peers.get(conn._slot).conn === conn) this.dropPeer(conn._slot, "flood");
+    else if (this.role === "guest" && this.peers.get(1) && (this.peers.get(1).conn === conn || this.peers.get(1).fast === conn)) this.dropPeer(1, "flood");
+    else { this.forget(conn); try { conn.close(); } catch (e) { /* 무시 */ } }
   }
   on(name, fn) { (this.handlers[name] = this.handlers[name] || []).push(fn); return this; }
   off(name, fn) { const l = this.handlers[name]; if (l) this.handlers[name] = l.filter((f) => f !== fn); }
@@ -292,7 +348,7 @@ class NetSession {
   async host() {
     this.leave(true);
     for (let tries = 0; tries < 6; tries++) {
-      const code = this.opts.fixedCode || String(1000 + Math.floor(Math.random() * 9000));
+      const code = this.opts.fixedCode || netRoomCode();
       const t = this.makeTransport();
       try {
         await t.listen(NET_ID_PREFIX + code, (conn) => this.acceptConn(conn));
@@ -310,32 +366,93 @@ class NetSession {
     const err = netError("busy"); this.emit("error", err); throw err;
   }
 
-  // 방장: 새 연결 받기 (첫 메시지 hi 를 기다렸다가 자리를 줘요)
+  // 방장: 새 연결 받기 (첫 메시지 hi 를 기다렸다가, 방장이 "예"를 누르면 자리를 줘요)
   acceptConn(conn) {
     const remote = conn.remote;
+    const owner = () => [...this.peers.values()].find((x) => x.remote === remote);
     if (conn.kind === "fast") {
-      // 빠른 길: 같은 친구의 보통 연결에 붙여요
-      for (const p of this.peers.values()) if (p.remote === remote) { p.fast = conn; conn.onClose(() => { if (p.fast === conn) p.fast = null; }); }
-      conn.onData((d) => { const p = [...this.peers.values()].find((x) => x.remote === remote); if (p) this.onData(p.slot, d); });
+      // 빠른 길: 이미 자리를 받은 친구의 것만 붙여요. 아니면 끊어요
+      const p0 = owner();
+      if (!p0 || (p0.fast && p0.fast.open)) { try { conn.close(); } catch (e) { /* 무시 */ } return; }
+      p0.fast = conn; conn.onClose(() => { if (p0.fast === conn) p0.fast = null; });
+      conn.onData((d) => {
+        if (!this.rateOk(conn)) return this.flood(conn);
+        const p = owner(); if (p && p.fast === conn) this.onData(p.slot, d); else { try { conn.close(); } catch (e) { /* 무시 */ } }
+      });
       return;
     }
+    // 이미 자리를 받은 친구가 보통 연결을 또 열면 끊어요
+    if (owner()) { try { conn.close(); } catch (e) { /* 무시 */ } return; }
+    // 인사 기다리는 연결이 너무 많으면 끊어요
+    if (this.waiting.size >= NET_MAX_WAITING) { try { conn.close(); } catch (e) { /* 무시 */ } return; }
+    this.waiting.set(conn, this.now());
+    if (typeof setTimeout === "function") setTimeout(() => this.sweep(), NET_HI_TIMEOUT + 50);
     conn.onData((d) => {
-      if (d && d._n === "hi" && !conn._slot) return this.onHello(conn, d);
-      if (conn._slot) this.onData(conn._slot, d);
+      if (!this.rateOk(conn)) return this.flood(conn);
+      if (conn._slot) return this.onData(conn._slot, d);
+      if (d && d._n === "hi" && this.waiting.has(conn)) return this.onHello(conn, d);
+      // 자리 받기 전에는 hi 말고는 듣지 않아요
     });
-    conn.onClose(() => { if (conn._slot) this.dropPeer(conn._slot, "closed"); });
+    conn.onClose(() => { this.forget(conn); if (conn._slot) this.dropPeer(conn._slot, "closed"); });
+  }
+  refuse(conn, code) {
+    this.forget(conn);
+    try { conn.send({ _n: "reject", code }); } catch (e) { /* 무시 */ }
+    // "안 돼요" 가 먼저 닿게 조금 뒤에 끊어요 (타이머 또는 다음 sweep)
+    conn._refused = true; this.closing.set(conn, this.now());
+    if (typeof setTimeout === "function") setTimeout(() => this.sweep(), 300);
+  }
+  // 기다리는 줄에서 빼요 (허락 창이 바뀌면 알려요)
+  forget(conn) {
+    this.waiting.delete(conn);
+    const i = this.pending.findIndex((r) => r.conn === conn);
+    if (i < 0) return;
+    this.pending.splice(i, 1);
+    if (i === 0) { this.emit("askEnd"); if (this.pending[0]) this.emit("ask", this.pending[0]); }
   }
   onHello(conn, d) {
-    if (d.ver !== NET_PROTOCOL) { conn.send({ _n: "reject", code: "version" }); setTimeout(() => conn.close(), 300); return; }
-    if (1 + this.peers.size >= NET_MAX_PLAYERS) { conn.send({ _n: "reject", code: "full" }); setTimeout(() => conn.close(), 300); return; }
+    this.waiting.delete(conn);
+    if (d.ver !== NET_PROTOCOL || d.build !== NET_BUILD) return this.refuse(conn, "version");
+    if (this.locked) return this.refuse(conn, "locked");
+    if (1 + this.peers.size >= NET_MAX_PLAYERS) return this.refuse(conn, "full");
+    const info = d.info && typeof d.info === "object" && !Array.isArray(d.info) ? d.info : {};
+    if (this.autoApprove) return this.admit(conn, info);
+    if (this.pending.length >= 2) return this.refuse(conn, "later"); // 보여주는 것 1 + 기다리는 줄 1
+    const req = { id: ++this.askSeq, conn, info, t0: this.now() };
+    this.pending.push(req);
+    conn.send({ _n: "wait", ms: NET_ASK_TIMEOUT });
+    if (typeof setTimeout === "function") setTimeout(() => this.sweep(), NET_ASK_TIMEOUT + 50);
+    if (this.pending[0] === req) this.emit("ask", req);
+  }
+  // 방장이 "예"(yes=true) / "아니오"
+  answer(id, yes) {
+    const req = this.pending.find((r) => r.id === id);
+    if (!req) return false;
+    const conn = req.conn;
+    if (!yes) { this.refuse(conn, "denied"); return true; }
+    this.forget(conn);
+    if (!conn.open) return false;
+    if (this.locked) { this.refuse(conn, "locked"); return false; }
+    if (1 + this.peers.size >= NET_MAX_PLAYERS) { this.refuse(conn, "full"); return false; }
+    this.admit(conn, req.info);
+    return true;
+  }
+  admit(conn, info) {
+    this.forget(conn);
     let slot = 2;
     while (this.peers.has(slot)) slot++;
     conn._slot = slot;
-    const p = { slot, conn, fast: null, remote: conn.remote, info: d.info || {}, lastSeen: Date.now(), rtt: null };
+    const p = { slot, conn, fast: null, remote: conn.remote, info, lastSeen: Date.now(), rtt: null };
     this.peers.set(slot, p);
-    conn.send({ _n: "slot", slot, count: 1 + this.peers.size, info: this.info });
+    conn.send({ _n: "slot", slot, count: 1 + this.peers.size, info: this.info, build: NET_BUILD });
     this.broadcastCount();
     this.emit("join", slot, p.info);
+  }
+  // 인사 없이 5초 / 허락 없이 30초 지난 연결은 끊어요 (핑 시계와 타이머에서 불러요)
+  sweep(now = this.now()) {
+    for (const [conn, t0] of [...this.waiting]) if (now - t0 > NET_HI_TIMEOUT) { this.waiting.delete(conn); try { conn.close(); } catch (e) { /* 무시 */ } }
+    for (const req of [...this.pending]) if (now - req.t0 > NET_ASK_TIMEOUT) this.refuse(req.conn, "denied");
+    for (const [conn, t0] of [...this.closing]) if (now - t0 >= 250 || !conn.open) { this.closing.delete(conn); try { conn.close(); } catch (e) { /* 무시 */ } }
   }
   broadcastCount() {
     for (const p of this.peers.values()) p.conn.send({ _n: "count", count: 1 + this.peers.size });
@@ -355,29 +472,37 @@ class NetSession {
   // ----- 방 들어가기 -----
   async join(code, opts = {}) {
     this.leave(true);
-    code = String(code).replace(/\D/g, "").slice(0, 4);
+    code = String(code).replace(/\D/g, "").slice(0, NET_CODE_LEN);
     const t = this.makeTransport();
     this.transport = t;
     try {
+      if (code.length !== NET_CODE_LEN) throw netError("no-room", code);
       const conn = await t.connect(NET_ID_PREFIX + code, { timeout: opts.timeout });
       const slot = await new Promise((resolve, reject) => {
-        const to = setTimeout(() => reject(netError("timeout")), opts.timeout || NET_JOIN_TIMEOUT);
+        let to = setTimeout(() => reject(netError("timeout")), opts.timeout || NET_JOIN_TIMEOUT);
         conn.onData((d) => {
-          if (!d || !d._n) return;
-          if (d._n === "slot") { clearTimeout(to); this.hostInfo = d.info; this.lastCount = d.count; resolve(d.slot); }
-          if (d._n === "reject") { clearTimeout(to); reject(netError(d.code)); }
+          if (!d || !d._n || this.role) return;
+          if (!this.rateOk(conn)) { conn.close(); return; }
+          if (d._n === "wait") { clearTimeout(to); to = setTimeout(() => reject(netError("denied")), NET_ASK_TIMEOUT + 5000); this.emit("waiting"); }
+          if (d._n === "slot") {
+            clearTimeout(to);
+            if (d.build !== NET_BUILD) { reject(netError("version")); conn.close(); return; }
+            if (!Number.isInteger(d.slot) || d.slot < 2 || d.slot > NET_MAX_PLAYERS) { reject(netError("lost")); conn.close(); return; }
+            this.hostInfo = {}; this.lastCount = Math.max(2, Math.min(NET_MAX_PLAYERS, d.count | 0)); resolve(d.slot);
+          }
+          if (d._n === "reject") { clearTimeout(to); reject(netError(Object.hasOwn(NET_TEXT, d.code) ? d.code : "lost")); }
         });
         conn.onClose(() => { clearTimeout(to); reject(netError("lost")); });
-        conn.send({ _n: "hi", ver: NET_PROTOCOL, info: this.info });
+        conn.send({ _n: "hi", ver: NET_PROTOCOL, build: NET_BUILD, info: this.info });
       });
       this.role = "guest"; this.code = code; this.slot = slot;
       const p = { slot: 1, conn, fast: null, remote: conn.remote, info: this.hostInfo || {}, lastSeen: Date.now(), rtt: null };
       this.peers.set(1, p);
-      conn.onData((d) => { if (!(d && (d._n === "slot" || d._n === "reject"))) this.onData(1, d); });
+      conn.onData((d) => { if (p.conn !== conn) return; if (!this.rateOk(conn)) return this.flood(conn); if (!(d && (d._n === "slot" || d._n === "reject" || d._n === "wait"))) this.onData(1, d); });
       conn.onClose(() => this.dropPeer(1, "closed"));
       // 빠른 길 (선택): 상태 스냅샷용
       if (this.opts.fast && t.connect && this.transportName === "peer") {
-        t.connect(NET_ID_PREFIX + code, { kind: "fast", timeout: 8000 }).then((fc) => { p.fast = fc; fc.onData((d) => this.onData(1, d)); fc.onClose(() => { p.fast = null; }); }).catch(() => {});
+        t.connect(NET_ID_PREFIX + code, { kind: "fast", timeout: 8000 }).then((fc) => { p.fast = fc; fc.onData((d) => { if (!this.rateOk(fc)) return this.flood(fc); this.onData(1, d); }); fc.onClose(() => { if (p.fast === fc) p.fast = null; }); }).catch(() => {});
       }
       this.startPing();
       this.emit("open", { role: "guest", code, slot });
@@ -393,12 +518,13 @@ class NetSession {
   // ----- 받은 데이터 -----
   onData(slot, d) {
     const p = this.peers.get(slot);
-    if (p) p.lastSeen = Date.now();
+    if (!p) return; // 이미 나간 자리
+    p.lastSeen = Date.now();
     this.stats.recv++;
     if (d && d._n) {
-      if (d._n === "ping") { const c = p && (p.conn); if (c) c.send({ _n: "pong", t: d.t }); return; }
-      if (d._n === "pong") { const ms = Date.now() - d.t; this.rtt[slot] = ms; if (p) p.rtt = ms; this.emit("rtt", slot, ms); return; }
-      if (d._n === "count") { this.lastCount = d.count; this.emit("count", d.count); return; }
+      if (d._n === "ping") { const c = p && (p.conn); if (c && Number.isFinite(d.t)) c.send({ _n: "pong", t: d.t }); return; }
+      if (d._n === "pong") { if (!Number.isFinite(d.t)) return; const ms = Math.max(0, Math.min(99999, Math.round(Date.now() - d.t))); this.rtt[slot] = ms; if (p) p.rtt = ms; this.emit("rtt", slot, ms); return; }
+      if (d._n === "count") { if (this.role !== "guest") return; this.lastCount = Math.max(1, Math.min(NET_MAX_PLAYERS, d.count | 0)); this.emit("count", this.lastCount); return; }
       if (d._n === "bye") { this.dropPeer(slot, "bye"); return; }
       return;
     }
@@ -430,6 +556,7 @@ class NetSession {
   }
   stopPing() { if (this.timer) clearInterval(this.timer); this.timer = null; }
   tick(now = Date.now()) {
+    if (this.role === "host") this.sweep(now);
     for (const p of [...this.peers.values()]) {
       if (now - p.lastSeen > NET_LOST_AFTER) { this.dropPeer(p.slot, "timeout"); continue; }
       p.conn.send({ _n: "ping", t: now });
@@ -446,6 +573,11 @@ class NetSession {
     this.stopPing();
     const ps = [...this.peers.values()];
     this.peers.clear();
+    const wait = [...this.waiting.keys(), ...this.pending.map((r) => r.conn), ...this.closing.keys()];
+    const asked = this.pending.length > 0;
+    this.waiting.clear(); this.pending = []; this.closing.clear(); this.locked = false;
+    for (const c of wait) { try { c.close(); } catch (e) { /* 무시 */ } }
+    if (asked) this.emit("askEnd");
     const closeAll = () => { for (const p of ps) { try { p.conn.close(); } catch (e) { /* 무시 */ } try { if (p.fast) p.fast.close(); } catch (e) { /* 무시 */ } } };
     if (soft) setTimeout(closeAll, 250); else closeAll();
     const t = this.transport; this.transport = null;
@@ -478,6 +610,16 @@ class NetSession {
     const show = (c) => c && { type: c.candidateType, addr: c.address || c.ip || "", mdns: /\.local$/.test(c.address || c.ip || ""), proto: c.protocol };
     return { selected: pair ? { local: show(L), remote: show(R), rtt: pair.currentRoundTripTime } : null, locals, remotes };
   }
+}
+
+// 방 번호: 6자리, 브라우저 암호 난수 (crypto 가 없는 시험 환경만 Math.random)
+function netRoomCode() {
+  const span = 10 ** NET_CODE_LEN - 10 ** (NET_CODE_LEN - 1), lo = 10 ** (NET_CODE_LEN - 1);
+  const c = typeof crypto !== "undefined" && crypto && crypto.getRandomValues ? crypto : null;
+  if (!c) return String(lo + Math.floor(Math.random() * span));
+  const a = new Uint32Array(1), lim = Math.floor(4294967296 / span) * span; // 한쪽으로 쏠리지 않게
+  do c.getRandomValues(a); while (a[0] >= lim);
+  return String(lo + (a[0] % span));
 }
 
 const Net = new NetSession();

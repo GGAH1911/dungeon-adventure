@@ -619,16 +619,13 @@ hookOn("monsterKilled", (m) => {
     for (const id of m.affixes) if (ELITE_AFFIXES[id].onDeath) ELITE_AFFIXES[id].onDeath(m);
     zones = zones.filter((z) => z.owner !== m);
     hazards = hazards.filter((h) => h.owner !== m);
-    const tier = rewardTier(game.mapLevel || 1);
-    dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier], count: 1 + m.affixes.length });
+    // 화폐·장비는 loot.js 가 떨어뜨려요
     for (let i = 0; i < 3; i++) dropPickup("emerald", m.x, m.y);
     addFloatText(m.x, m.y, "정예 처치!", "#ffd84a", 22);
   }
   if (m.def.deathPool) zones.push({ x: m.x, y: m.y, radius: 1.1, life: 4, max: 4, tick: 0.8, tickT: 0.6, damage: m.damage * 0.4, kind: "poison" });
   if (m.def.treasure) {
-    const tier = rewardTier(game.mapLevel || 1);
-    dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier], count: 3 });
-    if (tier < MATERIAL_ORDER.length - 1) dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[tier + 1], count: 1 });
+    for (let i = 0; i < 8; i++) dropPickup("emerald", m.x, m.y); // 화폐·장비는 loot.js
     showMessage("보물 고블린을 잡았어요! 보물이 쏟아져요", 2.5, true);
   }
 }, 30);

@@ -72,7 +72,7 @@ function towerMonsterPool(f) {
 
 function spawnWave() {
   const f = game.tower.floor;
-  const L = Math.min(CONFIG.level.max, game.mapLevel + Math.floor((f - 1) * 0.6));
+  const L = game.mapLevel + Math.floor((f - 1) * 0.6);
   const pool = towerMonsterPool(f);
   const bossType = TOWER.bosses[f];
   const count = bossType ? 3 + Math.floor(f / 2) : Math.round(5 + f * 1.5);
@@ -140,12 +140,12 @@ function floorCleared() {
   const bonus = 3 + T.floor;
   pr.emeralds += bonus;
   game.run.emeralds += bonus;
-  // 층마다 부품 조금
-  const tier = rewardTier(game.mapLevel + Math.floor((T.floor - 1) * 0.6));
-  const n = Math.max(1, Math.round((2 + T.floor * 0.5) * rewardFactor()));
-  addMaterial(MATERIAL_ORDER[tier], n);
-  game.run.mats = game.run.mats || {};
-  game.run.mats[MATERIAL_ORDER[tier]] = (game.run.mats[MATERIAL_ORDER[tier]] || 0) + n;
+  // 층마다 화폐 조금 (탑 층이 높을수록 좋은 화폐)
+  const tl = game.mapLevel + Math.floor((T.floor - 1) * 0.6);
+  const ct = mapCoinTier(tl);
+  if (ct >= 1) curAdd(coinIdOfTier(ct), Math.max(1, coinCount(1 + T.floor * 0.15)));
+  else curAdd("emerald", 3);
+  if (T.floor % 5 === 0) giveItem(rollItem("goldChest", tl));
   p.hp = Math.min(p.maxHp, p.hp + 3);
   stairs.open = true;
   sfx.clear();

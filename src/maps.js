@@ -112,10 +112,11 @@ function mapUnlocked(index) {
 }
 
 // ----- 맵 레벨(난이도) 계산 -----
-// 그 레벨쯤의 주인공이 강화했을 장비 공격력 (items.js 의 강화 곡선과 같은 식)
+// 그 레벨쯤의 주인공이 가졌을 장비 공격력 (loot.js: 장비 레벨 0.85 x (레벨-1), 희귀 +2 = x1.25, 장신구 조금)
+// 레벨 끝이 없어요: 장비 레벨도 끝없이 따라가요
 function expectedGearMul(L) {
-  const g = Math.min(GEAR_MAX, 0.85 * (L - 1));
-  return (1 + 0.2 * g) * (1 + 0.015 * g) * (1 + 0.04 * Math.floor(g / 5));
+  const g = Math.max(0, 0.85 * (L - 1));
+  return (1 + 0.2 * g) * 1.25 * 1.08;
 }
 function monsterHpMul(L) {
   const d = CONFIG.difficulty;
@@ -128,7 +129,7 @@ function clearBonus(map, L) { return Math.round(map.reward * (1 + CONFIG.difficu
 // 이 맵에서 고를 수 있는 레벨 범위
 function levelRange(map) {
   const min = map.minLevel;
-  const max = Math.min(CONFIG.level.max, Math.max(min, game.profile.level + CONFIG.difficulty.pickAbove));
+  const max = Math.max(min, game.profile.level + CONFIG.difficulty.pickAbove);
   return { min, max };
 }
 

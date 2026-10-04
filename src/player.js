@@ -7,8 +7,12 @@ function playerMaxHp(level) {
 function damageBonus(level) {
   return 1 + (level - 1) * CONFIG.level.damagePerLevel;
 }
+// 최고 레벨은 없어요. 30레벨까지는 예전 그대로, 그 뒤로는 레벨마다 조금씩 더 많이 필요해요
+// (30레벨 1배 -> 50레벨 약 1.8배 -> 100레벨 약 3.8배: 높을수록 레벨 올리기가 어려워요)
 function xpNeeded(level) {
-  return CONFIG.level.xpFirst + (level - 1) * CONFIG.level.xpGrow;
+  const base = CONFIG.level.xpFirst + (level - 1) * CONFIG.level.xpGrow;
+  const over = Math.max(0, level - CONFIG.level.hardFrom);
+  return Math.round(base * (1 + CONFIG.level.hardGrow * over));
 }
 // 갑옷 하트(머리·바지·세트)까지 더한 최대 하트
 function maxHpFor(armor) {
@@ -119,7 +123,7 @@ function updatePlayer(p, dt) {
   if (p.moving) {
     if (!attacking) { p.faceX = wx; p.faceY = wy; }
     const slowed = p.abSlow > 0 ? 0.55 : 1; // 거미줄·얼음 숨결 등에 맞으면 느려져요
-    const speed = cfg.speed * (1 + (game.profile.level - 1) * CONFIG.level.speedPerLevel) * (1 + (p.armor.speed || 0)) * power * (attacking ? 0.45 : 1) * slowed;
+    const speed = cfg.speed * (1 + (Math.min(game.profile.level, CONFIG.level.speedUntil) - 1) * CONFIG.level.speedPerLevel) * (1 + (p.armor.speed || 0)) * power * (attacking ? 0.45 : 1) * slowed;
     moveEntity(p, wx * speed * dt, wy * speed * dt);
     p.walkTime += dt * power;
   }

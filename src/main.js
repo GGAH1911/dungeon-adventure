@@ -149,13 +149,12 @@ function killMonsterBase(m, legendary, opts = {}) {
     p.hp = Math.min(p.maxHp, p.hp + 0.5);
     addFloatText(p.x, p.y, "+0.5", "#c08aff", 15);
   }
-  const extra = w.effect === "emerald" && opts.melee ? 0.25 : 0;
+  const extra = (w.effect === "emerald" && opts.melee ? 0.25 : 0) + Math.min(0.5, (game.player.armor.luck || 0)); // 행운: 황금 칼·행운 장신구
   const drops = (def.emeraldCount || 1) * (m.boss ? 8 : 1);
   for (let i = 0; i < drops; i++) if (Math.random() < def.emerald + extra) dropPickup("emerald", m.x, m.y);
   if (Math.random() < CONFIG.monster.appleChance) dropPickup("apple", m.x, m.y);
   if (Math.random() < (def.arrowDrop || CONFIG.monster.arrowChance)) dropPickup("arrows", m.x, m.y);
   if (Math.random() < 0.03) dropPickup("special", m.x, m.y, { arrowType: ["fire", "ice", "bomb"][Math.floor(Math.random() * 3)] });
-  if (Math.random() < (m.boss ? 1 : 0.06)) dropPickup("material", m.x, m.y, { mat: MATERIAL_ORDER[rewardTier(game.mapLevel)], count: m.boss ? 4 : 1 });
   // 슬라임은 쪼개져요!
   if (def.splits) {
     for (let i = 0; i < def.splitCount; i++) {
@@ -221,20 +220,6 @@ function rewardFactor() {
   return diff().reward * (game.profile.hardMode ? CONFIG.hardModeReward : 1);
 }
 
-// 맵을 깨면 받는 부품: 맵 레벨에 맞는 단계 + 다음 단계 조금
-function stageMaterials(S, firstClear) {
-  const t = rewardTier(S);
-  const k = rewardFactor() * (firstClear ? 1.5 : 1);
-  const out = {};
-  out[MATERIAL_ORDER[t]] = Math.round((10 + 0.3 * S) * k);
-  if (t > 0) out[MATERIAL_ORDER[t - 1]] = Math.round(4 * k);
-  if (t < MATERIAL_ORDER.length - 1) out[MATERIAL_ORDER[t + 1]] = Math.max(1, Math.round(1.5 * k));
-  return out;
-}
-
-function giveMaterials(mats) {
-  for (const id in mats) addMaterial(id, mats[id]);
-}
 
 function endRun(win) { if (hookAny("endRun", win)) return; return endRunBase(win); }
 function endRunBase(win) {
@@ -249,9 +234,9 @@ function endRunBase(win) {
     const key = `${game.mapDef.id}:${pr.difficulty}`;
     const first = !pr.firstClears[key];
     pr.firstClears[key] = true;
-    mats = stageMaterials(game.mapLevel, first);
-    giveMaterials(mats);
-    for (const id in r.mats || {}) mats[id] = (mats[id] || 0) + r.mats[id];
+    // 맵을 깨면 받는 화폐 (currency.js)
+    for (const [id, n] of Object.entries(stageCoins(game.mapLevel, first))) curAdd(id, n);
+    mats = r.mats && Object.keys(r.mats).length ? { ...r.mats } : null; // 보스 부품
     pr.stats.clears++;
     if (!pr.cleared.includes(game.mapDef.id)) pr.cleared.push(game.mapDef.id);
     const best = pr.best[game.mapDef.id] || 0;
@@ -264,7 +249,7 @@ function endRunBase(win) {
   }
   const where = game.mode === "tower" ? `시련의 탑 Lv ${game.mapLevel} · ${game.tower.floor}층` : `${game.mapDef.name} Lv ${game.mapLevel}`;
   if (!win) mats = r.mats || null;
-  game.result = { win, mapName: where, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus, mats };
+  game.result = { win, mapName: where, kills: r.kills, emeralds: r.emeralds, xp: r.xp, levels: r.levels, bonus, mats, money: { ...(r.money || {}) }, items: (r.items || []).slice() };
   game.endTimer = win ? 1.8 : 1.4;
   saveProfile();
 }
@@ -273,16 +258,15 @@ function endRunBase(win) {
 function gainXp(n) {
   hookRun("reward", "xp", n); // 같이 하기: 친구도 같이 받아요
   const pr = game.profile;
-  if (pr.level >= CONFIG.level.max) return;
+  // 최고 레벨은 없어요 (높을수록 레벨 올리기가 어려워요: player.js xpNeeded)
   pr.xp += n;
   if (game.run) game.run.xp += n;
-  while (pr.level < CONFIG.level.max && pr.xp >= xpNeeded(pr.level)) {
+  while (pr.xp >= xpNeeded(pr.level)) {
     pr.xp -= xpNeeded(pr.level);
     pr.level++;
     if (game.run) game.run.levels++;
     levelUp();
   }
-  if (pr.level >= CONFIG.level.max) pr.xp = 0;
 }
 
 function levelUp() {
@@ -321,6 +305,11 @@ function onPickup(item, picker) {
     if (pr.potions < CONFIG.player.maxPotions) { pr.potions++; addFloatText(p.x, p.y, "물약 +1", "#ff9ad8", 16); }
     else { p.hp = Math.min(p.maxHp, p.hp + POTION.heal); addFloatText(p.x, p.y, `+${POTION.heal}`, "#ff9ad8", 18); }
     sfx.potion();
+  } else if (item.type === "coin") {
+    curAdd(item.cur, 1);
+    sfx.emerald();
+  } else if (item.type === "item") {
+    giveItem(item.item);
   } else if (item.type === "material") {
     addMaterial(item.mat, item.count || 1);
     if (game.run) { game.run.mats = game.run.mats || {}; game.run.mats[item.mat] = (game.run.mats[item.mat] || 0) + (item.count || 1); }
@@ -356,6 +345,7 @@ function updateBase(dt) {
   }
 
   if (game.scene === "title") {
+    if (hookAny("titleUpdate", dt)) return; // 캐릭터 고르기 (chars.js)
     if (wasPressed("Enter", "Space")) enterLobby();
     return;
   }
@@ -567,6 +557,7 @@ const frameTimes = [];
 const loopErrors = [];
 function reportLoopError(e, where = "loop") {
   const msg = String((e && e.message) || e);
+  uiRecover(); // 그리다가 오류가 나면 줄인 화면 배율이 안 풀려서 모든 게 작게 그려져요. 원래대로
   try { if (typeof errLogAdd === "function") errLogAdd(e, where); } catch (_) {} // 기기에 남겨요 (errlog.js)
   if (!loopErrors.includes(msg)) {
     loopErrors.push(msg);
@@ -623,7 +614,7 @@ function pauseGame() {
 }
 
 function resumeGame() {
-  if (!paused || document.hidden) return;
+  if (!paused || document.hidden || !gameBooted) return;
   paused = false;
   lastTime = performance.now();
   frameTimes.length = 0;
@@ -640,4 +631,8 @@ window.addEventListener("resize", () => { frameTimes.length = 0; });
 // 처음 화면 뒤에는 캠프가 보여요
 buildLobby();
 placePlayer();
-rafId = requestAnimationFrame(loop);
+// 모든 스크립트가 다 읽힌 뒤에 시작해요. 그 전에 그리면 아직 안 읽힌 파일(직업 등)을 찾다가 오류가 나요
+// (느린 인터넷에서는 다음 파일을 받는 동안 화면을 먼저 그릴 수 있어요)
+let gameBooted = false;
+function bootLoop() { if (gameBooted) return; gameBooted = true; lastTime = performance.now(); if (!rafId && !paused) rafId = requestAnimationFrame(loop); }
+if (document.readyState === "complete") bootLoop(); else window.addEventListener("load", bootLoop);

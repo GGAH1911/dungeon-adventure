@@ -859,8 +859,19 @@ hookOn("dungeonStarted", () => {}, 60);
 
 const picker = { idx: 0 };
 function openClassPicker() { game.overlay = "classes"; picker.idx = Math.max(0, CLASS_ORDER.indexOf(game.profile.cls)); game.profile.clsSeen = true; saveProfile(); sfx.equip(); }
+// 캐릭터마다 직업은 하나 (chars.js). 예전 저장(1번 캐릭터)은 처음 한 번만 고를 수 있어요
+function classLocked() { return !!game.profile.clsLocked; }
 function chooseClass(c) {
-  const pr = game.profile; pr.cls = c; saveProfile();
+  const pr = game.profile;
+  if (pr.clsLocked && c !== pr.cls) { showMessage(`이 캐릭터는 ${josa(CLASS_DEFS[pr.cls].name, "이에요/예요")}. 다른 직업은 처음 화면에서 새 캐릭터로!`, 3, false, "#ffb070"); sfx.denied(); return; }
+  pr.cls = c; pr.clsLocked = true;
+  // 무기가 이 직업 것이 아니면 같은 힘의 이 직업 무기로 (쓰던 건 가방으로)
+  const w = pr.eq && pr.eq.weapon;
+  if (w && typeof canUseItem === "function" && !canUseItem(w, c)) {
+    const id = bestBaseFor("weapon", w.l, (b) => b.cls && b.cls.includes(c) && !b.effect) || STARTER[c];
+    pr.bag.push(w); pr.eq.weapon = makeItem(id, w.r, w.l, { p: w.p || 0, e: w.e });
+  }
+  saveProfile();
   for (const p of allPlayers()) if (!p.pid || p.pid === 1) { p.cls = undefined; p._cls = null; refreshGear(); clsPrepare(p); }
   allies = allies.filter((w) => w.owner !== game.player);
   spawnBurst(game.player.x, game.player.y, [CLASS_DEFS[c].color, "#ffffff"], 18);
@@ -918,7 +929,8 @@ hookOn("overlayDraw", (name) => {
       });
     }
   });
-  drawButton(x0 + pw - 220, y0 + ph - 60, 200, 46, pr.cls === c ? "지금 이 직업이에요" : `${d.name} 하기!`, () => { chooseClass(c); closeOverlay(); }, { color: "rgba(80,200,120,0.45)", size: 19 });
+  if (pr.clsLocked) drawButton(x0 + pw - 260, y0 + ph - 60, 240, 46, pr.cls === c ? "지금 이 직업이에요" : "새 캐릭터로 해 봐요", () => { if (pr.cls !== c) chooseClass(c); }, { color: pr.cls === c ? "rgba(80,200,120,0.45)" : "rgba(120,120,120,0.35)", size: 17 });
+  else drawButton(x0 + pw - 260, y0 + ph - 60, 240, 46, `${josa(d.name, "으로/로")} 정하기! (한 번만)`, () => { chooseClass(c); closeOverlay(); }, { color: "rgba(80,200,120,0.45)", size: 17 });
   text("변형은 1·2 키 또는 버튼으로 바꿔요", x0 + 24, y0 + ph - 30, 13, "#999");
   return true;
 });

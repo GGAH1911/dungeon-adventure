@@ -144,10 +144,10 @@ function applyCheat(action) {
     sfx.buy();
     showMessage("에메랄드 비가 내려요! +100", 2.5);
   } else if (action === "materials") {
-    for (const id of MATERIAL_ORDER) addMaterial(id, 20);
+    for (const id of ["silver", "amethyst", "gold", "diamond"]) curAdd(id, 20);
     saveProfile();
     sfx.buy();
-    showMessage("부품이 쏟아져요! 모든 부품 +20", 2.5);
+    showMessage("화폐가 쏟아져요! 은·자수정·금·다이아몬드 +20", 2.5);
   }
 }
 

@@ -1,52 +1,39 @@
 // ===== 로비 창: 대장장이(강화), 옷장, 기록판 =====
 
 // ----- 대장장이 -----
-// 부품으로 7부위(무기, 활, 머리, 가슴, 바지, 팔, 신발)를 강화하고, 보스 부품으로 무기에 마법을 붙여요
+// 끼고 있는 장비 4칸을 +1 ~ +10 강화하고 (실패 없음), 보스 부품으로 무기에 마법을 붙여요
 const smith = { tab: "upgrade", row: 0, note: "", noteColor: "#7dffb0", noteTimer: 0 };
 
 function openSmith() { game.overlay = "smith"; smith.row = 0; smith.noteTimer = 0; sfx.anvil(); }
 function smithNote(msg, color = "#7dffb0") { smith.note = msg; smith.noteColor = color; smith.noteTimer = 2.4; }
 
-// 다음 레벨에서 얼마나 좋아지나
+// 다음 강화에서 얼마나 좋아지나 (첫 줄 능력치 비교)
 function upgradePreview(slot) {
-  const L = gearLevel(slot), N = Math.min(GEAR_MAX, L + 1);
-  const pct = (x) => `${Math.round(x * 100)}%`;
-  switch (slot) {
-    case "weapon": return `공격력 ${(weaponBaseDamage(L)).toFixed(1)} → ${weaponBaseDamage(N).toFixed(1)} (x 종류 배수)`;
-    case "bow": return `화살 ${bowBaseDamage(L).toFixed(1)} → ${bowBaseDamage(N).toFixed(1)}`;
-    case "head": return `하트 +${Math.floor(L / 4)} → +${Math.floor(N / 4)}`;
-    case "chest": return `막기 ${pct(chestBlock(L))} → ${pct(chestBlock(N))}`;
-    case "legs": return `하트 +${Math.floor(L / 6)} → +${Math.floor(N / 6)}, 덜 밀려남`;
-    case "arms": return `공격력 +${(1.5 * L).toFixed(1)}% → +${(1.5 * N).toFixed(1)}%, 빨라짐`;
-    case "boots": return `이동 +${(0.6 * L).toFixed(1)}% → +${(0.6 * N).toFixed(1)}%, 구르기 자주`;
-  }
-  return "";
+  const it = game.profile.eq[slot]; if (!it) return "";
+  const now = itemLines(it)[0], next = itemLines({ ...it, p: Math.min(PLUS_MAX, (it.p || 0) + 1) })[0];
+  if (!now) return "";
+  if (!next || it.p >= PLUS_MAX) return now[0];
+  const nv = now[0].match(/[\d.]+%?/), xv = next[0].match(/[\d.]+%?/);
+  return nv && xv && nv[0] !== xv[0] ? `${now[0]} → ${xv[0]}` : now[0];
 }
 
 function doUpgrade(slot) {
-  const pr = game.profile;
-  const cost = upgradeCost(slot);
-  if (!cost) return smithNote("최고 레벨이에요!", "#ffe27a");
-  const have = pr.materials[cost.mat] || 0;
-  if (have < cost.count) { sfx.denied(); return smithNote(`${josa(MATERIALS[cost.mat].name, "이/가")} ${cost.count - have}개 모자라요 (맵을 깨면 받아요)`, "#ff8080"); }
-  if (pr.emeralds < cost.emeralds) { sfx.denied(); return smithNote(`에메랄드가 ${cost.emeralds - pr.emeralds}개 모자라요`, "#ff8080"); }
-  const before = tierIndex(gearLevel(slot));
-  pr.materials[cost.mat] = have - cost.count;
-  pr.emeralds -= cost.emeralds;
-  pr.gear[slot] = gearLevel(slot) + 1;
-  refreshGear();
+  const it = game.profile.eq[slot];
+  if (!it) return smithNote("이 칸에 낀 장비가 없어요", "#ffb070");
+  const r = plusItem(it.u);
+  if (!r.ok) { sfx.denied(); return smithNote(r.why, r.why.includes("최고") ? "#ffe27a" : "#ff8080"); }
   sfx.anvil();
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < (r.big ? 40 : 20); i++) {
     const a = Math.random() * Math.PI * 2;
     addSparkle(lobby.anvil.x, lobby.anvil.y, 0.5, { vx: Math.cos(a) * 2.5, vy: Math.sin(a) * 2.5, vz: 2 + Math.random() * 2, gravity: 8, life: 0.6, size: 0.6, gold: true });
   }
-  const after = tierIndex(gearLevel(slot));
-  if (after > before) { smithNote(`새 단계! ${gearLabel(slot)}`, "#ffe27a"); sfx.levelUp(); }
-  else smithNote(`${GEAR_SLOTS.find((s) => s.id === slot).name} 강화 성공! Lv ${gearLevel(slot)}`);
+  if (r.big) { smithNote(`+${it.p}! 특별 능력이 더 세졌어요! ${itemLabel(it)}`, "#ffe27a"); sfx.levelUp(); if (game.player) addRing(game.player.x, game.player.y, { speed: 6, life: 0.6, gold: true }); }
+  else smithNote(`강화 성공! ${itemLabel(it)}`);
 }
 
 function setEnchant(id) {
-  game.profile.enchant = id;
+  const w = game.profile.eq.weapon; if (!w) return;
+  w.e = id || null;
   refreshGear();
   sfx.equip();
   smithNote(id ? `무기에 ${ENCHANTS[id].name} 마법!` : "마법을 뺐어요", id ? ENCHANTS[id].color : "#ddd");
@@ -54,12 +41,12 @@ function setEnchant(id) {
 
 function updateSmith(dt) {
   smith.noteTimer -= dt;
-  const n = smith.tab === "upgrade" ? GEAR_SLOTS.length : Object.keys(ENCHANTS).length + 1;
+  const n = smith.tab === "upgrade" ? EQ_SLOTS.length : Object.keys(ENCHANTS).length + 1;
   if (wasPressed("Tab")) { smith.tab = smith.tab === "upgrade" ? "enchant" : "upgrade"; smith.row = 0; }
   if (wasPressed("ArrowUp", "KeyW")) smith.row = (smith.row + n - 1) % n;
   if (wasPressed("ArrowDown", "KeyS")) smith.row = (smith.row + 1) % n;
   if (wasPressed("Enter", "Space")) {
-    if (smith.tab === "upgrade") doUpgrade(GEAR_SLOTS[smith.row].id);
+    if (smith.tab === "upgrade") doUpgrade(EQ_SLOTS[smith.row].id);
     else { const ids = [null, ...Object.keys(ENCHANTS)]; const id = ids[smith.row]; if (!id || game.profile.enchants.includes(id)) setEnchant(id); }
   }
   if (wasPressed("Escape", "KeyE")) closeOverlay();
@@ -73,65 +60,60 @@ function drawSmith() {
   text("대장장이", x0 + 22, y0 + 40, 26, "#ffe27a");
   drawButton(x0 + 160, y0 + 14, 90, 36, "강화", () => { smith.tab = "upgrade"; smith.row = 0; }, { selected: smith.tab === "upgrade" });
   drawButton(x0 + 258, y0 + 14, 110, 36, "마법 부여", () => { smith.tab = "enchant"; smith.row = 0; }, { selected: smith.tab === "enchant" });
-  drawEmeraldIcon(x0 + pw - 150, y0 + 30, 12);
-  text(`${pr.emeralds}`, x0 + pw - 132, y0 + 39, 22);
   drawButton(x0 + pw - 58, y0 + 12, 42, 38, "✕", closeOverlay, { size: 20 });
-  // 추천 강화 (qol.js): 지금 할 수 있는 강화 중 가장 좋은 부위
+  // 추천 강화 (qol.js): 지금 할 수 있는 강화 중 가장 좋은 칸
   const rec = smith.tab === "upgrade" && typeof qolRecommendSlot === "function" ? qolRecommendSlot() : null;
   if (rec) {
-    const nm = GEAR_SLOTS.find((s) => s.id === rec).name;
-    drawButton(x0 + 378, y0 + 14, Math.min(190, pw - 600), 36, `★ 추천: ${nm}`, () => { smith.row = GEAR_SLOTS.findIndex((s) => s.id === rec); doUpgrade(rec); }, { size: 15, color: "rgba(255,200,60,0.45)" });
+    const nm = EQ_SLOTS.find((s) => s.id === rec).name;
+    drawButton(x0 + 378, y0 + 14, Math.min(190, pw - 600), 36, `★ 추천: ${nm}`, () => { smith.row = EQ_SLOTS.findIndex((s) => s.id === rec); doUpgrade(rec); }, { size: 15, color: "rgba(255,200,60,0.45)" });
   }
-
-  // 가진 부품
+  // 가진 화폐
   let mx = x0 + 22;
-  for (const id of MATERIAL_ORDER) {
-    const m = MATERIALS[id];
-    ctx.fillStyle = m.color; ctx.fillRect(mx, y0 + 62, 14, 14);
-    text(`${m.name} ${pr.materials[id] || 0}`, mx + 19, y0 + 75, 13, "#ddd");
-    mx += Math.min(150, (pw - 44) / 6);
-  }
+  for (const c of CURRENCIES) { drawCurrencyIcon(c.id, mx + 8, y0 + 70, 8); text(`${c.name} ${curHave(c.id)}`, mx + 21, y0 + 75, 13, "#ddd"); mx += Math.min(150, (pw - 44) / 5); }
 
-  const top = y0 + 92, rowH = Math.min(64, (ph - 150) / GEAR_SLOTS.length);
+  const top = y0 + 92;
   if (smith.tab === "upgrade") {
-    GEAR_SLOTS.forEach((slot, i) => {
-      const ry = top + i * rowH;
-      const L = gearLevel(slot.id);
+    const rowH = Math.min(96, (ph - 150) / EQ_SLOTS.length);
+    EQ_SLOTS.forEach((slot, i) => {
+      const ry = top + i * rowH, it = pr.eq[slot.id];
       const sel = smith.row === i;
       roundRectPath(x0 + 18, ry, pw - 36, rowH - 6, 8);
       ctx.fillStyle = sel ? "rgba(255,226,122,0.15)" : "rgba(255,255,255,0.05)"; ctx.fill();
       if (sel) { ctx.strokeStyle = "#ffe27a"; ctx.lineWidth = 2; ctx.stroke(); }
       addUI(x0 + 18, ry, pw - 260, rowH - 6, () => { smith.row = i; });
-      const tier = TIERS[tierIndex(L)];
-      ctx.fillStyle = slot.id === "weapon" || slot.id === "bow" ? tier.color : L > 0 ? tier.armor.body : "#555"; ctx.fillRect(x0 + 30, ry + 12, 22, 22);
-      text(slot.name, x0 + 62, ry + 22, 13, "#aaa");
-      if (rec === slot.id) { drawStar(x0 + 30, ry + 12, 9, "#ffd23f"); text("추천!", x0 + 62 + 40, ry + 22, 13, "#ffd23f"); }
-      text(gearLabel(slot.id), x0 + 62, ry + 42, 17, "#fff");
-      // 레벨 막대 (5칸씩 단계 색)
-      const bx = x0 + 300, bw = Math.min(260, pw - 640);
-      for (let k = 0; k < GEAR_MAX; k++) {
-        ctx.fillStyle = k < L ? TIERS[tierIndex(k + 1)].color : "#333";
-        ctx.fillRect(bx + k * (bw / GEAR_MAX), ry + 14, bw / GEAR_MAX - 1, 8);
+      const cs = rowH - 18;
+      drawItemCell(it, x0 + 26, ry + 6, cs, false, () => { smith.row = i; }, slot.name);
+      const tx = x0 + 36 + cs;
+      text(slot.name, tx, ry + 20, 13, "#aaa");
+      if (rec === slot.id) { drawStar(tx + 44, ry + 14, 8, "#ffd23f"); text("추천!", tx + 56, ry + 20, 13, "#ffd23f"); }
+      if (!it) { text("비어 있어요 (가방에서 끼고 오세요)", tx, ry + 44, 16, "#888"); return; }
+      text(itemLabel(it), tx, ry + 44, 18, itemRarity(it).color);
+      // 강화 칸 10개 (+5, +10 은 특별)
+      const bx = tx, bw = Math.min(260, pw - 640);
+      for (let k = 0; k < PLUS_MAX; k++) {
+        ctx.fillStyle = k < (it.p || 0) ? (k === 4 || k === 9 ? "#ffd23f" : "#7dd3ff") : "#333";
+        ctx.fillRect(bx + k * (bw / PLUS_MAX), ry + rowH - 26, bw / PLUS_MAX - 2, 8);
       }
-      text(upgradePreview(slot.id), bx, ry + 42, 12, "#7dd3ff");
-      const cost = upgradeCost(slot.id);
-      if (!cost) { text("최고 레벨!", x0 + pw - 40, ry + 34, 16, "#7dffb0", "right"); return; }
-      const have = pr.materials[cost.mat] || 0;
-      const ok = have >= cost.count && pr.emeralds >= cost.emeralds;
-      text(`${MATERIALS[cost.mat].name} ${have}/${cost.count}`, x0 + pw - 210, ry + 24, 13, have >= cost.count ? "#ddd" : "#ff8080", "right");
-      text(`에메랄드 ${cost.emeralds}`, x0 + pw - 210, ry + 42, 13, pr.emeralds >= cost.emeralds ? "#ddd" : "#ff8080", "right");
-      drawButton(x0 + pw - 196, ry + 8, 150, rowH - 22, "강화", () => { smith.row = i; doUpgrade(slot.id); }, { color: ok ? "rgba(80,200,120,0.4)" : "rgba(120,60,60,0.35)", size: 17 });
+      text(upgradePreview(slot.id), bx + bw + 14, ry + rowH - 18, 12, "#7dd3ff");
+      const cost = plusCost(it);
+      if (!cost) { text("최고 강화! (+10)", x0 + pw - 40, ry + rowH / 2 + 4, 16, "#7dffb0", "right"); return; }
+      const ok = canPay(cost);
+      drawPrice(cost, x0 + pw - 212, ry + rowH / 2 + 6, 16, "right", ok);
+      if ((it.p || 0) === 4 || (it.p || 0) === 9) text("다음: 특별 능력 UP", x0 + pw - 212, ry + rowH / 2 + 26, 11, "#ffd23f", "right");
+      drawButton(x0 + pw - 196, ry + 10, 150, rowH - 26, "강화", () => { smith.row = i; doUpgrade(slot.id); }, { color: ok ? "rgba(80,200,120,0.4)" : "rgba(120,60,60,0.35)", size: 17 });
     });
+    text("+1~+3 은 장비 색깔 화폐, +4 부터는 한 단계 위 화폐 · 실패 없어요 · 가방 장비는 끼고 오면 강화돼요", x0 + 22, y0 + ph - 40, 12, "#999");
   } else {
-    const ids = [null, ...Object.keys(ENCHANTS)];
+    const ids = [null, ...Object.keys(ENCHANTS)], rowH = Math.min(64, (ph - 150) / ids.length);
+    const w = pr.eq.weapon, cur = w ? w.e || null : null;
     ids.forEach((id, i) => {
       const ry = top + i * rowH;
       const open = !id || pr.enchants.includes(id);
-      const on = pr.enchant === id;
+      const on = cur === id;
       roundRectPath(x0 + 18, ry, pw - 36, rowH - 6, 8);
       ctx.fillStyle = on ? "rgba(125,255,176,0.15)" : smith.row === i ? "rgba(255,226,122,0.12)" : "rgba(255,255,255,0.05)"; ctx.fill();
       addUI(x0 + 18, ry, pw - 36, rowH - 6, () => { smith.row = i; if (open) setEnchant(id); });
-      const e = id ? ENCHANTS[id] : { name: "마법 없음", desc: "무기에 붙은 마법을 빼요", color: "#999" };
+      const e = id ? ENCHANTS[id] : { name: "마법 없음", desc: "대장장이 마법을 빼요 (무기에 원래 있는 힘은 그대로)", color: "#999" };
       ctx.fillStyle = open ? e.color : "#444"; ctx.fillRect(x0 + 30, ry + 12, 22, 22);
       text(e.name, x0 + 62, ry + 26, 18, open ? "#fff" : "#777");
       text(open ? e.desc : "보스를 물리치고 보스 부품을 얻으면 열려요", x0 + 62, ry + 45, 13, open ? "#bbb" : "#777");
@@ -140,7 +122,7 @@ function drawSmith() {
   }
   if (smith.noteTimer > 0) {
     ctx.globalAlpha = Math.min(1, smith.noteTimer * 2);
-    text(smith.note, W / 2, y0 + ph - 18, 17, smith.noteColor, "center");
+    text(smith.note, W / 2, y0 + ph - 14, 17, smith.noteColor, "center");
     ctx.globalAlpha = 1;
   }
 }
@@ -273,7 +255,7 @@ function drawBasicRecords(x0, y0, pw, ph) {
     [`던전 도전 / 클리어`, `${st.runs}번 / ${st.clears}번`],
     [`시련의 탑 최고`, `${pr.towerBest || 0}층`],
     [`강아지 쓰다듬기`, `${st.pets}번`],
-    [`장비 강화 합계`, `Lv ${Object.values(pr.gear).reduce((a, b) => a + b, 0)}`],
+    [`장비 강화 합계`, `+${EQ_SLOTS.reduce((a, sl) => a + ((pr.eq[sl.id] && pr.eq[sl.id].p) || 0), 0)}`],
     [`보스 처치`, `${st.bosses || 0}번`],
   ];
   lines.forEach(([k, v], i) => {

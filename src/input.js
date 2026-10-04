@@ -92,6 +92,7 @@ canvas.addEventListener("pointerdown", (e) => {
   if (typeof cheatOpen !== "undefined" && cheatOpen) return;
   if (e.pointerType === "touch") touch.show = true;
   const x = e.clientX, y = e.clientY;
+  if (hookAny("touchDown", e, x, y)) return; // 0) 창이 먼저 받아요 (버튼 배치 바꾸기에서 끌기: btnlayout.js)
 
   // 1) 공격/구르기 같은 게임 버튼 (누르는 순간 바로)
   for (const b of touchButtons()) {

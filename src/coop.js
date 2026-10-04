@@ -321,7 +321,7 @@ hookOn("worldThings", (things) => {
     things.push({ depth: q.x + q.y + 50, draw: () => {
       const s = toScreen(q.x, q.y, 2.05);
       const col = coopColorOf(q.pid).label;
-      text(q.netName ? `${q.pid} ${q.netName}` : String(q.pid), s.x, s.y, 15, col, "center");
+      text(String(q.pid), s.x, s.y, 15, col, "center"); // 번호만 (친구 기기가 보낸 이름은 안 보여줘요)
       if (q !== game.player && q.hp > 0) {
         const w = 34, f = Math.max(0, q.hp / q.maxHp);
         ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(s.x - w / 2, s.y + 4, w, 5);

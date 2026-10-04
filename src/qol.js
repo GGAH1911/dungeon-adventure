@@ -231,7 +231,8 @@ function qolSummary() {
   return {
     game: "dungeon-adventure", logVersion: QOL_LOG_VERSION, date: new Date().toISOString().slice(0, 10),
     level: pr.level, difficulty: pr.difficulty, hardMode: !!pr.hardMode,
-    gear: pr.gear, weaponType: pr.weaponType, bowType: pr.bowType, enchant: pr.enchant,
+    gear: Object.fromEntries(EQ_SLOTS.map((s) => { const it = pr.eq && pr.eq[s.id]; return [s.id, it ? `${itemName(it)} ${RARITIES[it.r].name} Lv${it.l} +${it.p || 0}` : null]; })),
+    money: { emerald: pr.emeralds, ...(pr.money || {}) }, bag: (pr.bag || []).length,
     playMinutes: Math.round(L.playSec / 60),
     minutesByDay: Object.fromEntries(Object.entries(L.days).map(([k, v]) => [k, Math.round(v / 60)])),
     stats: pr.stats, bosses, maps,
@@ -411,30 +412,26 @@ hookOn("menuItems", (items) => {
 }, 60);
 
 // ===== 추천 =====
-function qolAvgGear() {
-  const g = game.profile.gear || {};
-  const vals = GEAR_SLOTS.map((s) => g[s.id] || 0);
-  return vals.reduce((a, b) => a + b, 0) / vals.length;
-}
+// 끼고 있는 장비를 "기대 장비" 레벨로 (loot.js eqAvgLevel: 등급·강화까지 쳐요)
+function qolAvgGear() { return typeof eqAvgLevel === "function" ? eqAvgLevel() : 0; }
 // 장비에 맞는 맵 레벨 (보스 기대 장비 = 0.85 x (레벨-1))
 function qolRecommendedLevel() { return Math.max(1, Math.round(qolAvgGear() / 0.85 + 1)); }
 
-const QOL_SLOT_WEIGHT = { weapon: 1.35, chest: 1.1, head: 1.0, legs: 0.95, arms: 0.95, bow: 0.8, boots: 0.65 };
-// 지금 부품·에메랄드로 할 수 있는 강화 중 가장 좋은 부위 (없으면 null)
+const QOL_SLOT_WEIGHT = { weapon: 1.35, armor: 1.15, bow: 0.8, charm: 0.7 };
+// 지금 가진 화폐로 할 수 있는 강화 중 가장 좋은 칸 (없으면 null)
 function qolRecommendSlot() {
   const pr = game.profile;
   const avg = qolAvgGear();
-  const armorAvg = ["head", "chest", "legs", "arms", "boots"].reduce((a, s) => a + gearLevel(s), 0) / 5;
   let best = null, bestScore = -Infinity;
-  for (const s of GEAR_SLOTS) {
-    const cost = upgradeCost(s.id);
-    if (!cost) continue;
-    if ((pr.materials[cost.mat] || 0) < cost.count || pr.emeralds < cost.emeralds) continue;
-    const L = gearLevel(s.id);
-    let score = (QOL_SLOT_WEIGHT[s.id] || 1) * (avg + 3 - L);
-    if (s.id === "weapon" && L < armorAvg - 2) score += 3;              // 무기가 많이 뒤처지면 무기
-    if ((s.id === "head" || s.id === "legs") && game.player && game.player.maxHp < 14) score += 1.5; // 하트가 적으면
-    if (s.id === "chest" && L + 2 < avg) score += 1;
+  for (const s of EQ_SLOTS) {
+    const it = pr.eq && pr.eq[s.id]; if (!it) continue;
+    const cost = plusCost(it);
+    if (!cost || !canPay(cost)) continue;
+    let w = QOL_SLOT_WEIGHT[s.id] || 1;
+    if (pr.cls === "hunter" && s.id === "bow") w = 1.4;
+    if (pr.cls === "hunter" && s.id === "weapon") w = 0.6;
+    let score = w * (avg + 3 - itemEqLevel(it));
+    if (s.id === "armor" && game.player && game.player.maxHp < 14) score += 1.5; // 하트가 적으면 갑옷
     if (score > bestScore) { bestScore = score; best = s.id; }
   }
   return best;

@@ -14,6 +14,12 @@ function beginUIScale(minW, minH) {
   view.w = uiSaved.w / uiK;
   view.h = uiSaved.h / uiK;
 }
+// 오류로 endUIScale 을 못 불렀을 때 원래대로 (main.js reportLoopError)
+function uiRecover() {
+  if (uiSaved && uiK < 1) { view.w = uiSaved.w; view.h = uiSaved.h; }
+  uiK = 1; uiSaved = null;
+  try { for (let i = 0; i < 24; i++) ctx.restore(); const d = typeof renderScale === "function" ? renderScale() : 1; ctx.setTransform(d, 0, 0, d, 0, 0); ctx.globalAlpha = 1; } catch (e) { /* 그만 */ }
+}
 function endUIScale() {
   if (uiK < 1 && uiSaved) {
     view.w = uiSaved.w;

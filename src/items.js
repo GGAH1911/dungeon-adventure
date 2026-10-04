@@ -1,8 +1,6 @@
-// ===== 장비: 부위 7개를 "부품"으로 강화해요 =====
-// 무기, 활, 머리, 가슴, 바지, 팔, 신발 - 각각 0~30 레벨
-// 맵을 깨면 맵 레벨에 맞는 부품을 받아요 -> 대장장이에서 강화!
-// 5레벨마다 단계(겉모습)가 바뀌어요: 나무/천 -> 철 -> 다이아 -> 흑요석 -> 용비늘 -> 별빛
-// 무기 종류(칼, 창, 망치...)와 활 종류는 가게에서 열어요. 강화 레벨은 종류가 달라도 같이 써요.
+// ===== 장비 바탕: 무기 종류, 활 종류, 화살, 물약 =====
+// 장비 하나하나(이름·등급·강화)와 떨어뜨리기는 loot.js, 화폐는 currency.js 예요.
+// TIERS 는 갑옷 색깔 묶음으로 써요.
 
 const GEAR_MAX = 30;
 
@@ -96,89 +94,38 @@ const LEGEND = {
 };
 
 // ===== 계산 =====
-function gearLevel(slot) { return ((game.profile.gear || {})[slot]) || 0; }
+// 장비 레벨 L 의 기본 공격력 (장비 하나하나는 loot.js: 등급·강화가 곱해져요)
 function weaponBaseDamage(L) { return 1 + 0.2 * L; }
 function bowBaseDamage(L) { return 1.5 + 0.22 * L; }
 function chestBlock(L) { return 0.65 * (1 - Math.exp(-L / 12)); }
-// 세트: 갑옷 5부위가 모두 같은 단계 이상이면 보너스
-function setTier() {
-  const lv = Math.min(...ARMOR_SLOTS.map(gearLevel));
-  return Math.floor(lv / 5);
+// 예전 코드용: 칸의 장비 레벨 (갑옷 부위는 갑옷 하나로)
+function gearLevel(slot) {
+  const e = (game.profile && game.profile.eq) || {};
+  const it = slot === "weapon" ? e.weapon : slot === "bow" ? e.bow : slot === "charm" ? e.charm : e.armor;
+  return it ? it.l : 0;
 }
-function armsMul() { return 1 + 0.015 * gearLevel("arms"); }
-function setMul() { return 1 + 0.04 * setTier(); }
 
-// 지금 쓰는 무기 (다른 코드가 쓰는 모양으로 만들어줘요)
+// 지금 쓰는 무기 (끼고 있는 장비 + 장신구 힘)
 function currentWeapon() {
   const pr = game.profile;
-  const arms = gearLevel("arms");
-  if (pr.legend) return { ...LEGEND.weapon, damage: weaponBaseDamage(GEAR_MAX) * 2 * armsMul() };
-  const t = WEAPON_TYPES[pr.weaponType] || WEAPON_TYPES.sword;
-  const L = gearLevel("weapon");
-  const tier = TIERS[tierIndex(L)];
-  return {
-    id: pr.weaponType, type: pr.weaponType, level: L,
-    name: `${tier.name} ${t.name}`,
-    damage: weaponBaseDamage(L) * t.mul * armsMul() * setMul(),
-    range: t.range, cooldown: t.cooldown * (1 - 0.006 * arms), arc: t.arc, length: t.length,
-    color: tier.color, effect: pr.enchant || null,
-  };
+  if (pr.legend) return { ...LEGEND.weapon, damage: weaponBaseDamage(GEAR_MAX) * 2 * 1.2 };
+  const w = (typeof eqWeapon === "function" && eqWeapon()) || { id: "sword", type: "sword", level: 0, name: "나무 칼", damage: 1, ...WEAPON_TYPES.sword, color: "#a0784a", effect: null };
+  const a = typeof eqArmor === "function" ? eqArmor() : { dmgMul: 1 };
+  return { ...w, damage: w.damage * (a.dmgMul || 1) };
 }
 
 function currentBow() {
   const pr = game.profile;
   if (pr.legend) return { ...LEGEND.bow, damage: bowBaseDamage(GEAR_MAX) * 1.6 };
-  const t = BOW_TYPES[pr.bowType] || BOW_TYPES.basic;
-  const L = gearLevel("bow");
-  const tier = TIERS[tierIndex(L)];
-  return {
-    id: pr.bowType, level: L, name: `${tier.name} ${t.name}`,
-    damage: bowBaseDamage(L) * t.mul * armsMul() * setMul(),
-    cooldown: t.cooldown, speed: t.speed, pierce: t.pierce || 0, multishot: t.multishot || 1,
-    color: L >= 5 ? tier.color : "#a0703a",
-  };
+  const b = (typeof eqBow === "function" && eqBow()) || { id: "basic", level: 0, name: "활", damage: 1.5, ...BOW_TYPES.basic, pierce: 0, multishot: 1, color: "#a0703a" };
+  const a = typeof eqArmor === "function" ? eqArmor() : { dmgMul: 1, bowMul: 1 };
+  return { ...b, damage: b.damage * (a.dmgMul || 1) * (a.bowMul || 1) };
 }
 
 function currentArmor() {
   const pr = game.profile;
   if (pr.legend) return { ...LEGEND.armor, hearts: 0 };
-  const g = (s) => gearLevel(s);
-  const k = setTier();
-  const look = {};
-  // 부위마다 그 단계 색 (0레벨이면 맨옷)
-  if (g("head") > 0) look.helmet = TIERS[tierIndex(g("head"))].armor.helmet;
-  if (g("chest") > 0) look.body = TIERS[tierIndex(g("chest"))].armor.body;
-  if (g("legs") > 0) look.legs = TIERS[tierIndex(g("legs"))].armor.legs;
-  if (g("arms") > 0) look.gloves = TIERS[tierIndex(g("arms"))].armor.gloves;
-  if (g("boots") > 0) look.boots = TIERS[tierIndex(g("boots"))].armor.boots;
-  return {
-    id: "gear", name: k > 0 ? `${TIERS[k].armorName} 세트` : "갑옷",
-    block: chestBlock(g("chest")),
-    hearts: Math.floor(g("head") / 4) + Math.floor(g("legs") / 6) + k,
-    speed: 0.006 * g("boots"),
-    roll: Math.min(0.3, 0.01 * g("boots")),
-    knockResist: g("legs") / GEAR_MAX * 0.6,
-    regen: k >= 5 ? 5 : k >= 4 ? 8 : 0,
-    shimmerSet: k >= 5,
-    ...look,
-  };
-}
-
-// ----- 강화 비용 -----
-// 레벨 L -> L+1: 그 단계 부품 2~6개 + 에메랄드
-function upgradeCost(slot) {
-  const L = gearLevel(slot);
-  if (L >= GEAR_MAX) return null;
-  const next = L + 1;
-  return { mat: TIERS[tierIndex(next)].mat, count: 2 + (L % 5), emeralds: 4 + 2 * next };
-}
-
-function gearLabel(slot) {
-  const L = gearLevel(slot);
-  if (slot === "weapon") return `${currentWeapon().name} Lv ${L}`;
-  if (slot === "bow") return `${currentBow().name} Lv ${L}`;
-  const name = L > 0 ? `${TIERS[tierIndex(L)].armorName} ${GEAR_SLOTS.find((s) => s.id === slot).name}` : `맨 ${GEAR_SLOTS.find((s) => s.id === slot).name}`;
-  return `${name} Lv ${L}`;
+  return typeof eqArmor === "function" ? eqArmor() : { id: "gear", name: "맨몸", hearts: 0, block: 0, speed: 0, roll: 0, knockResist: 0, regen: 0 };
 }
 
 function arrowTypeById(id) { return ARROW_TYPES.find((a) => a.id === id) || ARROW_TYPES[0]; }

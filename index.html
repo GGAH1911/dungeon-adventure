@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:">
   <title>던전 모험</title>
   <!-- 태블릿/폰: 확대 막기, 화면 꽉 채우기 -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -22,53 +23,58 @@
 <body>
   <canvas id="game"></canvas>
   <!-- 순서가 중요해요: 위에 있는 파일을 아래 파일들이 사용해요 -->
-  <script src="src/hooks.js?v=bb9177d-1791072479"></script>
-  <script src="src/errlog.js?v=bb9177d-1791072479"></script>
-  <script src="src/config.js?v=bb9177d-1791072479"></script>
-  <script src="src/items.js?v=bb9177d-1791072479"></script>
-  <script src="src/monsters.js?v=bb9177d-1791072479"></script>
-  <script src="src/maps.js?v=bb9177d-1791072479"></script>
-  <script src="src/iso.js?v=bb9177d-1791072479"></script>
-  <script src="src/rig.js?v=bb9177d-1791072479"></script>
-  <script src="src/anim.js?v=bb9177d-1791072479"></script>
-  <script src="src/sound.js?v=bb9177d-1791072479"></script>
-  <script src="src/world.js?v=bb9177d-1791072479"></script>
-  <script src="src/fullscreen.js?v=bb9177d-1791072479"></script>
-  <script src="src/input.js?v=bb9177d-1791072479"></script>
-  <script src="src/save.js?v=bb9177d-1791072479"></script>
-  <script src="src/ui.js?v=bb9177d-1791072479"></script>
-  <script src="src/icons.js?v=bb9177d-1791072479"></script>
-  <script src="src/player.js?v=bb9177d-1791072479"></script>
-  <script src="src/combat.js?v=bb9177d-1791072479"></script>
-  <script src="src/monster.js?v=bb9177d-1791072479"></script>
-  <script src="src/newmonsters.js?v=bb9177d-1791072479"></script>
-  <script src="src/abilities.js?v=bb9177d-1791072479"></script>
-  <script src="src/mobs_extra.js?v=bb9177d-1791072479"></script>
-  <script src="src/bosses_a.js?v=bb9177d-1791072479"></script>
-  <script src="src/bosses_b.js?v=bb9177d-1791072479"></script>
-  <script src="src/bow.js?v=bb9177d-1791072479"></script>
-  <script src="src/effects.js?v=bb9177d-1791072479"></script>
-  <script src="src/legendary.js?v=bb9177d-1791072479"></script>
-  <script src="src/chest.js?v=bb9177d-1791072479"></script>
-  <script src="src/tower.js?v=bb9177d-1791072479"></script>
-  <script src="src/lobby.js?v=bb9177d-1791072479"></script>
-  <script src="src/lobbyui.js?v=bb9177d-1791072479"></script>
-  <script src="src/shop.js?v=bb9177d-1791072479"></script>
-  <script src="src/mapselect.js?v=bb9177d-1791072479"></script>
-  <script src="src/menus.js?v=bb9177d-1791072479"></script>
-  <script src="src/hud.js?v=bb9177d-1791072479"></script>
-  <script src="src/cheat.js?v=bb9177d-1791072479"></script>
-  <script src="src/main.js?v=bb9177d-1791072479"></script>
-  <script src="src/keyhunt.js?v=bb9177d-1791072479"></script>
-  <script src="src/bossroom.js?v=bb9177d-1791072479"></script>
-  <script src="src/guide.js?v=bb9177d-1791072479"></script>
-  <script src="src/qol.js?v=bb9177d-1791072479"></script>
-  <script src="src/showcase.js?v=bb9177d-1791072479"></script>
-  <script src="src/classes.js?v=bb9177d-1791072479"></script>
-  <script src="src/help.js?v=bb9177d-1791072479"></script>
-  <script src="src/coop.js?v=bb9177d-1791072479"></script>
-  <script src="src/party.js?v=bb9177d-1791072479"></script>
-  <script src="src/net.js?v=bb9177d-1791072479"></script>
-  <script src="src/netplay.js?v=bb9177d-1791072479"></script>
+  <script src="src/hooks.js?v=faf93b2-1791073032"></script>
+  <script src="src/errlog.js?v=faf93b2-1791073032"></script>
+  <script src="src/config.js?v=faf93b2-1791073032"></script>
+  <script src="src/items.js?v=faf93b2-1791073032"></script>
+  <script src="src/currency.js?v=faf93b2-1791073032"></script>
+  <script src="src/loot.js?v=faf93b2-1791073032"></script>
+  <script src="src/monsters.js?v=faf93b2-1791073032"></script>
+  <script src="src/maps.js?v=faf93b2-1791073032"></script>
+  <script src="src/iso.js?v=faf93b2-1791073032"></script>
+  <script src="src/rig.js?v=faf93b2-1791073032"></script>
+  <script src="src/anim.js?v=faf93b2-1791073032"></script>
+  <script src="src/sound.js?v=faf93b2-1791073032"></script>
+  <script src="src/world.js?v=faf93b2-1791073032"></script>
+  <script src="src/fullscreen.js?v=faf93b2-1791073032"></script>
+  <script src="src/input.js?v=faf93b2-1791073032"></script>
+  <script src="src/save.js?v=faf93b2-1791073032"></script>
+  <script src="src/chars.js?v=faf93b2-1791073032"></script>
+  <script src="src/ui.js?v=faf93b2-1791073032"></script>
+  <script src="src/icons.js?v=faf93b2-1791073032"></script>
+  <script src="src/player.js?v=faf93b2-1791073032"></script>
+  <script src="src/combat.js?v=faf93b2-1791073032"></script>
+  <script src="src/monster.js?v=faf93b2-1791073032"></script>
+  <script src="src/newmonsters.js?v=faf93b2-1791073032"></script>
+  <script src="src/abilities.js?v=faf93b2-1791073032"></script>
+  <script src="src/mobs_extra.js?v=faf93b2-1791073032"></script>
+  <script src="src/bosses_a.js?v=faf93b2-1791073032"></script>
+  <script src="src/bosses_b.js?v=faf93b2-1791073032"></script>
+  <script src="src/bow.js?v=faf93b2-1791073032"></script>
+  <script src="src/effects.js?v=faf93b2-1791073032"></script>
+  <script src="src/legendary.js?v=faf93b2-1791073032"></script>
+  <script src="src/chest.js?v=faf93b2-1791073032"></script>
+  <script src="src/tower.js?v=faf93b2-1791073032"></script>
+  <script src="src/lobby.js?v=faf93b2-1791073032"></script>
+  <script src="src/lobbyui.js?v=faf93b2-1791073032"></script>
+  <script src="src/shop.js?v=faf93b2-1791073032"></script>
+  <script src="src/mapselect.js?v=faf93b2-1791073032"></script>
+  <script src="src/menus.js?v=faf93b2-1791073032"></script>
+  <script src="src/hud.js?v=faf93b2-1791073032"></script>
+  <script src="src/cheat.js?v=faf93b2-1791073032"></script>
+  <script src="src/main.js?v=faf93b2-1791073032"></script>
+  <script src="src/keyhunt.js?v=faf93b2-1791073032"></script>
+  <script src="src/bossroom.js?v=faf93b2-1791073032"></script>
+  <script src="src/guide.js?v=faf93b2-1791073032"></script>
+  <script src="src/qol.js?v=faf93b2-1791073032"></script>
+  <script src="src/showcase.js?v=faf93b2-1791073032"></script>
+  <script src="src/classes.js?v=faf93b2-1791073032"></script>
+  <script src="src/help.js?v=faf93b2-1791073032"></script>
+  <script src="src/hero.js?v=faf93b2-1791073032"></script>
+  <script src="src/btnlayout.js?v=faf93b2-1791073032"></script>
+  <script src="src/coop.js?v=faf93b2-1791073032"></script>
+  <script src="src/party.js?v=faf93b2-1791073032"></script>
+  <script src="src/net.js?v=faf93b2-1791073032"></script>
+  <script src="src/netplay.js?v=faf93b2-1791073032"></script>
 </body>
 </html>

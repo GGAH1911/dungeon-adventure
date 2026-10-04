@@ -87,4 +87,5 @@ function drawHelp() {
     text(s.kidText, tx, ry + 42, 13, "#ffe9a8");
     if (rh > 70) text(s.desc, tx, ry + 62, 11, "#aaa");
   });
+  text("버튼 자리는 메뉴의 '버튼 배치 바꾸기'에서 바꿀 수 있어요", x0 + 22, y0 + ph - 8, 12, "#9a9a9a");
 }

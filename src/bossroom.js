@@ -175,6 +175,7 @@ function updateBossRoom(p, dt) {
       if (game.run) { game.run.mats = game.run.mats || {}; game.run.mats[def.material.id] = (game.run.mats[def.material.id] || 0) + n; }
     }
     pr.stats.bosses = (pr.stats.bosses || 0) + 1;
+    if (typeof bossRoomLoot === "function") bossRoomLoot(kh.mapId); // 장비·전설·화폐 (loot.js)
     delete pr.keys[kh.mapId];
     kh.bossWon = true;
     endRun(true);

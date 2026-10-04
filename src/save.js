@@ -1,7 +1,8 @@
 // ===== 저장 =====
 // 레벨, 에메랄드, 장비, 깬 맵을 브라우저에 저장해요. 껐다 켜도 그대로!
 
-const SAVE_KEY = "dungeon-adventure-save-v1";
+// 지금 캐릭터의 저장 자리 (캐릭터를 고르면 chars.js 가 바꿔요. 1번 캐릭터 = 예전 저장 자리 그대로)
+let SAVE_KEY = "dungeon-adventure-save-v1";
 const SAVE_VERSION = 2;
 
 function newProfile() {
@@ -11,10 +12,11 @@ function newProfile() {
     arrows: 10,                               // 보통 화살
     special: { fire: 0, ice: 0, bomb: 0 },    // 특수 화살
     arrowType: "normal",
-    gear: { weapon: 0, bow: 0, head: 0, chest: 0, legs: 0, arms: 0, boots: 0 }, // 부위별 강화 레벨
-    weaponTypes: ["sword"], weaponType: "sword",
-    bowTypes: ["basic"], bowType: "basic",
-    materials: {},  // 부품 개수
+    name: "",       // 캐릭터 이름 (chars.js)
+    eq: null, bag: [], // 장비 4칸과 가방 (loot.js)
+    money: { silver: 0, amethyst: 0, gold: 0, diamond: 0 }, // 에메랄드 말고 화폐 (currency.js)
+    matsConverted: true, // 새 캐릭터는 예전 부품이 없어요
+    materials: {},  // 보스 부품 개수 (마법 열기)
     enchants: [],   // 열린 마법
     enchant: null,  // 무기에 붙인 마법
     legend: false,  // 치트: 전설 장비
@@ -39,6 +41,9 @@ const OLD_ARMORS = { cloth: 0, leather: 3, chain: 5, ninja: 5, iron: 7, turtle: 
 
 function migrateProfile(d) {
   const p = newProfile();
+  p.matsConverted = false;
+  p.gear = { weapon: 0, bow: 0, head: 0, chest: 0, legs: 0, arms: 0, boots: 0 };
+  p.weaponTypes = ["sword"]; p.weaponType = "sword"; p.bowTypes = ["basic"]; p.bowType = "basic";
   const keep = ["level", "xp", "emeralds", "potions", "arrows", "arrowType", "look", "cleared", "best", "towerBest"];
   for (const k of keep) if (d[k] !== undefined) p[k] = d[k];
   p.special = { ...p.special, ...(d.special || {}) };
@@ -98,9 +103,9 @@ function loadProfileBase() {
         return migrated;
       }
       const base = newProfile();
+      if (data.matsConverted === undefined) base.matsConverted = false; // 예전 저장: 부품을 화폐로 바꿔야 해요
       return {
         ...base, ...data,
-        gear: { ...base.gear, ...(data.gear || {}) },
         special: { ...base.special, ...(data.special || {}) },
         stats: { ...base.stats, ...(data.stats || {}) },
       };
@@ -109,7 +114,8 @@ function loadProfileBase() {
   return newProfile();
 }
 
-function saveProfile() {
+function saveProfile() { saveProfileBase(); hookRun("profileSaved", game.profile); }
+function saveProfileBase() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(game.profile)); } catch (e) { /* 저장 못 해도 게임은 계속 */ }
 }
 

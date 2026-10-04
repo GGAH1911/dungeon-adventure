@@ -56,11 +56,8 @@ function chestLoot(c) {
   // 에메랄드
   const em = Math.round((c.gold ? 10 + Math.random() * 8 : 4 + Math.random() * 4) * (1 + 0.05 * (L - 1)));
   for (let i = 0; i < em; i++) pop("emerald");
-  // 부품 (맵 레벨에 맞는 단계)
-  const t = rewardTier(L);
-  const k = typeof rewardFactor === "function" ? rewardFactor() : 1;
-  pop("material", { mat: MATERIAL_ORDER[t], count: Math.max(1, Math.round((c.gold ? 5 : 2) * k)) });
-  if (c.gold && t < MATERIAL_ORDER.length - 1) pop("material", { mat: MATERIAL_ORDER[t + 1], count: Math.max(1, Math.round(2 * k)) });
+  // 화폐와 장비 (맵 레벨에 맞게: currency.js, loot.js)
+  chestGear(c);
   // 덤
   const extras = c.gold ? 2 : 1;
   for (let i = 0; i < extras; i++) {

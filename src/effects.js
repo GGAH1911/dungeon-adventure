@@ -44,6 +44,11 @@ function dropPickup(type, x, y, extra = {}) {
   pickups.push({ type, x, y, z: 0.4, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 2.5, t: Math.random() * 0.2, ...extra });
 }
 
+// 반짝이 색: 에메랄드 초록, 화폐는 화폐 색, 장비는 등급 색
+const PICKUP_HUE = { silver: 210, amethyst: 275, gold: 46, diamond: 186 };
+const RARITY_HUE = [210, 214, 275, 46, 186];
+function pickupHue(e) { return e.type === "coin" ? PICKUP_HUE[e.cur] || 140 : e.type === "item" ? RARITY_HUE[(e.item && e.item.r) || 0] : 140; }
+
 // 튀어 나왔다가 바닥에 떨어지고, 가까이 가면 빨려와요
 // 에메랄드 자동 줍기: 가장 가까운 살아있는 주인공에게 포물선으로 날아와 빨려 들어가요
 // 돌려주는 값 true = 이 주인공 차례에 처리 끝 (다른 주인공 차례면 건드리지 않아요)
@@ -63,12 +68,13 @@ function emeraldHome(e, player, dt, onPickup) {
   if (d > 0.01) { const m = Math.min(d, speed * dt); e.x += dx / d * m; e.y += dy / d * m; }
   e.z = 0.35 + Math.min(1.2, d * 0.25) * Math.min(1, k * 4); // 높이 떠서 날아와요
   e.spin = (e.spin || 0) + dt * 18;
-  if (Math.random() < dt * 30) addSparkle(e.x, e.y, e.z + 0.2, { life: 0.35, size: 0.45, hue: 140, vz: 0.3 });
+  const hue = pickupHue(e);
+  if (Math.random() < dt * 30) addSparkle(e.x, e.y, e.z + 0.2, { life: 0.35, size: 0.45, hue, vz: 0.3 });
   if (d < 0.35) {
     e.taken = true; onPickup(e);
-    addRing(player.x, player.y, { speed: 4, life: 0.25, hue: 140 });
-    for (let i = 0; i < 4; i++) { const a = Math.random() * Math.PI * 2; addSparkle(player.x, player.y, 0.9, { vx: Math.cos(a) * 1.5, vy: Math.sin(a) * 1.5, vz: 1.5, gravity: 5, life: 0.35, size: 0.5, hue: 140 }); }
-    game.emeraldBumpAt = game.time; // 화면 위 에메랄드가 통통 (hud.js)
+    addRing(player.x, player.y, { speed: 4, life: 0.25, hue });
+    for (let i = 0; i < 4; i++) { const a = Math.random() * Math.PI * 2; addSparkle(player.x, player.y, 0.9, { vx: Math.cos(a) * 1.5, vy: Math.sin(a) * 1.5, vz: 1.5, gravity: 5, life: 0.35, size: 0.5, hue }); }
+    if (e.type === "emerald") game.emeraldBumpAt = game.time; // 화면 위 에메랄드가 통통 (hud.js)
   }
   return true;
 }
@@ -86,7 +92,9 @@ function updatePickups(player, dt, onPickup) {
       if (e.z > 0 || e.vz > 0) continue;
     }
     // 에메랄드는 바닥에 닿으면 저절로 주인공에게 날아와요 (자동 줍기)
-    if (e.type === "emerald" && e.t >= 0.45 && emeraldHome(e, player, dt, onPickup)) continue;
+    // 화폐도 저절로, 장비는 빛기둥을 잠깐 보여준 뒤 날아와요
+    if ((e.type === "emerald" || e.type === "coin") && e.t >= 0.45 && emeraldHome(e, player, dt, onPickup)) continue;
+    if (e.type === "item" && e.t >= 1.1 && emeraldHome(e, player, dt, onPickup)) continue;
     const dx = player.x - e.x, dy = player.y - e.y;
     const d = Math.hypot(dx, dy);
     if (player.hp <= 0 || e.t < 0.35) continue;
@@ -122,6 +130,31 @@ function drawPickup(e) {
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
       ctx.fillStyle = tip; ctx.beginPath(); ctx.arc(b.x, b.y, 3 * ZOOM, 0, Math.PI * 2); ctx.fill();
     }
+    return;
+  }
+  if (e.type === "coin") {
+    const c = toScreen(e.x, e.y, z + 0.05);
+    drawCurrencyIcon(e.cur, c.x, c.y, 8 * ZOOM);
+    if (Math.sin(e.t * 6 + e.x) > 0.75) drawStar(c.x + 4 * ZOOM, c.y - 6 * ZOOM, 5 * ZOOM, "#ffffff");
+    return;
+  }
+  if (e.type === "item") {
+    const it = e.item, rar = RARITIES[(it && it.r) || 0];
+    const base = toScreen(e.x, e.y, 0);
+    // 등급 색 빛기둥 (보통은 짧게, 전설·신화는 높게)
+    if (!e.home) {
+      const hgt = (60 + it.r * 35) * ZOOM, w = (6 + it.r * 2) * ZOOM;
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createLinearGradient(0, base.y, 0, base.y - hgt);
+      g.addColorStop(0, rar.color + "aa"); g.addColorStop(1, rar.color + "00");
+      ctx.fillStyle = g; ctx.globalAlpha = 0.55 + 0.25 * Math.sin(e.t * 5);
+      ctx.fillRect(base.x - w / 2, base.y - hgt, w, hgt);
+      ctx.restore();
+    }
+    const c = toScreen(e.x, e.y, z + 0.1);
+    ctx.save(); ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.beginPath(); ctx.arc(c.x, c.y, 11 * ZOOM, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = rar.color; ctx.lineWidth = 2.5 * ZOOM; ctx.stroke(); ctx.restore();
+    if (typeof drawItemIcon === "function") drawItemIcon(it, c.x, c.y, 18 * ZOOM);
     return;
   }
   if (e.type === "material") {
