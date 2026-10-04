@@ -220,7 +220,7 @@ function fmtTime(sec) {
 }
 
 // ---------------- 도감 기록 ----------------
-const CODEX_SKIP = new Set(["bossEgg", "sarcophagus", "bossRock", "icePillar", "b2_crystal", "crackBlock", "slimeSmall"]);
+const CODEX_SKIP = new Set(["bossEgg", "sarcophagus", "bossRock", "icePillar", "fireBrazier", "b2_crystal", "crackBlock", "slimeSmall"]);
 function bossMonsterIds() {
   const s = new Set();
   if (typeof BOSS_DEFS !== "undefined") for (const d of Object.values(BOSS_DEFS)) s.add(d.id);

@@ -24,6 +24,8 @@ Object.assign(MONSTERS, {
   sarcophagus: { name: "석관", color: "#c9a050", shape: "sarcophagus", behavior: "prop", hp: 10, speed: 0, damage: 0, xp: 3, emerald: 0.5, heavy: true },
   bossRock: { name: "떨어진 바위", color: "#8a8178", shape: "rock", behavior: "prop", hp: 9999, speed: 0, damage: 0, xp: 0, emerald: 0, heavy: true, untargetable: true },
   icePillar: { name: "얼음 기둥", color: "#bfe6fa", shape: "pillar", behavior: "prop", hp: 9999, speed: 0, damage: 0, xp: 0, emerald: 0, heavy: true, untargetable: true },
+  // 서리 여왕 방의 화로: 얼음 갑옷을 두르면 활활 켜져요. 때리면 불덩이가 날아가 갑옷을 녹여요 (가게 불화살이 없어도 돼요)
+  fireBrazier: { name: "화로", color: "#ff9a3a", shape: "brazier", behavior: "prop", hp: 9999, speed: 0, damage: 0, xp: 0, emerald: 0, heavy: true, arrowDrop: 0 },
   feederSlime: { name: "먹보 슬라임", shape: "slime", behavior: "feeder", hp: 4, speed: 1.0, damage: 0.5, xp: 2, emerald: 0.3, color: "#a8f07a", size: 0.8 },
 });
 
@@ -162,8 +164,8 @@ Object.assign(ABILITIES, {
     effect: { type: "losBlast", cover: "icePillar", slow: 2 },
   },
   iceShield: {
-    name: "얼음 갑옷", desc: "얼음 보호막을 둘러요. 불화살에 아주 약해요.",
-    counter: "불화살을 쏘면 보호막이 3배로 빨리 깨져요", tags: ["boss", "shield"],
+    name: "얼음 갑옷", desc: "얼음 보호막을 둘러요. 방의 화로가 켜지고, 불에 아주 약해요.",
+    counter: "빛나는 화로를 때리면(칼·화살·기술 다 돼요) 불덩이가 날아가 갑옷이 녹아요. 불화살은 3배로 빨리 깨요", tags: ["boss", "shield"],
     telegraph: { shape: "self", radius: 1.5, at: "self", time: 0.8 },
     cooldown: 16, range: [0, 20], damageMul: 0, anim: "raise",
     effect: { type: "shield", amount: 0.12, duration: 10 },
@@ -310,6 +312,46 @@ function bossPhaseEvent(m, mapId, idx) {
     }
   }
 }
+
+// ----- 서리 여왕 화로 -----
+// 얼음 갑옷을 두르면 방 양쪽 화로 2개가 켜져요 (없으면 이때 세워요). 켜진 화로를 한 번 때리면:
+// 불덩이가 보스에게 날아가 갑옷이 바로 녹고, 보스가 잠깐 비틀거려요. 갑옷이 없어지면 화로는 꺼져요
+const FROST_BRAZIER_SPOTS = [[-6, 1], [6, -1]];
+function frostBraziers(m) { return monsters.filter((o) => o.type === "fireBrazier" && o.owner === m && o.hp > 0); }
+function lightFrostBraziers(m) {
+  let list = frostBraziers(m);
+  if (!list.length) {
+    const c = { x: world.W / 2, y: world.H / 2 };
+    list = FROST_BRAZIER_SPOTS.map(([ox, oy]) => spawnProp("fireBrazier", c.x + ox, c.y + oy, m));
+  }
+  for (const b of list) { b.lit = true; addRing(b.x, b.y, { speed: 4, life: 0.5, hue: 30 }); }
+  showMessage("얼음 갑옷! 빛나는 화로를 때려서 녹여요", 2.5, false, "#ffb070");
+}
+function fireBrazierShot(b) {
+  const m = b.owner;
+  for (const o of frostBraziers(m)) o.lit = false;
+  if (!m || m.hp <= 0) return;
+  // 불덩이 길: 반짝이를 화로에서 보스까지
+  for (let i = 0; i <= 10; i++) { const k = i / 10; addSparkle(b.x + (m.x - b.x) * k, b.y + (m.y - b.y) * k, 0.6 + Math.sin(k * Math.PI) * 0.8, { vz: 0.4, life: 0.35 + k * 0.25, size: 1.2, hue: 25 + i * 3 }); }
+  spawnBurst(m.x, m.y, ["#ff7a1a", "#ffd23f", "#ffffff"], 18);
+  addRing(m.x, m.y, { speed: 8, life: 0.4, hue: 25 });
+  if (m.shieldHp > 0) { m.shieldHp = 0; m.shieldT = 0; addFloatText(m.x, m.y, "보호막 깨짐!", "#ffb070", 22); }
+  m.stagger = Math.max(m.stagger || 0, 2);
+  addFloatText(m.x, m.y + 0.4, "비틀!", "#ffe27a", 20);
+  game.shake = Math.max(game.shake, 0.25);
+  if (typeof sfx !== "undefined" && sfx.slam) sfx.slam();
+}
+hookOn("castResolved", (c) => { if (c && c.id === "iceShield" && c.m && c.m.hp > 0 && c.m.shieldHp > 0) lightFrostBraziers(c.m); }, 40);
+// 화로: 켜져 있으면 한 번 맞을 때 불덩이 (지속 피해는 빼요). 화로는 부서지지 않아요
+hookOn("monsterDamage", (h) => {
+  const b = h.m;
+  if (!b || b.type !== "fireBrazier") return false;
+  if (b.lit && !h.opts.dot && h.dmg > 0) fireBrazierShot(b);
+  return true;
+}, 5);
+// 꺼진 화로는 자동 조준에서 빼요. 보스 갑옷이 없어지면 꺼져요
+hookOn("untargetable", (o) => o.type === "fireBrazier" && !o.lit);
+hookOn("dungeonTick", () => { for (const b of monsters) if (b.type === "fireBrazier" && b.lit && !(b.owner && b.owner.hp > 0 && b.owner.shieldHp > 0)) b.lit = false; }, 50);
 
 function spawnProp(type, x, y, owner) {
   const spot = findFreeSpot(x, y, 0.6, 3) || { x, y };
@@ -756,6 +798,19 @@ const EXTRA_SHAPES_A = {
   pillar(m) {
     drawBox(m.x - 0.45, m.y - 0.45, 0, 0.9, 0.9, 1.8, "#bfe6fa");
     drawBox(m.x - 0.3, m.y - 0.3, 1.8, 0.6, 0.6, 0.4, "#e8f6ff");
+  },
+  // 화로: 돌 받침 + 그릇, 켜지면 불꽃이 일렁여요
+  brazier(m) {
+    const hit = m.flash > 0;
+    drawBox(m.x - 0.18, m.y - 0.18, 0, 0.36, 0.36, 0.45, hit ? "#ffffff" : "#6e6a72");
+    drawBox(m.x - 0.36, m.y - 0.36, 0.45, 0.72, 0.72, 0.18, hit ? "#ffffff" : "#8a5a3a");
+    if (m.lit) {
+      const t = game.time * 9, f = 0.06 * Math.sin(t), g = 0.05 * Math.sin(t * 1.7 + 1);
+      drawBox(m.x - 0.26, m.y - 0.26, 0.63, 0.52, 0.52, 0.28 + f, "#ff7a1a");
+      drawBox(m.x - 0.17 + g, m.y - 0.17, 0.85 + f, 0.34, 0.34, 0.26 + g, "#ffb23f");
+      drawBox(m.x - 0.08, m.y - 0.08 + g, 1.08 + f, 0.16, 0.16, 0.2, "#fff2a8");
+      if (Math.random() < 0.3) addSparkle(m.x + (Math.random() - 0.5) * 0.4, m.y + (Math.random() - 0.5) * 0.4, 1.1, { vz: 1.2, life: 0.5, size: 0.7, hue: 30 });
+    } else drawBox(m.x - 0.26, m.y - 0.26, 0.63, 0.52, 0.52, 0.06, "#2a2626");
   },
 };
 Object.assign(EXTRA_SHAPES, EXTRA_SHAPES_A);

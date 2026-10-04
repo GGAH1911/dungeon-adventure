@@ -40,6 +40,11 @@ function coopSim() { return coopActive() && !coopNetGuest(); }
 // 번호별 색 (1번 빨강, 2~4번 COOP_COLORS)
 function coopColorOf(pid) { if (pid === 1) return { label: "#ff7a7a" }; const c = pid === 2 && coopOn() ? coopPr().color : (pid - 2) % COOP_COLORS.length; return COOP_COLORS[c] || COOP_COLORS[0]; }
 function coopFriend() { return game.players && game.players[1]; }
+// 머리 위·안내에 쓰는 이름: 캐릭터 이름 (같이 하기 이름 규칙을 통과한 것만: 한글·영어·숫자·띄어쓰기 12자), 아니면 번호
+function playerLabel(q) {
+  const n = typeof netCleanName === "function" ? netCleanName(q && q.netName) : "";
+  return n || `${(q && q.pid) || 1}번`;
+}
 
 // 한 태블릿 둘이 하기는 쓰지 않아요 (화면이 좁아서). 메뉴에서 숨기고, 둘이 하는 엔진(game.players 등)은
 // 나중에 같은 Wi-Fi 네트워크 둘이 하기에서 다시 써요.
@@ -223,7 +228,7 @@ hookOn("playerDown", (p) => {
   const others = alivePlayers().filter((q) => q !== p);
   if (others.length) {
     p.ghost = true; p.ghostT = 0; p.reviveT = 0;
-    showMessage(`${p.pid}번이 쓰러졌어요! 친구 옆에 서 있으면 부활해요`, 3, false, "#ffb070");
+    showMessage(`${josa(playerLabel(p), "이/가")} 쓰러졌어요! 친구 옆에 서 있으면 부활해요`, 3, false, "#ffb070");
     return true;
   }
   coop.allDown = true; // 둘 다 쓰러짐 -> 원래 규칙 (다시 도전 / 결과창)
@@ -321,7 +326,7 @@ hookOn("worldThings", (things) => {
     things.push({ depth: q.x + q.y + 50, draw: () => {
       const s = toScreen(q.x, q.y, 2.05);
       const col = coopColorOf(q.pid).label;
-      text(String(q.pid), s.x, s.y, 15, col, "center"); // 번호만 (친구 기기가 보낸 이름은 안 보여줘요)
+      text(playerLabel(q), s.x, s.y, 15, col, "center"); // 캐릭터 이름 (검사를 통과한 것만, 아니면 번호)
       if (q !== game.player && q.hp > 0) {
         const w = 34, f = Math.max(0, q.hp / q.maxHp);
         ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(s.x - w / 2, s.y + 4, w, 5);

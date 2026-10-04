@@ -2,8 +2,13 @@
 // 안드로이드 크롬: 주소창을 숨기고 가로 화면으로 고정해요.
 // "앱 설치(홈 화면에 추가)"로 설치하면 처음부터 전체 화면으로 열려요.
 
+// 안드로이드·아이폰 앱(Capacitor) 안이면 이미 전체 화면이에요 (app/ 폴더)
+function isNativeApp() {
+  const C = typeof window !== "undefined" ? window.Capacitor : null;
+  return !!(C && typeof C.isNativePlatform === "function" && C.isNativePlatform());
+}
 function isInstalledApp() {
-  return matchMedia("(display-mode: fullscreen)").matches ||
+  return isNativeApp() || matchMedia("(display-mode: fullscreen)").matches ||
     matchMedia("(display-mode: standalone)").matches ||
     navigator.standalone === true;
 }

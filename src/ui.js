@@ -52,11 +52,21 @@ function roundRectPath(x, y, w, h, r) {
 }
 
 // 창 (가게, 지도, 메뉴)
+// 창 (뒤를 어둡게 하고 뒤 버튼은 못 누르게 막아요: blockUI). 창 위에 얹는 작은 상자는 drawInfoBox 를 써요
 function drawPanel(x, y, w, h) {
   ctx.fillStyle = "rgba(0,0,0,0.5)";
   ctx.fillRect(0, 0, view.w, view.h);
   blockUI();
   roundRectPath(x, y, w, h, 16);
+  ctx.fillStyle = "rgba(24,22,32,0.96)";
+  ctx.fill();
+  ctx.strokeStyle = "#c8a050";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+// 상자만 (어둡게 하지도, 누르기를 막지도 않아요: 결과창 안의 안내·같이 하기 배너). drawBox 는 3D 블록이에요
+function drawInfoBox(x, y, w, h) {
+  roundRectPath(x, y, w, h, 12);
   ctx.fillStyle = "rgba(24,22,32,0.96)";
   ctx.fill();
   ctx.strokeStyle = "#c8a050";

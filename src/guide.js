@@ -55,7 +55,7 @@ const GUIDE_TEXT = {
   arrowTraps: { text: "빈 줄에 서요!", do: true, voice: true },
   iceLance: { text: "옆으로 한 걸음!" },
   frostNova: { text: "얼음 기둥 뒤에 숨어요!", do: true, voice: true },
-  iceShield: { text: "불화살로 갑옷을 깨요!", do: true, voice: true },
+  iceShield: { text: "빛나는 화로를 때려서 갑옷을 녹여요!", do: true, voice: true },
   blizzard: { text: "눈보라를 끌고 다녀요" },
   layEggs: { text: "알부터 깨요!", do: true, voice: true, noBanner: true },
   ceilingDrop: { text: "그림자가 멈추면 빠져요!" },
@@ -293,7 +293,7 @@ hookOn("playerHurt", (p, damage, from, hp0) => {
     name = "함정"; tip = "바닥을 잘 보고 피해요";
   }
   guide.lastHit = { id, name, tip, by: from && from.name, t: game.time, damage };
-  if (p.hp <= 0) guide.death = { ...guide.lastHit, map: game.mapDef && game.mapDef.name };
+  if (p.hp <= 0) { guide.death = { ...guide.lastHit, map: game.mapDef && game.mapDef.name }; guide.deathHidden = false; }
 }, 10);
 hookOn("castStarted", (m) => { if (m) m._gLastCastAt = game.time; }, 10);
 
@@ -312,18 +312,21 @@ function drawDeathCause(cx, y, maxW) {
   return true;
 }
 
-// 실패 결과창 아래에 쓰러진 이유 상자
-hookOn("resultDraw", () => {
+// 실패 결과창의 쓰러진 이유 상자: 결과창 빈 칸(로비로 버튼 위)에, 자리가 없으면 창 아래나 화면 위에.
+// ✕ 로 닫을 수 있어요. 상자는 drawInfoBox (예전엔 drawPanel 이라 화면 전체 누르기를 막아 '로비로'가 안 눌렸어요)
+hookOn("resultSlot", (cx, top, bottom, pw, panelBottom) => {
   const r = game.result;
-  if (!r || r.win || r.retry || !guide.death) return false;
-  drawResultBase();
-  const pw = Math.min(620, view.w - 24), ph = 370, y0 = (view.h - ph) / 2;
-  const by = y0 + ph + 8, bh = 44;
-  if (by + bh > view.h) return true;
-  drawPanel((view.w - pw) / 2, by, pw, bh);
-  drawDeathCause(view.w / 2, by + 28, pw);
-  return true;
-}, 60);
+  if (!r || r.win || r.retry || !guide.death || guide.deathHidden) return;
+  const bh = 44, bw = Math.min(pw - 24, view.w - 16);
+  let by;
+  if (bottom - top >= bh) by = bottom - bh;
+  else if (panelBottom + 8 + bh <= view.h) by = panelBottom + 8;
+  else by = 6;
+  const bx = cx - bw / 2;
+  drawInfoBox(bx, by, bw, bh);
+  drawDeathCause(cx - 18, by + 28, bw - 56);
+  drawButton(bx + bw - 42, by + 5, 36, 34, "✕", () => { guide.deathHidden = true; }, { size: 18 });
+}, 50);
 
 // ----- 그리기: 아이콘 -----
 function drawGuideIcon(x, y, r, kind) {
@@ -460,7 +463,14 @@ hookOn("drawTelegraphsAfter", () => {
     if (f.kind === "storm" && f.r) goldEllipse(world.W / 2, world.H / 2, f.r, 0.12);
     if (f.kind === "tide" && f.islands) for (const s of f.islands) goldEllipse(s.x, s.y, 1.6, 0.3 + 0.1 * Math.sin(game.time * 6));
   }
-  // 4) 깨야 하는 수정: 바닥 금색 원 + 위에 깜빡이는 화살표
+  // 4) 깨야 하는 수정·켜진 화로: 바닥 금색 원 + 위에 깜빡이는 화살표
+  const goldArrow = (x, y, h) => {
+    goldEllipse(x, y, 0.75, 0.35 + 0.15 * Math.sin(game.time * 8));
+    const t = toScreen(x, y, h + 0.15 * Math.sin(game.time * 6)), s = 10 * ZOOM;
+    ctx.beginPath(); ctx.moveTo(t.x - s, t.y - s); ctx.lineTo(t.x + s, t.y - s); ctx.lineTo(t.x, t.y + s * 0.6); ctx.closePath();
+    ctx.fillStyle = `rgba(${GOLD},0.95)`; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+  };
+  for (const b of monsters) if (b.type === "fireBrazier" && b.lit && b.hp > 0) goldArrow(b.x, b.y, 1.9);
   for (const m of monsters) {
     if (!m.boss || m.hp <= 0 || !m.crystals) continue;
     for (const cr of m.crystals) {

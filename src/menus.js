@@ -112,4 +112,6 @@ function drawResultBase() {
   const lh = lines.length > 6 ? 26 : 30;
   lines.forEach((l, i) => text(l, cx, y0 + 138 + i * lh, small(l) ? 16 : 18, l.startsWith("레벨 업") ? "#ffe27a" : l.startsWith("장비") ? "#c8a8ff" : small(l) ? "#7dd3ff" : "#fff", "center"));
   drawButton(cx - 100, y0 + ph - 64, 200, 46, "로비로", finishResult, { color: "rgba(80,200,120,0.35)", size: 20 });
+  // 빈 칸 (글줄 아래 ~ 버튼 위): 다른 파일이 안내를 넣어요 (guide.js 쓰러진 이유)
+  hookRun("resultSlot", cx, y0 + 138 + (lines.length - 1) * lh + 16, y0 + ph - 72, pw, y0 + ph);
 }

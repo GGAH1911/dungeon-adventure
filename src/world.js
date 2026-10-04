@@ -404,7 +404,7 @@ function drawMinimapBase(p, list) {
     ctx.beginPath(); ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
     if (q.hp > 0) { ctx.fillStyle = c; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.stroke(); }
     else { ctx.lineWidth = 2; ctx.strokeStyle = c; ctx.stroke(); }
-    text(String(q.pid || 1), s.x + 6, s.y - 2, 11, c);
+    text(typeof playerLabel === "function" ? playerLabel(q).slice(0, 4) : String(q.pid || 1), s.x + 6, s.y - 2, 11, c);
   }
   const ps = M(p.x, p.y);
   ctx.fillStyle = "#ffffff";
