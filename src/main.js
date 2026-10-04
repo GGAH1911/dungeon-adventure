@@ -565,12 +565,13 @@ const frameTimes = [];
 
 // 오류 기록 (같은 오류는 한 번만 콘솔에, 화면엔 작게 알려요)
 const loopErrors = [];
-function reportLoopError(e) {
+function reportLoopError(e, where = "loop") {
   const msg = String((e && e.message) || e);
+  try { if (typeof errLogAdd === "function") errLogAdd(e, where); } catch (_) {} // 기기에 남겨요 (errlog.js)
   if (!loopErrors.includes(msg)) {
     loopErrors.push(msg);
     console.error("게임 오류(계속 진행해요):", e);
-    try { showMessage("앗, 작은 오류가 났어요. 게임은 계속돼요", 2); } catch (_) {}
+    try { showMessage("앗, 작은 오류가 났어요 (메뉴 > 오류 기록 복사)", 2.5); } catch (_) {}
   }
   try { clearPressed(); } catch (_) {}
 }

@@ -193,10 +193,20 @@ hookOn("hudDraw", () => {
     ctx.restore();
   }
   // 도감 알림
+  // 오른쪽 버튼들과 겹치면 위로 올려요 (hud.js hudAvoidY)
+  // 오른쪽에 자리가 없으면(휴대폰) 왼쪽 가운데, 그다음 위쪽 가운데
+  const tn = SHOW.toast.length, tw0 = 230, th0 = tn * 40 - 6;
+  const tp = tn ? (typeof hudPlace === "function" ? hudPlace(tw0, th0, [
+    { x: view.w - tw0 - 16, y: view.h * 0.62 - (tn - 1) * 40, minY: 84 },
+    { x: 16, y: view.h * 0.62 - (tn - 1) * 40, minY: 190 },
+    { x: view.w / 2 - tw0 / 2, y: view.h * 0.5 - th0 / 2, minY: 150 },
+  ]) : { x: view.w - tw0 - 16, y: view.h * 0.62 - (tn - 1) * 40 }) : { x: 0, y: 0 };
+  const tx0 = tp.x, tTop = tp.y;
   SHOW.toast.forEach((t, i) => {
     const a = Math.min(1, t.t * 2, (2.6 - t.t) * 4);
     ctx.save(); ctx.globalAlpha = Math.max(0, a);
-    const w = 230, h = 34, x = view.w - w - 16, y = view.h * 0.62 - i * 40;
+    const w = tw0, h = 34, x = tx0, y = tTop + (tn - 1 - i) * 40;
+    if (i === 0) SHOW.lastToastRect = { x, y: tTop, w, h: tn * 40 - 6 };
     roundRectPath(x, y, w, h, 8); ctx.fillStyle = "rgba(30,24,10,0.85)"; ctx.fill();
     ctx.strokeStyle = "#ffd23f"; ctx.lineWidth = 2; ctx.stroke();
     text(`도감에 추가! ${t.name}`, x + 12, y + 23, 15, "#ffe27a");

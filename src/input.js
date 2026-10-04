@@ -147,7 +147,8 @@ function endPointer(e) {
     delete touch.taps[e.pointerId];
     if (e.type === "pointerup" && e.clientX >= tap.x - 10 && e.clientX <= tap.x + tap.w + 10 && e.clientY >= tap.y - 10 && e.clientY <= tap.y + tap.h + 10) {
       sfx.click();
-      tap.onTap();
+      // 버튼이 하는 일에서 오류가 나도 기록하고 게임은 계속 (예전엔 조용히 아무 일도 안 일어났어요)
+      try { tap.onTap(); } catch (err) { if (typeof reportLoopError === "function") reportLoopError(err, "tap"); else throw err; }
     }
   }
 }

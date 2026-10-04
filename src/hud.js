@@ -1,6 +1,52 @@
 // ===== 화면 정보 (하트, 레벨, 에메랄드, 미니맵, 터치 버튼) =====
 
 function drawHUD() { const r = drawHUDBase(); hookRun("hudDraw"); return r; }
+
+// ----- 알림이 터치 버튼에 가리지 않게 -----
+// 터치 버튼은 화면 글씨보다 나중에(위에) 그려져서, 겹치면 알림이 안 보여요.
+// 버튼 자리를 화면 글씨 좌표로 바꿔서, 겹치면 알림을 위로 올려요 (버튼 배치를 바꿔도 따라가요)
+function touchButtonCirclesUI() {
+  if (!touch.show || typeof touchButtons !== "function") return [];
+  const k = typeof uiK === "number" && uiK < 1 && uiSaved ? uiK : 1;
+  let list = [];
+  if (k < 1) { const vw = view.w, vh = view.h; view.w = uiSaved.w; view.h = uiSaved.h; try { list = touchButtons(); } finally { view.w = vw; view.h = vh; } }
+  else list = touchButtons();
+  const out = list.map((b) => ({ x: b.x / k, y: b.y / k, r: b.r / k }));
+  // 이동 동그라미 (쉴 때 자리)
+  const W0 = k < 1 ? uiSaved.w : view.w, H0 = k < 1 ? uiSaved.h : view.h;
+  if (list.length && typeof touchScale === "function") {
+    const js = touchScale();
+    const jp = hookFilter("joyRest", { x: 120 * Math.max(0.8, js), y: H0 - 120 * Math.max(0.8, js) });
+    out.push({ x: jp.x / k, y: jp.y / k, r: (JOY_R + 12) / k });
+  }
+  return out;
+}
+function rectHitsCircles(x, y, w, h, circles, pad = 6) {
+  for (const c of circles) {
+    const nx = Math.max(x, Math.min(c.x, x + w)), ny = Math.max(y, Math.min(c.y, y + h));
+    if ((nx - c.x) ** 2 + (ny - c.y) ** 2 < (c.r + pad) ** 2) return true;
+  }
+  return false;
+}
+// 여러 자리 중 버튼과 안 겹치는 첫 자리 (자리마다 위로 조금씩 올려 봐요). 다 막히면 첫 자리
+//   spots = [{ x, y, minY }]
+function hudPlace(w, h, spots) {
+  const cs = touchButtonCirclesUI();
+  if (!cs.length) return { x: spots[0].x, y: spots[0].y };
+  for (const s of spots) {
+    let yy = s.y; const minY = s.minY === undefined ? 80 : s.minY;
+    while (yy >= minY) { if (!rectHitsCircles(s.x, yy, w, h, cs)) return { x: s.x, y: yy }; yy -= 6; }
+  }
+  return { x: spots[0].x, y: Math.max(spots[0].minY || 80, spots[0].y) };
+}
+// 알림 상자(x, y, w, h)의 y 를 버튼과 안 겹치는 곳으로 (위로 올려요, minY 보다 위로는 안 가요)
+function hudAvoidY(x, y, w, h, minY = 80) {
+  const cs = touchButtonCirclesUI();
+  if (!cs.length) return y;
+  let yy = y;
+  while (yy > minY && rectHitsCircles(x, yy, w, h, cs)) yy -= 6;
+  return Math.max(minY, yy);
+}
 function drawHUDBase() {
   const W = view.w, H = view.h;
   const p = game.player;
@@ -81,11 +127,16 @@ function drawHUDBase() {
   // 가운데 메시지
   if (game.messageTimer > 0) {
     ctx.globalAlpha = Math.min(1, game.messageTimer * 2);
+    const ms = game.messageRainbow ? 44 : 30;
+    ctx.font = `bold ${ms}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+    const mw = ctx.measureText(game.message).width;
+    const my = hudAvoidY(W / 2 - mw / 2, H * 0.22 - ms, mw, ms * 1.25, 70) + ms; // 버튼에 가리지 않게
+    game.lastMsgRect = { x: W / 2 - mw / 2, y: my - ms, w: mw, h: ms * 1.25 };
     if (game.messageRainbow) {
       const s = 1 + 0.06 * Math.sin(game.time * 10);
-      text(game.message, W / 2, H * 0.22, 44 * s, rainbow(game.time * 300, 65), "center");
+      text(game.message, W / 2, my, 44 * s, rainbow(game.time * 300, 65), "center");
     } else {
-      text(game.message, W / 2, H * 0.22, 30, game.messageColor || "#fff", "center");
+      text(game.message, W / 2, my, 30, game.messageColor || "#fff", "center");
     }
     ctx.globalAlpha = 1;
   }

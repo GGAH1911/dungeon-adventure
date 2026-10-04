@@ -355,7 +355,12 @@ hookOn("hudDraw", () => {
     ctx.font = `bold ${size}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
     const tw = ctx.measureText(b.text).width;
     const bw = Math.min(W - 20, tw + 76), bh = b.sub ? 66 : 46;
-    const x0 = (W - bw) / 2, y0 = y - 32 - (b.sub ? 18 : 0);
+    // 가운데 메시지가 떠 있으면 그 아래로, 그리고 버튼에 가리지 않게
+    const mr = game.messageTimer > 0 && game.lastMsgRect ? game.lastMsgRect : null;
+    const below = mr ? mr.y + mr.h + 8 : 0;
+    const want = Math.max(y - 32 - (b.sub ? 18 : 0), below);
+    const x0 = (W - bw) / 2, y0 = typeof hudAvoidY === "function" ? hudAvoidY((W - bw) / 2, want, bw, bh, Math.max(76, below)) : want;
+    guide.lastBannerRect = { x: x0, y: y0, w: bw, h: bh };
     roundRectPath(x0, y0, bw, bh, 12);
     ctx.fillStyle = "rgba(10,10,20,0.72)"; ctx.fill();
     const col = GUIDE_COLORS[b.kind] || GUIDE_COLORS.danger;
