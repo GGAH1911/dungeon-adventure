@@ -236,15 +236,15 @@ function drawSellTab(x0, y0, pw, ph) {
     if (e.kind === "item") drawItemIcon(e.it, cx + 20, ry + 22, 26); else { ctx.fillStyle = e.color; ctx.fillRect(cx + 10, ry + 12, 20, 20); }
     const countTxt = e.kind === "item" ? `${itemRarity(e.it).name} · Lv ${e.it.l}` : `${e.count}개`;
     text(e.name, cx + 40, ry + 25, 17, e.kind === "item" ? e.color : "#fff");
-    let sub = countTxt + (e.unit > 1 ? ` · ${e.unit}개에 ${e.price}` : ` · ${CUR[e.cur].name} ${e.price}`);
-    text(sub, cx + 40, ry + 45, 12, "#aaa");
+    // 값은 글자 대신 화폐 아이콘으로 (예: 전설 · Lv 12 · [자수정] 6)
+    drawLabelPrice(countTxt + (e.unit > 1 ? ` · ${e.unit}개에` : " ·"), { cur: e.cur, n: e.price }, cx + 40, ry + 45, 12, "left", "#aaa");
     if (why) text("잠김", cx + colW - 12, ry + 30, 14, "#888", "right");
     else {
-      const bw = Math.min(86, colW * 0.22), bh = Math.min(32, rowH - 26);
+      const bw = Math.min(104, colW * 0.26), bh = Math.min(32, rowH - 26);
       const many = e.count / e.unit > 1;
       const conf1 = shop.confirm === `${e.kind}:${e.id}:one`, confA = shop.confirm === `${e.kind}:${e.id}:all`;
-      drawButton(cx + colW - (many ? 2 * bw + 18 : bw + 10), ry + (rowH - 6 - bh) / 2, bw, bh, conf1 ? "정말?" : `팔기 +${e.price}`, () => { shop.sel = i; sellItem(e, false); }, { size: 13, color: conf1 ? "rgba(255,200,60,0.5)" : "rgba(80,200,120,0.35)" });
-      if (many) drawButton(cx + colW - bw - 10, ry + (rowH - 6 - bh) / 2, bw, bh, confA ? "정말?" : `모두 +${Math.floor(e.count / e.unit) * e.price}`, () => { shop.sel = i; sellItem(e, true); }, { size: 13, color: confA ? "rgba(255,200,60,0.5)" : "rgba(60,160,220,0.35)" });
+      (conf1 ? drawButton : drawPriceButton)(cx + colW - (many ? 2 * bw + 18 : bw + 10), ry + (rowH - 6 - bh) / 2, bw, bh, conf1 ? "정말?" : "팔기", ...(conf1 ? [] : [{ cur: e.cur, n: e.price }]), () => { shop.sel = i; sellItem(e, false); }, { size: 13, plus: "+", color: conf1 ? "rgba(255,200,60,0.5)" : "rgba(80,200,120,0.35)" });
+      if (many) (confA ? drawButton : drawPriceButton)(cx + colW - bw - 10, ry + (rowH - 6 - bh) / 2, bw, bh, confA ? "정말?" : "모두", ...(confA ? [] : [{ cur: e.cur, n: Math.floor(e.count / e.unit) * e.price }]), () => { shop.sel = i; sellItem(e, true); }, { size: 13, plus: "+", color: confA ? "rgba(255,200,60,0.5)" : "rgba(60,160,220,0.35)" });
     }
   });
   if (pages > 1) {

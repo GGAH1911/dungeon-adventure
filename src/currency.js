@@ -118,6 +118,26 @@ function drawPrice(price, x, y, size = 16, align = "left", have = true) {
   return left;
 }
 
+// 글자 + 화폐 아이콘 가격을 한 줄로 (예: "팔기 [금] +6"). 가운데 맞추기는 x 를 가운데로, align "center"
+function drawLabelPrice(label, price, x, y, size = 14, align = "left", color = "#fff", plus = "") {
+  const r = size * 0.5, font = `bold ${size}px "Apple SD Gothic Neo", "Malgun Gothic", sans-serif`;
+  ctx.font = font;
+  const lw = label ? ctx.measureText(label + " ").width : 0, num = plus + price.n, nw = ctx.measureText(num).width;
+  const total = lw + r * 2 + 4 + nw;
+  let left = align === "center" ? x - total / 2 : align === "right" ? x - total : x;
+  if (label) text(label, left, y, size, color);
+  left += lw;
+  drawCurrencyIcon(price.cur, left + r, y - size * 0.35, r);
+  text(num, left + r * 2 + 4, y, size, color);
+  return total;
+}
+// 가격이 아이콘으로 들어간 단추
+function drawPriceButton(x, y, w, h, label, price, onTap, opts = {}) {
+  drawButton(x, y, w, h, "", onTap, opts);
+  const size = opts.size || 14;
+  drawLabelPrice(label, price, x + w / 2, y + h / 2 + size * 0.36, size, "center", opts.textColor || "#fff", opts.plus || "");
+}
+
 // ----- 떨어지는 화폐 (에메랄드처럼 저절로 날아와요: effects.js) -----
 function dropCoin(id, x, y, n = 1) { for (let i = 0; i < n; i++) dropPickup("coin", x, y, { cur: id }); }
 function coinIdOfTier(t) { return CUR_ORDER[Math.max(0, Math.min(CUR_ORDER.length - 1, t))]; }

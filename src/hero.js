@@ -223,7 +223,7 @@ function drawHeroDetail(x, y, w, h) {
   const btn = (label, fn, color) => { drawButton(x + 12, by, bw, bh, label, fn, { size: 14, color }); by -= bh + 6; };
   if (f.where !== "eq") {
     // 팔기는 캠프 상점에서만 (값만 알려줘요)
-    btn(`상점에서 팔면 ${priceText(sellValue(it))}`, () => heroNote("팔기는 캠프 상점의 \"팔기\" 칸에서 해요", "#ffe27a"), "rgba(90,90,90,0.35)");
+    drawPriceButton(x + 12, by, bw, bh, "상점에서 팔면", sellValue(it), () => heroNote("팔기는 캠프 상점의 \"팔기\" 칸에서 해요", "#ffe27a"), { size: 14, color: "rgba(90,90,90,0.35)" }); by -= bh + 6;
     if (game.scene === "lobby") {
       if (f.where === "bag") btn("보관함에 넣기", () => {
         const st = sharedStash(); if (st.length >= STASH_MAX) return heroNote("보관함이 꽉 찼어요", "#ffb070");
