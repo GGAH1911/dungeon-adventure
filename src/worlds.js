@@ -54,23 +54,64 @@ function portalSpot() {
   return PORTAL;
 }
 // 지금 월드에서 포탈이 데려갈 월드
-function portalTarget() { const i = WORLD_ORDER.indexOf(curWorld()); return WORLD_ORDER[(i + 1) % WORLD_ORDER.length]; }
+//   다음 열린 월드 (없으면 바로 다음 월드 = 잠김 표시). 월드가 3개 넘으면 고르기 창이 생길 거예요 (월드 3 작업)
+function portalTarget() {
+  const i = WORLD_ORDER.indexOf(curWorld()), n = WORLD_ORDER.length;
+  for (let k = 1; k < n; k++) { const w = WORLD_ORDER[(i + k) % n]; if (worldUnlocked(w)) return w; }
+  return WORLD_ORDER[(i + 1) % n];
+}
 hookOn("lobbyThings", (things) => {
   const s = portalSpot();
   things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => drawPortal(s) });
 }, 70);
+// 월드를 열어 주는 보스 이름 (잠김 문구)
+function worldUnlockText(w) {
+  const W = WORLDS[w]; if (!W || !W.unlockAfter) return "";
+  const m = MAPS.find((x) => x.id === W.unlockAfter), b = typeof BOSS_DEFS !== "undefined" && BOSS_DEFS[W.unlockAfter];
+  const who = b ? b.name : m ? m.name : W.unlockAfter;
+  return `${josa(who, "을/를")}${m && b ? `(${m.name})` : ""} 물리치면 열려요`;
+}
+// 다른 월드가 둘 이상 열렸으면 고르기 창, 하나면 바로
+function portalUse() {
+  const others = WORLD_ORDER.filter((w) => w !== curWorld()), open = others.filter(worldUnlocked);
+  if (!open.length) { const to = portalTarget(); sfx.denied(); showMessage(`${worldUnlockText(to)} · ${WORLDS[to].name} 포탈`, 3, false, "#9fd8ff"); return; }
+  if (open.length === 1) { travelToWorld(open[0]); return; } // 갈 수 있는 곳이 하나면 바로 (월드가 3개 이상 열려야 고르기 창)
+  game.overlay = "portal"; sfx.equip();
+}
 hookOn("lobbyInteractables", (list) => {
   const s = portalSpot(), to = portalTarget(), open = worldUnlocked(to);
-  list.push({ x: s.x, y: s.y, range: 1.7, label: "포탈", short: open ? "포탈" : "포탈", prompt: open ? `${WORLDS[to].name}(으)로 가기` : "포탈 (잠겨 있어요)",
-    action: () => {
-      if (!open) { sfx.denied(); showMessage(`그림자 마왕(공허의 끝)을 물리치면 ${WORLDS[to].name} 포탈이 열려요`, 3, false, "#9fd8ff"); return; }
-      travelToWorld(to);
-    } });
+  list.push({ x: s.x, y: s.y, range: 1.7, label: "포탈", short: "포탈", prompt: open ? "어디로 갈까요?" : "포탈 (잠겨 있어요)", action: portalUse });
   return list;
 }, 70);
+// 포탈 고르기 창
+hookOn("overlayUpdate", (name) => {
+  if (name !== "portal") return false;
+  if (wasPressed("Escape", "KeyE")) closeOverlay();
+  for (let i = 0; i < WORLD_ORDER.length; i++) if (wasPressed("Digit" + (i + 1))) portalPick(WORLD_ORDER[i]);
+  return true;
+}, 50);
+function portalPick(w) {
+  if (w === curWorld()) { closeOverlay(); return; }
+  if (!worldUnlocked(w)) { sfx.denied(); showMessage(worldUnlockText(w), 2.6, false, "#9fd8ff"); return; }
+  closeOverlay(); travelToWorld(w);
+}
+hookOn("overlayDraw", (name) => {
+  if (name !== "portal") return false;
+  const W = view.w, H = view.h, n = WORLD_ORDER.length, pw = Math.min(640, W - 24), ph = 140 + n * 62, x0 = (W - pw) / 2, y0 = (H - ph) / 2;
+  drawPanel(x0, y0, pw, ph);
+  text("어디로 갈까요?", W / 2, y0 + 44, 26, "#ffe27a", "center");
+  drawButton(x0 + pw - 58, y0 + 12, 42, 38, "✕", closeOverlay, { size: 20 });
+  WORLD_ORDER.forEach((w, i) => {
+    const Wd = WORLDS[w], open = worldUnlocked(w), here = w === curWorld(), y = y0 + 76 + i * 62;
+    const label = `${i + 1}. ${Wd.name} · ${Wd.camp}${here ? " (지금 여기)" : open ? "" : " · 잠김"}`;
+    drawButton(x0 + 24, y, pw - 48, 52, label, () => portalPick(w), { size: 18, color: here ? "rgba(120,120,140,0.35)" : open ? "rgba(80,160,220,0.4)" : "rgba(70,70,80,0.5)" });
+    if (!open) text(worldUnlockText(w), x0 + pw - 36, y + 46, 12, "#aab", "right");
+  });
+  return true;
+}, 50);
 function drawPortal(s) {
   const to = portalTarget(), open = worldUnlocked(to);
-  const stone = curWorld() === 2 ? "#5a7a86" : "#8a8478", dark = curWorld() === 2 ? "#3a5560" : "#5e5a52";
+  const stone = curWorld() === 3 ? "#b8bccc" : curWorld() === 2 ? "#5a7a86" : "#8a8478", dark = curWorld() === 3 ? "#8a8ea4" : curWorld() === 2 ? "#3a5560" : "#5e5a52";
   // 돌 문틀
   drawBox(s.x - 0.75, s.y - 0.2, 0, 0.3, 0.4, 1.9, stone);
   drawBox(s.x + 0.45, s.y - 0.2, 0, 0.3, 0.4, 1.9, stone);
@@ -81,7 +122,7 @@ function drawPortal(s) {
   ctx.save();
   if (open) {
     const g = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, Math.max(rx, ry));
-    const col = to === 2 ? ["#e6fbff", "#4fc3e8", "#0a4a7a"] : ["#fff6d0", "#ffd23f", "#a06a10"];
+    const col = to === 3 ? ["#f4ecff", "#a88aff", "#3a2080"] : to === 2 ? ["#e6fbff", "#4fc3e8", "#0a4a7a"] : ["#fff6d0", "#ffd23f", "#a06a10"];
     g.addColorStop(0, col[0]); g.addColorStop(0.5, col[1]); g.addColorStop(1, col[2]);
     ctx.fillStyle = g; ctx.globalAlpha = 0.9;
     ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();

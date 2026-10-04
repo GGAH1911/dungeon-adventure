@@ -294,7 +294,7 @@ function drawTrophy(spot, mapId, won) {
 // 뒷줄 계단 (돌 계단 + 금색 테두리)
 function drawTrophyStep(x, y, w, d, h) {
   const look = typeof worldLook === "function" ? worldLook() : 1;
-  const stone = look === 2 ? "#6a7f96" : "#8c8378", top = look === 2 ? "#8fa6bd" : "#a89e90";
+  const stone = look === 3 ? "#7a7c92" : look === 2 ? "#6a7f96" : "#8c8378", top = look === 3 ? "#c8cadc" : look === 2 ? "#8fa6bd" : "#a89e90"; // 월드 3 달: 은빛 돌
   drawBox(x, y, 0, w, d, h - 0.04, stone);
   drawBox(x, y, h - 0.04, w, d, 0.04, top);
   drawBox(x, y + d - 0.06, h - 0.02, w, 0.06, 0.03, "#c9a24a");

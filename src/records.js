@@ -9,6 +9,14 @@ function recMapOk(id) { return typeof id === "string" && id.length < 40 && (MAPS
 function recMonOk(t) { return typeof t === "string" && Object.hasOwn(MONSTERS, t); }
 const recNum = (v, lo, hi) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; };
 
+// 탑 정복 횟수 (새 칸 pr.crowns[id] 와 예전 칸 towerCrown·seaTowerCrown 중 큰 것)
+function towerCrownCount(id, pr = game.profile) {
+  if (!pr) return 0;
+  const legacy = id === "tower" ? pr.towerCrown : id === "seatower" ? pr.seaTowerCrown : 0;
+  const n = pr.crowns && Number.isFinite(pr.crowns[id]) ? pr.crowns[id] : 0;
+  return Math.max(n, Number.isFinite(legacy) ? legacy : 0);
+}
+
 const REC_APPLY = {
   // 몬스터 처치 (팀 처치 수) + 도감 잡은 수
   kill(d, pr) {
@@ -68,9 +76,13 @@ const REC_APPLY = {
   keyLost(d, pr) { if (recMapOk(d.map) && pr.keys) delete pr.keys[d.map]; },
   // 탑: 깬 층(최고 층), 꼭대기 정복
   tower(d, pr) { const def = MAPS.find((m) => m.id === d.id && m.type === "tower"); if (def && typeof towerSetBest === "function") towerSetBest(def, Math.round(recNum(d.floor, 0, def.floors || 999))); },
+  // 탑 꼭대기 정복: 모든 탑을 pr.crowns[탑 id] 에 (예전 칸 towerCrown·seaTowerCrown 도 같이 올려서 예전 코드·저장이 그대로 돌아요)
   crown(d, pr) {
-    if (d.id === "tower") pr.towerCrown = (pr.towerCrown || 0) + 1;
-    else if (d.id === "seatower") pr.seaTowerCrown = (pr.seaTowerCrown || 0) + 1;
+    if (typeof d.id !== "string" || !MAPS.some((m) => m.id === d.id && m.type === "tower")) return;
+    pr.crowns = pr.crowns && typeof pr.crowns === "object" ? pr.crowns : {};
+    pr.crowns[d.id] = towerCrownCount(d.id, pr) + 1;
+    if (d.id === "tower") pr.towerCrown = pr.crowns[d.id];
+    else if (d.id === "seatower") pr.seaTowerCrown = pr.crowns[d.id];
   },
   // 모험 기록(아빠 보고서): 열쇠 단계 시간, 보스 단계
   keyStep(d, pr) { if (recMapOk(d.map) && typeof d.step === "string" && typeof qolRecKeyStep === "function") qolRecKeyStep(d.map, d.step.slice(0, 20), recNum(d.sec, 0, 36000)); },
