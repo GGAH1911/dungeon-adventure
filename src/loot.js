@@ -526,7 +526,8 @@ hookOn("endRun", () => {
 const SHOP_HOLD_MAX = 2;
 function shopRestock(force) {
   const pr = game.profile;
-  if (!force && pr.shopStock.length && pr.shopRuns === pr.stats.runs) return;
+  // 판 수가 그대로면 바꾸지 않아요 (전에는 "물건이 0개"도 새로 채울 이유로 봐서, 다 사면 가게를 다시 열 때마다 또 생겼어요)
+  if (!force && pr.shopRuns === pr.stats.runs) return;
   pr.shopRuns = pr.stats.runs;
   const held = (pr.shopHold || []).map((u) => pr.shopStock.find((it) => it.u === u)).filter(Boolean);
   const L = Math.max(0, Math.round(0.85 * (pr.level - 1)));
