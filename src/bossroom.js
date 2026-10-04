@@ -230,7 +230,9 @@ function respawnInDungeon(spot) {
 }
 
 // 보스방에서 쓰러진 뒤 "다시 도전": 던전으로 돌아가 문 앞에서
-function retryBoss() {
+// 같이 하기: 누가 눌러도 다 같이 (친구 기기는 방장에게 부탁: netplay.js "retryBoss"/"giveUpToCamp" 훅)
+function retryBoss() { if (hookAny("retryBoss")) return; return retryBossBase(); }
+function retryBossBase() {
   const kh = game.keyhunt;
   const S = kh.snap;
   kh.keepOnReset = true;
@@ -247,7 +249,8 @@ function retryBoss() {
   showMessage("보스방 문 앞이에요. 열쇠는 그대로! 다시 도전해요", 3, false, "#ffd23f");
 }
 
-function giveUpToCamp() {
+function giveUpToCamp() { if (hookAny("giveUpToCamp")) return; return giveUpToCampBase(); }
+function giveUpToCampBase() {
   game.result = null;
   closeOverlay();
   enterLobby("열쇠는 그대로 있어요. 다음에 다시 도전해요!");

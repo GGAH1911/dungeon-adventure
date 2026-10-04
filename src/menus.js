@@ -8,22 +8,13 @@ function closeOverlay() {
 
 function menuItems() {
   const items = [{ label: "계속하기", act: closeOverlay }];
-  if (game.scene === "dungeon") items.push({ label: "로비로 돌아가기", act: () => { closeOverlay(); enterLobby("로비로 돌아왔어요"); } });
+  if (game.scene === "dungeon") items.push({ label: "로비로 돌아가기", act: () => { closeOverlay(); leaveRunToLobby(); } });
   if (game.scene === "lobby") {
     // 난이도와 하드모드는 캠프에서만 바꿔요 (다음 맵부터 적용)
     const order = ["easy", "normal", "hard", "nightmare"];
     const pr = game.profile;
-    items.push({ label: `난이도: ${DIFFICULTY[pr.difficulty].name} (바꾸기)`, act: () => {
-      pr.difficulty = order[(order.indexOf(pr.difficulty) + 1) % order.length];
-      saveProfile();
-      const d = DIFFICULTY[pr.difficulty];
-      showMessage(`난이도 ${d.name}: 몬스터 체력 x${d.hp} · 공격 x${d.dmg} · 보상 x${d.reward}`, 2.5);
-    } });
-    items.push({ label: pr.hardMode ? "하드모드: 켜짐 (끄기)" : "하드모드: 꺼짐 (켜기)", act: () => {
-      pr.hardMode = !pr.hardMode;
-      saveProfile();
-      showMessage(pr.hardMode ? "하드모드! 쓰러지면 맵을 처음부터 (보상 x1.25)" : "하드모드 끔: 쓰러지면 보스방 앞에서 다시 도전", 3);
-    } });
+    items.push({ label: `난이도: ${DIFFICULTY[pr.difficulty].name} (바꾸기)`, act: () => setRoomRule("diff", order[(order.indexOf(pr.difficulty) + 1) % order.length]) });
+    items.push({ label: pr.hardMode ? "하드모드: 켜짐 (끄기)" : "하드모드: 꺼짐 (켜기)", act: () => setRoomRule("hard", !pr.hardMode) });
   }
   items.push({ label: muted ? "소리 켜기" : "소리 끄기", act: () => { muted = !muted; } });
   if (canFullscreen()) items.push({ label: isFullscreen() ? "전체 화면 끄기" : "전체 화면", act: () => { toggleFullscreen(); closeOverlay(); } });
@@ -78,7 +69,9 @@ function updateResultBase() {
   if (wasPressed("Enter", "Space", "KeyR", "Escape")) finishResult();
 }
 
-function finishResult() {
+// 같이 하기: 누가 누르든 다 같이 (친구 기기는 방장에게 부탁해요: netplay.js 훅)
+function finishResult() { if (hookAny("finishResult")) return; return finishResultBase(); }
+function finishResultBase() {
   game.result = null;
   closeOverlay();
   enterLobby();
@@ -113,4 +106,21 @@ function drawResultBase() {
   drawButton(cx - 100, y0 + ph - 64, 200, 46, "로비로", finishResult, { color: "rgba(80,200,120,0.35)", size: 20 });
   // 빈 칸 (글줄 아래 ~ 버튼 위): 다른 파일이 안내를 넣어요 (guide.js 쓰러진 이유)
   hookRun("resultSlot", cx, y0 + 138 + (lines.length - 1) * lh + 16, y0 + ph - 72, pw, y0 + ph);
+}
+
+// 던전에서 메뉴 "로비로 돌아가기" (같이 하기: 누가 눌러도 다 같이)
+function leaveRunToLobby() { if (hookAny("leaveRun")) return; return enterLobby("로비로 돌아왔어요"); }
+// 방 규칙: 난이도·하드모드 (같이 하기: 방장 규칙으로 다 같이. 친구가 바꾸면 방장에게 부탁해요)
+function setRoomRule(kind, value) { if (hookAny("setRoomRule", kind, value)) return; return setRoomRuleBase(kind, value); }
+function setRoomRuleBase(kind, value) {
+  const pr = game.profile;
+  if (kind === "diff" && Object.hasOwn(DIFFICULTY, value)) {
+    pr.difficulty = value;
+    const d = DIFFICULTY[value];
+    showMessage(`난이도 ${d.name}: 몬스터 체력 x${d.hp} · 공격 x${d.dmg} · 보상 x${d.reward}`, 2.5);
+  } else if (kind === "hard") {
+    pr.hardMode = !!value;
+    showMessage(pr.hardMode ? "하드모드! 쓰러지면 맵을 처음부터 (보상 x1.25)" : "하드모드 끔: 쓰러지면 보스방 앞에서 다시 도전", 3);
+  } else return;
+  saveProfile();
 }

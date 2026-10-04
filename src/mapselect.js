@@ -96,9 +96,7 @@ function openMapSelect() {
   sfx.equip();
 }
 
-// hookAny("tryStartMap", i) -> true 면 출발 안 해요 (같이 하기 친구: 지도는 보고, 출발은 방장이. netplay.js)
-function tryStartMap(i) { if (hookAny("tryStartMap", i)) return; return tryStartMapBase(i); }
-function tryStartMapBase(i) {
+function tryStartMap(i) {
   if (!mapUnlocked(i)) {
     sfx.denied();
     const prev = unlockSource(i).name;
@@ -108,9 +106,11 @@ function tryStartMapBase(i) {
     return;
   }
   closeOverlay();
-  if (MAPS[i].type === "tower") startTower(mapSel.level, MAPS[i]);
-  else startDungeon(MAPS[i], mapSel.level);
+  startChosenMap(MAPS[i], mapSel.level);
 }
+// 고른 맵으로 출발 (같이 하기: 누가 골라도 다 같이. 친구 기기는 방장에게 부탁해요, netplay.js)
+function startChosenMap(def, level) { if (hookAny("startChosenMap", def, level)) return; return startChosenMapBase(def, level); }
+function startChosenMapBase(def, level) { return def.type === "tower" ? startTower(level, def) : startDungeon(def, level); }
 
 // ----- 화면 배치 -----
 // 정보 창은 작은 화면에서 줄여서(오른쪽), 지도는 나머지 전체
@@ -820,6 +820,5 @@ function drawMapInfoPanel() {
   text(`난이도 ${DIFFICULTY[pr.difficulty].name}${pr.hardMode ? " · 하드모드" : ""}`, ix, y, 13, "#ccc");
 
   const goH = 52;
-  const guestView = typeof netGuest === "function" && netGuest(); // 같이 하기 친구: 지도·내 기록은 보고, 출발은 방장이
-  drawButton(ix, y0 + ph - goH - 14, iw, goH, guestView ? "방장이 골라요" : "출발!", () => tryStartMap(mapSel.index), { color: guestView ? "rgba(90,90,110,0.55)" : "rgba(140,90,220,0.55)", size: guestView ? 18 : 22 });
+  drawButton(ix, y0 + ph - goH - 14, iw, goH, "출발!", () => tryStartMap(mapSel.index), { color: "rgba(140,90,220,0.55)", size: 22 });
 }
