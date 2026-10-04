@@ -1073,6 +1073,22 @@ function netGuestUpdate(dt) {
   return true;
 }
 hookOn("simulateSkip", (dt) => (netGuest() ? netGuestUpdate(dt) : false), 50);
+// 길을 막는 소품(산호 바위·등불·파이프…)은 방장 기기의 world.solids 에만 있어요: 소품 몬스터 칸(netSolid)으로 친구에게 알려
+// 친구 기기에서도 막히게 해요 (전에는 친구가 등불·파이프를 통과해 걸었어요)
+hookOn("dungeonTick", () => {
+  if (!netHosting()) return;
+  const live = new Map();
+  for (const o of world.solids) if (o.prop && o.prop.hp > 0) live.set(o.prop, o.r);
+  for (const m of monsters) { const r = live.get(m) || 0; if ((m.netSolid || 0) !== r) m.netSolid = r; }
+}, 90);
+hookOn("simulateSkip", () => {
+  if (!netGuest() || game.scene !== "dungeon") return false;
+  const had = world.solids.some((o) => o._np);
+  if (!had && !monsters.some((m) => m.netSolid > 0)) return false;
+  world.solids = world.solids.filter((o) => !o._np);
+  for (const m of monsters) if (m.netSolid > 0 && m.hp > 0) world.solids.push({ x: m.x, y: m.y, r: m.netSolid, _np: true });
+  return false;
+}, 49);
 // 친구 기기는 몬스터를 직접 때리지 않아요 (방장이 계산)
 hookOn("monsterDamage", () => netGuest() && !netplay.replaying, 0);
 // 다시 도전 화면: 친구는 방장이 고를 때까지 기다려요
