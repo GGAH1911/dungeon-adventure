@@ -144,7 +144,7 @@ function b2DrawBody(m, parts, opts = {}) {
   list.sort((a, b) => a.cx + a.cy - (b.cx + b.cy) || a.z - b.z);
   // 주인공을 가리면 반투명
   ctx.save();
-  if (p && m.x + m.y > p.x + p.y && Math.hypot(m.x - p.x, m.y - p.y) < 3.5 * S) ctx.globalAlpha *= 0.55;
+  if (p && !m.trophy && m.x + m.y > p.x + p.y && Math.hypot(m.x - p.x, m.y - p.y) < 3.5 * S) ctx.globalAlpha *= 0.55; // 트로피 미니어처는 늘 또렷하게
   if (m.b2Decoy) ctx.globalAlpha *= 0.92;
   for (const q of list) {
     const bx = q.cx - q.w / 2, by = q.cy - q.d / 2;

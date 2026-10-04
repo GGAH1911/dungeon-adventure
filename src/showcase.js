@@ -288,8 +288,8 @@ function drawTrophy(spot, mapId, won) {
   }
   // 금빛 반짝
   if (Math.sin(game.time * 3 + x * 2) > 0.97) { const s = toScreen(x, y, z0 + 1.1); drawStar(s.x, s.y, 7 * ZOOM, "#ffe27a"); }
-  // 가까이 오면 이름표
-  if (trophyGalleryNear() && BOSS_DEFS[mapId]) { const c = toScreen(x, y, z0 + 1.5); text(BOSS_DEFS[mapId].name, c.x, c.y, Math.round(7 * ZOOM), "#ffe27a", "center"); }
+  // 가까이(2칸 안) 오면 이름표
+  if (trophyGalleryNear() && BOSS_DEFS[mapId] && Math.hypot(game.player.x - x, game.player.y - y) < 2.2) { const c = toScreen(x, y, z0 + 1.5); text(BOSS_DEFS[mapId].name, c.x, c.y, Math.round(7 * ZOOM), "#ffe27a", "center"); }
 }
 // 뒷줄 계단 (돌 계단 + 금색 테두리)
 function drawTrophyStep(x, y, w, d, h) {

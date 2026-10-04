@@ -590,7 +590,7 @@ function drawVoxelParts(m, parts, opts = {}) {
   ctx.save();
   // 주인공이 보스 뒤에 있으면 보스를 살짝 투명하게
   const p = game.player;
-  if (p && p.x + p.y < m.x + m.y - 0.3 && Math.abs((p.x - m.x) - (p.y - m.y)) < 2.6 && Math.hypot(p.x - m.x, p.y - m.y) < 4) ctx.globalAlpha *= 0.5;
+  if (p && !m.trophy && p.x + p.y < m.x + m.y - 0.3 && Math.abs((p.x - m.x) - (p.y - m.y)) < 2.6 && Math.hypot(p.x - m.x, p.y - m.y) < 4) ctx.globalAlpha *= 0.5;
   if (opts.alpha) ctx.globalAlpha *= opts.alpha;
   for (const L of list) {
     drawBox(L.w.x - L.bw / 2, L.w.y - L.bd / 2, Math.max(0, L.w.z - L.bh / 2), L.bw, L.bd, L.bh, white && !L.glow ? "#ffffff" : L.color);
