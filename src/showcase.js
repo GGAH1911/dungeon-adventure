@@ -259,8 +259,13 @@ function codexSeenToast(name) {
 // 도감 잡은 수는 몬스터를 잡을 때 records.js "kill" 이 남겨요 (같이 하기: 친구 도감에도)
 
 // ---------------- 캠프: 트로피 선반, 도감 책 ----------------
+// 트로피 전시대: 2줄 x 7칸, 칸 사이 1.3칸. 뒷줄은 계단 위(높이 0.42)라 앞줄에 안 가려요. 월드마다 보스 14명까지
+const TROPHY_GALLERY = { x0: 18.6, dx: 1.3, backY: 16.55, frontY: 17.95, step: 0.42, cols: 7 };
 const TROPHY_SPOTS = [];
-for (let i = 0; i < 12; i++) TROPHY_SPOTS.push({ x: 19.4 + (i % 6) * 0.95, y: 16.2 + Math.floor(i / 6) * 1.2 });
+for (let i = 0; i < TROPHY_GALLERY.cols * 2; i++) {
+  const G = TROPHY_GALLERY, back = i < G.cols;
+  TROPHY_SPOTS.push({ x: G.x0 + (i % G.cols) * G.dx, y: back ? G.backY : G.frontY, z: back ? G.step : 0 });
+}
 const CODEX_STAND = { x: 19.2, y: 8.6 };
 
 function trophyMaps() {
@@ -269,21 +274,38 @@ function trophyMaps() {
 }
 
 function drawTrophy(spot, mapId, won) {
-  const x = spot.x, y = spot.y;
+  const x = spot.x, y = spot.y, z0 = spot.z || 0;
   // 받침대
-  drawBox(x - 0.32, y - 0.32, 0, 0.64, 0.64, 0.3, won ? "#8a6a42" : "#5a5048");
-  drawBox(x - 0.36, y - 0.36, 0.3, 0.72, 0.72, 0.06, won ? "#c9a24a" : "#6a6058");
+  drawBox(x - 0.32, y - 0.32, z0, 0.64, 0.64, 0.3, won ? "#8a6a42" : "#5a5048");
+  drawBox(x - 0.36, y - 0.36, z0 + 0.3, 0.72, 0.72, 0.06, won ? "#c9a24a" : "#6a6058");
   if (!won) return;
   // 보스 미니어처: 그 보스의 진짜 모습을 작게 줄여 받침대 위에 세워요 (도감 그림과 같은 그리기)
-  if (!drawTrophyMini(mapId, x, y, 0.36)) {
+  if (!drawTrophyMini(mapId, x, y, z0 + 0.36)) {
     // 그리기에 실패하면 예전 블록 머리 (보스 부품 색)
     const def = BOSS_DEFS[mapId], col = (def.material && def.material.color) || "#ffd23f", bob = Math.sin(game.time * 2 + x) * 0.02;
-    drawBox(x - 0.18, y - 0.18, 0.36 + bob, 0.36, 0.36, 0.22, shadeHex(col, -0.25));
-    drawBox(x - 0.22, y - 0.22, 0.58 + bob, 0.44, 0.44, 0.36, col);
+    drawBox(x - 0.18, y - 0.18, z0 + 0.36 + bob, 0.36, 0.36, 0.22, shadeHex(col, -0.25));
+    drawBox(x - 0.22, y - 0.22, z0 + 0.58 + bob, 0.44, 0.44, 0.36, col);
   }
   // 금빛 반짝
-  if (Math.sin(game.time * 3 + x * 2) > 0.97) { const s = toScreen(x, y, 1.1); drawStar(s.x, s.y, 7 * ZOOM, "#ffe27a"); }
+  if (Math.sin(game.time * 3 + x * 2) > 0.97) { const s = toScreen(x, y, z0 + 1.1); drawStar(s.x, s.y, 7 * ZOOM, "#ffe27a"); }
+  // 가까이 오면 이름표
+  if (trophyGalleryNear() && BOSS_DEFS[mapId]) { const c = toScreen(x, y, z0 + 1.5); text(BOSS_DEFS[mapId].name, c.x, c.y, Math.round(7 * ZOOM), "#ffe27a", "center"); }
 }
+// 뒷줄 계단 (돌 계단 + 금색 테두리)
+function drawTrophyStep(x, y, w, d, h) {
+  const look = typeof worldLook === "function" ? worldLook() : 1;
+  const stone = look === 2 ? "#6a7f96" : "#8c8378", top = look === 2 ? "#8fa6bd" : "#a89e90";
+  drawBox(x, y, 0, w, d, h - 0.04, stone);
+  drawBox(x, y, h - 0.04, w, d, 0.04, top);
+  drawBox(x, y + d - 0.06, h - 0.02, w, 0.06, 0.03, "#c9a24a");
+}
+// 전시대 가까이 오면 깬 보스 이름을 트로피 위에 보여줘요
+function trophyGalleryNear() {
+  const G = TROPHY_GALLERY, p = game.player;
+  if (!p || game.scene !== "lobby") return false;
+  return Math.hypot(p.x - (G.x0 + (G.cols - 1) * G.dx / 2), p.y - (G.backY + G.frontY) / 2) < 6.5;
+}
+
 // 미니어처 보스 (맵마다 한 번 만들어 두고 다시 써요)
 //   크기: 보스마다 덩치가 달라서, 처음 그릴 때 한 번 실제로 그려 보고(화면 한쪽을 잠깐 빌렸다가 그대로 되돌려요) 키·폭을 재서 줄여요
 const TROPHY_MINI = new Map();
@@ -369,12 +391,21 @@ hookOn("lobbyThings", (things) => {
     world.solids.__show = true;
     world.solids.push({ x: CODEX_STAND.x, y: CODEX_STAND.y, r: 0.4 });
     for (const s of TROPHY_SPOTS) world.solids.push({ x: s.x, y: s.y, r: 0.32 });
+    // 뒷줄 계단 (들어가지 못해요)
+    const G = TROPHY_GALLERY;
+    for (let c = 0; c < G.cols; c++) world.solids.push({ x: G.x0 + c * G.dx, y: G.backY, r: 0.62 });
   }
   const tr = game.profile.trophies || {};
+  // 뒷줄 계단: 트로피보다 먼저 (뒤에) 그려요
+  const G = TROPHY_GALLERY, n = trophyMaps().length;
+  if (n) {
+    const cols = Math.min(G.cols, n), w = (cols - 1) * G.dx + 1.0;
+    things.push({ depth: G.x0 + G.backY - 1.2, x: G.x0, y: G.backY, draw: () => drawTrophyStep(G.x0 - 0.5, G.backY - 0.5, w, 1.0, G.step) });
+  }
   trophyMaps().forEach((m, i) => {
     const s = TROPHY_SPOTS[i];
     if (!s) return;
-    things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => drawTrophy(s, m.id, !!(tr[m.id] && tr[m.id].wins)) });
+    things.push({ depth: s.x + s.y + (s.z ? 0.05 : 0), x: s.x, y: s.y, draw: () => drawTrophy(s, m.id, !!(tr[m.id] && tr[m.id].wins)) });
   });
   things.push({ depth: CODEX_STAND.x + CODEX_STAND.y, x: CODEX_STAND.x, y: CODEX_STAND.y, draw: drawCodexStand });
 }, 60);
