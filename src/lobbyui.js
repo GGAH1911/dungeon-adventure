@@ -253,8 +253,8 @@ function drawBasicRecords(x0, y0, pw, ph) {
     [`물리친 몬스터`, `${st.kills}마리`],
     [`연 보물상자`, `${st.chests}개`],
     [`던전 도전 / 클리어`, `${st.runs}번 / ${st.clears}번`],
-    [`시련의 탑 최고`, `${pr.towerBest || 0}층`],
-    [`심해 탑 최고`, `${(pr.towerBests && pr.towerBests.seatower) || 0}층`],
+    // 탑 최고 층: 월드마다 탑 하나 (시련 · 심해 · 달빛 · 지하) 를 한 줄에 (줄이 넘치지 않게)
+    [`탑 최고 (시련·심해·달빛·지하)`, ["tower", "seatower", "moontower", "undertower"].map((id) => id === "tower" ? pr.towerBest || 0 : (pr.towerBests && pr.towerBests[id]) || 0).join(" · ") + "층"],
     [`강아지 쓰다듬기`, `${st.pets}번`],
     [`장비 강화 합계`, `+${EQ_SLOTS.reduce((a, sl) => a + ((pr.eq[sl.id] && pr.eq[sl.id].p) || 0), 0)}`],
     [`보스 처치`, `${st.bosses || 0}번`],

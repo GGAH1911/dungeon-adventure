@@ -55,14 +55,15 @@ function buildLobby() {
     if (world.path[Math.floor(y)][Math.floor(x)] || hitsWall(x, y, 0.5)) continue;
     const sea = typeof worldLook === "function" && worldLook() === 2; // 바닷속: 조개·불가사리·해초
     const moon = typeof worldLook === "function" && worldLook() === 3; // 달 마을: 별사탕 (moon.js)
-    L.flowers.push({ x, y, c: (moon && typeof MOON_FLOWERS !== "undefined" ? MOON_FLOWERS : sea ? ["#ff9a7a", "#ffd6e8", "#7fe0c0", "#ffb84a"] : ["#ffdf5a", "#ff7aa8", "#ffffff", "#a98aff"])[Math.floor(rand() * 4)] });
+    const under = typeof worldLook === "function" && worldLook() === 4; // 버섯 등불 마을: 작은 수정·버섯·반딧불 (under.js)
+    L.flowers.push({ x, y, c: (under && typeof UNDER_FLOWERS !== "undefined" ? UNDER_FLOWERS : moon && typeof MOON_FLOWERS !== "undefined" ? MOON_FLOWERS : sea ? ["#ff9a7a", "#ffd6e8", "#7fe0c0", "#ffb84a"] : ["#ffdf5a", "#ff7aa8", "#ffffff", "#a98aff"])[Math.floor(rand() * 4)] });
   }
   npcs = [
     { x: L.merchant.x, y: L.merchant.y, range: 1.9, label: "상인", short: "가게", prompt: "가게 열기", action: openShop },
     { x: L.table.x, y: L.table.y, range: 2, label: "모험 지도", short: "지도", prompt: "맵 고르기", action: openMapSelect },
     { x: L.smith.x, y: L.smith.y, range: 1.9, label: "대장장이", short: "강화", prompt: "장비 강화", action: openSmith },
     { x: L.wardrobe.x, y: L.wardrobe.y, range: 1.8, label: "옷장", short: "옷장", prompt: "옷 갈아입기", action: openWardrobe },
-    { x: L.well.x, y: L.well.y, range: 1.9, label: typeof worldLook === "function" && worldLook() === 2 ? "소원 조개" : typeof worldLook === "function" && worldLook() === 3 ? "소원 분화구" : "소원 우물", short: "소원", prompt: "에메랄드 3개 던지기", action: wishWell },
+    { x: L.well.x, y: L.well.y, range: 1.9, label: typeof worldLook === "function" && worldLook() === 2 ? "소원 조개" : typeof worldLook === "function" && worldLook() === 3 ? "소원 분화구" : typeof worldLook === "function" && worldLook() === 4 ? "소원 수정 샘" : "소원 우물", short: "소원", prompt: "에메랄드 3개 던지기", action: wishWell },
     { x: L.board.x, y: L.board.y, range: 1.8, label: "기록판", short: "기록", prompt: "내 기록 보기", action: openRecords },
     { dog: true, x: dog.x, y: dog.y, range: 1.4, label: "강아지", short: "쓰담", prompt: "쓰다듬기", action: petDog },
   ];
@@ -226,8 +227,8 @@ function drawDummy(d) {
 // ----- 그리기 -----
 function lobbyThings(things) {
   const L = lobby;
-  things.push({ depth: L.merchant.x + L.merchant.y, x: L.merchant.x, y: L.merchant.y, draw: () => drawCharacter(L.merchant, worldLook() === 3 && typeof MOON_LOOK !== "undefined" ? MOON_LOOK.merchant : CONFIG.colors.merchant) });
-  things.push({ depth: L.smith.x + L.smith.y, x: L.smith.x, y: L.smith.y, draw: () => drawCharacter(L.smith, worldLook() === 3 && typeof MOON_LOOK !== "undefined" ? MOON_LOOK.smith : smithColors, { pose: npcPose(L.smith, "smith") }) });
+  things.push({ depth: L.merchant.x + L.merchant.y, x: L.merchant.x, y: L.merchant.y, draw: () => drawCharacter(L.merchant, worldLook() === 4 && typeof UNDER_LOOK !== "undefined" ? UNDER_LOOK.merchant : worldLook() === 3 && typeof MOON_LOOK !== "undefined" ? MOON_LOOK.merchant : CONFIG.colors.merchant) });
+  things.push({ depth: L.smith.x + L.smith.y, x: L.smith.x, y: L.smith.y, draw: () => drawCharacter(L.smith, worldLook() === 4 && typeof UNDER_LOOK !== "undefined" ? UNDER_LOOK.smith : worldLook() === 3 && typeof MOON_LOOK !== "undefined" ? MOON_LOOK.smith : smithColors, { pose: npcPose(L.smith, "smith") }) });
   for (const c of L.crates) things.push({ depth: c.x + c.y, x: c.x, y: c.y, draw: () => drawCrate(c) });
   for (const t of L.trees) if (onScreen(t.x, t.y, 3)) things.push({ depth: t.x + t.y, x: t.x, y: t.y, draw: () => drawTree(t) });
   for (const f of L.flowers) if (onScreen(f.x, f.y)) things.push({ depth: f.x + f.y - 0.5, draw: () => drawBox(f.x - 0.05, f.y - 0.05, 0, 0.1, 0.1, 0.12, f.c) });
@@ -263,6 +264,7 @@ function drawCrate(c) {
 function drawTree(t) {
   if (typeof worldLook === "function" && worldLook() === 2) return drawCoralTree(t);
   if (typeof worldLook === "function" && worldLook() === 3 && typeof drawCrystalTree === "function") return drawCrystalTree(t); // 달 마을 (moon.js)
+  if (typeof worldLook === "function" && worldLook() === 4 && typeof drawBigShroom === "function") return drawBigShroom(t); // 버섯 등불 마을 (under.js)
   drawBox(t.x - 0.15, t.y - 0.15, 0, 0.3, 0.3, 1.2, "#6b4a2a");
   drawBox(t.x - 0.6, t.y - 0.6, 1.0, 1.2, 1.2, 0.8, "#3f7a3a");
   drawBox(t.x - 0.4, t.y - 0.4, 1.8, 0.8, 0.8, 0.5, "#4f9346");
@@ -312,6 +314,7 @@ function drawGiantClam(w) {
 function drawCampfire() {
   if (typeof worldLook === "function" && worldLook() === 2) return drawSeaLantern();
   if (typeof worldLook === "function" && worldLook() === 3 && typeof drawMoonLamp === "function") return drawMoonLamp(lobby.fire);
+  if (typeof worldLook === "function" && worldLook() === 4 && typeof drawShroomLamp === "function") return drawShroomLamp(lobby.fire); // 큰 빛버섯 등불 (under.js)
   const f = lobby.fire;
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * Math.PI * 2;
@@ -346,6 +349,7 @@ function drawWell() {
   const w = lobby.well;
   if (typeof worldLook === "function" && worldLook() === 2) return drawGiantClam(w);
   if (typeof worldLook === "function" && worldLook() === 3 && typeof drawWishCrater === "function") return drawWishCrater(w);
+  if (typeof worldLook === "function" && worldLook() === 4 && typeof drawCrystalSpring === "function") return drawCrystalSpring(w); // 소원 수정 샘 (under.js)
   // 둥근 돌 우물
   for (let i = 0; i < 10; i++) {
     const a = (i / 10) * Math.PI * 2;

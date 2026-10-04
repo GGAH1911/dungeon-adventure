@@ -197,7 +197,8 @@ function updateTower(p, dt) {
     monsters = monsters.filter((m) => m.hp > 0);
     if (typeof casts !== "undefined") casts = casts.filter((c) => !c.m || c.m === game.player || c.m.hp > 0);
   }
-  if (!T.cleared && monsters.length === 0) floorCleared();
+  // 환경 소품(수정·광차 같은 prop 몬스터)은 세지 않아요: 진짜 몬스터가 다 쓰러지면 층 끝
+  if (!T.cleared && !monsters.some((m) => m.hp > 0 && !(m.def && m.def.behavior === "prop"))) floorCleared();
   if (stairs.open) stairs.glow += dt;
   // 보스 층은 방이 넓어서 조금 멀리 봐요 (보스방처럼)
   if (typeof setBossZoom === "function") setBossZoom(!!(towerBossAt(T.floor) && !T.cleared));

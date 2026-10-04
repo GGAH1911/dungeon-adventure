@@ -375,23 +375,24 @@ hookOn("dungeonTick", (dt) => {
     const late = (m.type === W3D.starBear.type || m.type === W3D.moonQueen.type) && m.phaseIdx >= 2;
     if (late && O.meteors < W3D.star.meteors) {
       O.mT -= dt;
-      if (O.mT <= 0) { O.mT = W3D.star.meteorEvery; O.meteors++; sbDropMeteor(m); }
+      if (O.mT <= 0) { if (sbDropMeteor(m)) { O.mT = W3D.star.meteorEvery; O.meteors++; } else O.mT = 0.2; } // 자리를 못 찾으면 조금 뒤 다시
     }
   }
 }, 45);
 function sbDropMeteor(m) {
   const ps = allPlayers().filter((p) => p && p.hp > 0);
-  if (!ps.length) return;
+  if (!ps.length) return false;
   const p = ps[Math.floor(Math.random() * ps.length)];
-  for (let tries = 0; tries < 12; tries++) {
+  for (let tries = 0; tries < 24; tries++) {
     const x = p.x + (Math.random() - 0.5) * 6, y = p.y + (Math.random() - 0.5) * 6;
     if (isWall(Math.floor(x), Math.floor(y))) continue;
     if (m.sbStars.some((s) => Math.hypot(s.x - x, s.y - y) < W3D.star.safeR + 1.4)) continue;
     const owner = { x, y, hp: 1, maxHp: 1, damage: m.damage, faceX: 1, faceY: 0, def: {}, state: "", w3Meteor: true };
     const tune = abilityTuning(), ab = ABILITIES.w3_meteor;
     casts.push(makeCast(owner, ab, "w3_meteor", owner, Math.max(MIN_TELEGRAPH, ab.telegraph.time * tune.telegraph), tune));
-    return;
+    return true;
   }
+  return false;
 }
 // 별자리를 그리는 동안(1~2단계) 보스는 기술을 쉬어요: 아이가 별 밟기에 집중
 hookOn("dungeonTick", () => {

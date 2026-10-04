@@ -74,9 +74,9 @@ hookOn("monstersSpawned", (def, level, rand) => {
   // ⑤ 지구빛 수정
   for (let i = 0; i < (f.earthlight || 0); i++) w3Tries(() => { const s = w3EnvSpot(rand, rooms, 1.0, 0.4); if (!(s && w3Far(E.lights, s.x, s.y, 1.6))) return false; E.lights.push({ x: s.x, y: s.y, c: ["#9fe8ff", "#7fb8ff", "#c8a8ff"][Math.floor(rand() * 3)], h: 0.4 + rand() * 0.4 }); return true; });
   // ④ 점프대: 날아갈 길이 다 바닥(같은 높이)인 방향만 (월드 2 해면 규칙)
-  for (let i = 0; i < (f.pads || 0); i++) {
+  for (let i = 0; i < (f.pads || 0); i++) w3Tries(() => {
     const s = w3EnvSpot(rand, rooms, 1.2, 0.5);
-    if (!s || !w3Far(all(), s.x, s.y, 2.5)) continue;
+    if (!s || !w3Far(all(), s.x, s.y, 2.5)) return false;
     const h0 = typeof tileH === "function" ? tileH(Math.floor(s.x), Math.floor(s.y)) : 0;
     const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]], start = Math.floor(rand() * 4), D = W3_ENV.hopDist;
     for (let k = 0; k < 4; k++) {
@@ -86,9 +86,10 @@ hookOn("monstersSpawned", (def, level, rand) => {
         const x = s.x + dx * t, y = s.y + dy * t;
         if (hitsWall(x, y, 0.4) || (typeof w2SameH === "function" && !w2SameH(x, y, h0)) || (typeof isStair === "function" && isStair(Math.floor(x), Math.floor(y))) || (typeof w2NearDoorSpot === "function" && w2NearDoorSpot(x, y, 2.6)) || E.craters.some((c) => Math.hypot(c.x - x, c.y - y) < c.r)) ok = false;
       }
-      if (ok) { w3AddPad(s.x, s.y, dx, dy, world, D); break; }
+      if (ok) { w3AddPad(s.x, s.y, dx, dy, world, D); return true; }
     }
-  }
+    return false;
+  });
   // ⑥ 별똥별
   for (let i = 0; i < (f.meteors || 0); i++) w3Tries(() => { const s = w3EnvSpot(rand, rooms, 1.5, 0.8); if (!(s && w3Far(all(), s.x, s.y, 2.6))) return false; w3AddMeteor(s.x, s.y, W3_ENV.meteorPeriod, rand() * W3_ENV.meteorPeriod); return true; });
   // (+) 공기 돔

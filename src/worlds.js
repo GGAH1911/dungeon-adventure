@@ -43,9 +43,15 @@ function travelToWorld(w) {
   game.fade = 0.9;
   sfx.stairs();
   const p = game.player;
-  if (p) for (let i = 0; i < 24; i++) { const a = Math.random() * Math.PI * 2; addSparkle(p.x, p.y, 0.6, { vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, vz: 2, gravity: 3, life: 0.8, size: 0.7, hue: w === 2 ? 190 : 45 }); }
+  if (p) for (let i = 0; i < 24; i++) { const a = Math.random() * Math.PI * 2; addSparkle(p.x, p.y, 0.6, { vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, vz: 2, gravity: 3, life: 0.8, size: 0.7, hue: WORLD_HUE[w] ?? 45 }); }
   return true;
 }
+
+// 월드마다 반짝이 색 (포탈 소용돌이·옮길 때)
+const WORLD_HUE = { 1: 45, 2: 190, 3: 260, 4: 25 };
+// 월드마다 포탈 돌 색 [돌, 어두운 돌] / 소용돌이 색 [가운데, 중간, 가장자리]
+const PORTAL_STONE = { 1: ["#8a8478", "#5e5a52"], 2: ["#5a7a86", "#3a5560"], 3: ["#b8bccc", "#8a8ea4"], 4: ["#6e5c4e", "#4a3a30"] };
+const PORTAL_SWIRL = { 1: ["#fff6d0", "#ffd23f", "#a06a10"], 2: ["#e6fbff", "#4fc3e8", "#0a4a7a"], 3: ["#f4ecff", "#a88aff", "#3a2080"], 4: ["#fff0d8", "#ff9a4a", "#6a2a8a"] };
 
 // ----- 포탈 (캠프·마을 오른쪽 위) -----
 const PORTAL = { x: 26.2, y: 6.6, placed: false };
@@ -111,7 +117,7 @@ hookOn("overlayDraw", (name) => {
 }, 50);
 function drawPortal(s) {
   const to = portalTarget(), open = worldUnlocked(to);
-  const stone = curWorld() === 3 ? "#b8bccc" : curWorld() === 2 ? "#5a7a86" : "#8a8478", dark = curWorld() === 3 ? "#8a8ea4" : curWorld() === 2 ? "#3a5560" : "#5e5a52";
+  const [stone, dark] = PORTAL_STONE[curWorld()] || PORTAL_STONE[1];
   // 돌 문틀
   drawBox(s.x - 0.75, s.y - 0.2, 0, 0.3, 0.4, 1.9, stone);
   drawBox(s.x + 0.45, s.y - 0.2, 0, 0.3, 0.4, 1.9, stone);
@@ -122,13 +128,13 @@ function drawPortal(s) {
   ctx.save();
   if (open) {
     const g = ctx.createRadialGradient(c.x, c.y, 2, c.x, c.y, Math.max(rx, ry));
-    const col = to === 3 ? ["#f4ecff", "#a88aff", "#3a2080"] : to === 2 ? ["#e6fbff", "#4fc3e8", "#0a4a7a"] : ["#fff6d0", "#ffd23f", "#a06a10"];
+    const col = PORTAL_SWIRL[to] || PORTAL_SWIRL[1];
     g.addColorStop(0, col[0]); g.addColorStop(0.5, col[1]); g.addColorStop(1, col[2]);
     ctx.fillStyle = g; ctx.globalAlpha = 0.9;
     ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 0.6; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2 * ZOOM;
     for (let i = 0; i < 3; i++) { const a0 = game.time * 2 + i * 2.1; ctx.beginPath(); ctx.ellipse(c.x, c.y, rx * (0.35 + i * 0.2), ry * (0.35 + i * 0.2), 0, a0, a0 + 2.2); ctx.stroke(); }
-    if (Math.random() < 0.25) addSparkle(s.x + (Math.random() - 0.5) * 0.8, s.y, 0.3 + Math.random() * 1.4, { vz: 0.8, life: 0.7, size: 0.5, hue: to === 2 ? 190 : 45 });
+    if (Math.random() < 0.25) addSparkle(s.x + (Math.random() - 0.5) * 0.8, s.y, 0.3 + Math.random() * 1.4, { vz: 0.8, life: 0.7, size: 0.5, hue: WORLD_HUE[to] ?? 45 });
   } else {
     ctx.fillStyle = "rgba(20,24,34,0.85)";
     ctx.beginPath(); ctx.ellipse(c.x, c.y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
