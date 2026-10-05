@@ -272,6 +272,12 @@ hookOn("drawFloor", () => {
     if (!(typeof coopOn === "function" && coopOn())) { const s = toScreen(p.x, p.y, 1.7); text(pvpLabel(pid), s.x, s.y, Math.round(7 * ZOOM), col, "center"); } // 둘이 하기는 1번·2번 글자가 이미 있어요
   }
 }, 40);
+// 점수판 위치: 위 가운데의 다른 사람 하트 줄(같이 하기: 사람마다 16픽셀, 보스 막대가 있으면 96부터 · netplay.js) / 둘이 하기 2번 하트 아래로
+function pvpScoreTop() {
+  if (typeof coopOn === "function" && coopOn()) return 74;
+  if (typeof netOn === "function" && netOn()) return 14 + Math.max(0, allPlayers().length - 1) * 16 + 6;
+  return 8;
+}
 // 점수판 (화면 위 가운데)
 hookOn("hudDraw", () => {
   if (!inPvp()) return;
@@ -280,7 +286,7 @@ hookOn("hudDraw", () => {
   const items = B.pvMode === "team" ? [0, 1].map((t) => ({ label: PVP_TEAM_NAMES[t], n: sc.get(t) || 0, col: PVP_TEAM_COLORS[t] }))
     : [...sc].map(([pid, n]) => ({ label: pvpLabel(pid), n, col: pvpColorOf(pid, B) }));
   const w = Math.min(W - 40, 140 + items.length * 120), x0 = (W - w) / 2;
-  const y0 = typeof coopOn === "function" && coopOn() ? 74 : 8; // 둘이 하기면 2번 하트 줄 아래로
+  const y0 = pvpScoreTop();
   ctx.fillStyle = "rgba(20,16,12,0.78)"; ctx.fillRect(x0, y0, w, 56);
   text(`${PVP_MODES[B.pvMode] || "결투"} · 목표 ${B.pvGoal}점 · ${m}:${String(s).padStart(2, "0")}`, W / 2, y0 + 18, 14, "#ffe27a", "center");
   items.forEach((it, i) => { const cx = x0 + (w / items.length) * (i + 0.5); text(`${it.label} ${it.n}`, cx, y0 + 44, 16, it.col, "center"); });
