@@ -122,13 +122,17 @@ function drawHUDBase() {
   if (game.scene === "dungeon" && game.mode === "tower") {
     text(`${curTower().name} ${game.tower.floor}층 / ${curTower().floors}`, RX, 40, 20, "#ffe27a", "right");
     const lvText = `Lv ${towerLevel(game.tower.floor)}`;
-    const left = game.tower.waveDelay <= 0 && !game.tower.cleared ? ` · 남은 몬스터 ${monsters.length}` : "";
-    text(lvText + left, RX, 64, 15, monsters.length <= 3 && left ? "#ff8080" : "#ccc", "right");
+    const nMon = monsters.filter((m) => !(m.def && m.def.behavior === "prop")).length; // 환경 소품(수정·광차)은 빼고 세요
+    const left = game.tower.waveDelay <= 0 && !game.tower.cleared ? ` · 남은 몬스터 ${nMon}` : "";
+    text(lvText + left, RX, 64, 15, nMon <= 3 && left ? "#ff8080" : "#ccc", "right");
     drawBossBar();
+  } else if (game.scene === "dungeon" && game.mode === "pvp") {
+    text(`${game.mapDef.name}`, RX, 40, 20, "#ffe27a", "right"); // 결투장 (점수판은 pvp.js)
   } else if (game.scene === "dungeon") {
     text(`${game.mapDef.name} Lv ${game.mapLevel}`, RX, 40, 20, "#ffe27a", "right");
     const khs = typeof keyHuntStatus === "function" ? keyHuntStatus() : null; // 열쇠 찾기 진행 (keyhunt.js)
-    text(khs || `남은 몬스터 ${monsters.length}`, RX, 64, 16, khs ? "#ffd23f" : monsters.length <= 3 ? "#ff8080" : "#fff", "right");
+    const nMon = monsters.filter((m) => !(m.def && m.def.behavior === "prop")).length;
+    text(khs || `남은 몬스터 ${nMon}`, RX, 64, 16, khs ? "#ffd23f" : nMon <= 3 ? "#ff8080" : "#fff", "right");
     drawMinimap(p, monsters);
     if (monsters.some((m) => m.boss && m.aggro)) drawBossBar(); // 보스가 깨어나면 체력 막대
   } else if (game.scene === "lobby") {

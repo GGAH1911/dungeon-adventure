@@ -73,7 +73,7 @@ function fireBow(p) {
       x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35,
       vx: Math.cos(a) * bow.speed, vy: Math.sin(a) * bow.speed,
       life: 1.4, damage: dmg, pierce: type === "bomb" ? 0 : bow.pierce || 0, hit: [],
-      legendary: !!bow.legendary, hue: Math.random() * 360, type,
+      legendary: !!bow.legendary, hue: Math.random() * 360, type, owner: p,
     });
   }
   if (bow.legendary) { sfx.legendBow(); flashScreen(0.05); }
@@ -101,6 +101,7 @@ function updateShots(dt) {
     }
     for (const m of allTargets()) {
       if (s.hit.includes(m)) continue;
+      if (typeof pvpSkipShot === "function" && pvpSkipShot(m, s)) continue; // 결투장: 내·우리 팀 과녁은 지나가요 (pvp.js)
       if (Math.hypot(m.x - s.x, m.y - s.y) > m.r + 0.2) continue;
       s.hit.push(m);
       if (m.dummy) {
@@ -113,7 +114,7 @@ function updateShots(dt) {
       }
       const crit = Math.random() < CONFIG.player.critChance;
       const eff = s.type === "fire" ? "burn" : s.type === "ice" ? "slow" : s.type === "poison" ? "poison" : null;
-      damageMonster(m, s.damage * (crit ? CONFIG.player.critDamage : 1), s.x - s.vx * 0.05, s.y - s.vy * 0.05, s.legendary, 0.5, { crit, effect: eff, melee: true });
+      damageMonster(m, s.damage * (crit ? CONFIG.player.critDamage : 1), s.x - s.vx * 0.05, s.y - s.vy * 0.05, s.legendary, 0.5, { crit, effect: eff, melee: true, by: s.owner });
       hitStop(0.03, crit);
       if (s.type === "bomb") bombBlast(s.x, s.y, s.damage);
       if (s.legendary) legendBurst(s.x, s.y);

@@ -722,6 +722,7 @@ function netGuestScene(msg) {
   try {
     if (msg.s === "lobby") { if (game.scene !== "lobby" || game.result) { game.result = null; enterLobby(); } }
     else if (msg.s === "dungeon" && MAPS.some((m) => m.id === msg.map && m.type === "tower")) { netGuestTower(msg); game.result = null; game.overlay = null; }
+    else if (msg.s === "dungeon" && hookAny("netGuestScene", msg)) { game.result = null; game.overlay = null; } // 다른 장면 (결투장: pvp.js)
     else if (msg.s === "dungeon") {
       const def = MAPS.find((m) => m.id === msg.map && m.type !== "tower");
       const sameMap = prev.s === "dungeon" && prev.map === msg.map && prev.seed === msg.seed && game.scene === "dungeon";

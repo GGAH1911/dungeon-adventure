@@ -51,7 +51,7 @@ hookOn("profileLoaded", (pr) => {
 // ----- 줄어들기: 내 기기 저장만 (던전에서 세상이 움직일 때만) -----
 let hungerWarnT = 0, hungerSaveT = 0;
 function hungerPaused() {
-  if (game.scene !== "dungeon" || game.result) return true;
+  if (game.scene !== "dungeon" || game.result || game.mode === "pvp") return true; // 결투장에선 안 줄어요
   if (typeof netOn === "function" && netOn()) return !!(netplay.pzLeft > 0); // 같이 하기: 누가 창을 열어 다 같이 멈췄을 때만
   return !!game.overlay; // 혼자: 창을 열면 멈춰요
 }

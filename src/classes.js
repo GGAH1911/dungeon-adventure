@@ -104,7 +104,7 @@ function targetsNear(x, y, r) { return allTargets().filter((m) => Math.hypot(m.x
 function hitTarget(p, m, dmg, opts = {}) {
   if (m.dummy) { hitDummy(m, dmg, false, p); return; }
   const crit = Math.random() < CONFIG.player.critChance;
-  damageMonster(m, dmg * (crit ? CONFIG.player.critDamage : 1), opts.fx !== undefined ? opts.fx : p.x, opts.fy !== undefined ? opts.fy : p.y, false, opts.knock || 0.4, { crit, effect: opts.effect || null, skill: true });
+  damageMonster(m, dmg * (crit ? CONFIG.player.critDamage : 1), opts.fx !== undefined ? opts.fx : p.x, opts.fy !== undefined ? opts.fy : p.y, false, opts.knock || 0.4, { crit, effect: opts.effect || null, skill: true, by: p });
 }
 function hitArea(p, x, y, r, dmg, opts = {}) {
   const list = targetsNear(x, y, r).filter((m) => !opts.melee || sameLevel(p, m)); // 근접 기술은 같은 층만 (terrain.js)
