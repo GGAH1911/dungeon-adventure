@@ -88,8 +88,10 @@ function bombBlast(x, y, dmg) {
   for (const m of monsters) if (m.hp > 0 && Math.hypot(m.x - x, m.y - y) < 1.8) damageMonster(m, dmg * 0.7, x, y, false, 1.2, { dot: true });
 }
 
-function updateShots(dt) {
+function updateShots(dt) { updateShotsBase(dt); if (typeof pvpSetCur === "function") pvpSetCur(null); }
+function updateShotsBase(dt) {
   for (const s of shots) {
+    if (typeof pvpSetCur === "function") pvpSetCur(s.owner || null); // 결투장: 쏜 사람 쪽에서 노리기 (pvp.js)
     s.x += s.vx * dt; s.y += s.vy * dt;
     s.life -= dt;
     if (isWall(Math.floor(s.x), Math.floor(s.y))) {

@@ -211,7 +211,7 @@ function hunterShoot(p) {
   for (let i = 0; i < n; i++) {
     const a = base + (i - (n - 1) / 2) * (n > 1 ? 0.22 : 0);
     shots.push({ x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35, vx: Math.cos(a) * bow.speed, vy: Math.sin(a) * bow.speed,
-      life: 1.4, damage: W(p) * (type === "bomb" ? 1.4 : 1) * (n > 1 ? 0.7 : 1), pierce: type === "bomb" ? 0 : bow.pierce || 0, hit: [], type, hue: 0 });
+      life: 1.4, damage: W(p) * (type === "bomb" ? 1.4 : 1) * (n > 1 ? 0.7 : 1), pierce: type === "bomb" ? 0 : bow.pierce || 0, hit: [], type, hue: 0, owner: p });
   }
   sfx.bowShot();
 }
@@ -347,7 +347,7 @@ const SKILL_RUN = {
     const type = mod === "A" ? "fire" : "ice";
     for (let i = 0; i < 7; i++) {
       const a = base + (i - 3) * (70 / 6) * Math.PI / 180;
-      shots.push({ x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35, vx: Math.cos(a) * p.bow.speed, vy: Math.sin(a) * p.bow.speed, life: 1.1, damage: W(p) * 0.75, pierce: 1, hit: [], type, hue: 0 });
+      shots.push({ x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35, vx: Math.cos(a) * p.bow.speed, vy: Math.sin(a) * p.bow.speed, life: 1.1, damage: W(p) * 0.75, pierce: 1, hit: [], type, hue: 0 , owner: p });
     }
     p.bowTimer = 0.45; p.bowAge = 0.3; sfx.bowShot();
   },
@@ -466,8 +466,10 @@ hookOn("playersUpdated", (dt) => {
   updateAllies(dt);
 });
 
-function updateClsFx(dt) {
+function updateClsFx(dt) { updateClsFxBase(dt); if (typeof pvpSetCur === "function") pvpSetCur(null); }
+function updateClsFxBase(dt) {
   for (const f of clsFx) {
+    if (typeof pvpSetCur === "function") pvpSetCur(f.owner); // 결투장: 이 기술 주인 쪽에서 노리기 (pvp.js)
     if (f.delay > 0) { f.delay -= dt; if (f.delay > 0) continue; if (f.run) { f.run(); f.life = 0; continue; } }
     const p = f.owner;
     switch (f.kind) {
@@ -555,6 +557,7 @@ function updateAllies(dt) {
   allies = allies.filter((w) => w.hp > 0 && players.includes(w.owner) && playerCls(w.owner) === "druid");
   for (const w of allies) {
     const o = w.owner;
+    if (typeof pvpSetCur === "function") pvpSetCur(o); // 결투장: 늑대는 주인 편 (pvp.js)
     w.hurtTimer -= dt; w.flash -= dt; w.bite -= dt; w.pounce = Math.max(0, (w.pounce || 0) - dt);
     if (w.relocate) { const s = findFreeSpot(o.x - o.faceX, o.y - o.faceY, 0.25, 4); if (s) { w.x = s.x; w.y = s.y; } w.relocate = false; }
     if (o.hp <= 0) continue;

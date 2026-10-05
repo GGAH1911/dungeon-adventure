@@ -187,17 +187,27 @@ function pvpFinish() {
 }
 
 // ----- 맞기: 과녁이 맞으면 그 주인 주인공의 하트 (방장·혼자 기기) -----
-function pvpAttackerOf(h) { return (h.opts && h.opts.by) || pvp.cur || game.player; }
+// 피해 기준: 그 직업의 주 무기 힘 (W 에서 직업 배수·함성 버프를 뺀 값. 사냥꾼은 활, 나머지는 손 무기)
+//   맞은 피해 ÷ 기준 = "몇 배짜리 기술이었나" -> 레벨·장비와 상관없이 같아요
+function pvpRef(p) {
+  if (typeof W === "function" && typeof CLASS_DEFS !== "undefined") {
+    const w = W(p) / ((CLASS_DEFS[playerCls(p)] || {}).dmgMul || 1) / (p.buffT > 0 ? 1.3 : 1);
+    if (w > 0) return w;
+  }
+  return Math.max(0.01, typeof weaponPower === "function" ? weaponPower(p) : 1);
+}
+// 직업마다 결투 세기 (봇 대결로 맞춰요: 멀리 쏘는 직업은 조금 약하게, 붙어 싸우는 직업은 다가가야 하니 조금 세게)
+const PVP_CLS_K = { warrior: 1.1, hunter: 0.95, mage: 0.85, druid: 1.03 };
+function pvpAttackerOf(h) { return (h.opts && h.opts.by) || pvp.cur || null; }
 hookOn("monsterDamage", (h) => {
   const a = h.m;
   if (!a || a.type !== "pvp_av") return false;
   if (!inPvp() || pvpGuest()) return true;
   const B = pvpBoard(); if (!B || B.pvEnd) return true;
   if (h.opts && h.opts.dot) return true; // 불·독 같은 계속 피해는 결투에선 없어요
-  const att = pvpAttackerOf(h), ap = pvpPid(att), owner = allPlayers().find((p) => pvpPid(p) === a.pvPid);
-  if (!owner || pvpAlly(ap, a.pvPid, B)) return true;
-  const ref = Math.max(0.01, typeof weaponPower === "function" ? weaponPower(att) : 1);
-  const hearts = Math.min(PVP.hp * 0.45, (h.dmg / ref) * PVP.k);
+  const att = pvpAttackerOf(h), owner = allPlayers().find((p) => pvpPid(p) === a.pvPid);
+  if (!att || !owner || pvpAlly(pvpPid(att), a.pvPid, B)) return true; // 누가 때렸는지 모르면 안 아파요
+  const hearts = Math.min(PVP.hp * 0.45, (h.dmg / pvpRef(att)) * PVP.k * (PVP_CLS_K[playerCls(att)] || 1));
   pvpHurt(owner, a, hearts, att, h.fromX, h.fromY, h.opts || {});
   return true;
 }, 1);
@@ -231,10 +241,11 @@ hookOn("playerInput", (inp, p) => {
   return inp;
 }, 1);
 hookOn("playersUpdated", () => { pvp.cur = null; }, 1);
+// 누가 노리는지 모를 때(주인공·화살·기술 차례 밖)는 빼지 않아요: 남의 과녁을 못 맞히는 일이 없게 (맞은 뒤 같은 편이면 피해 훅이 막아요)
+function pvpSetCur(p) { pvp.cur = p || null; }
 hookOn("untargetable", (o) => {
-  if (!o || o.type !== "pvp_av") return false;
-  const me = pvp.cur || game.player;
-  return pvpAlly(pvpPid(me), o.pvPid);
+  if (!o || o.type !== "pvp_av" || !pvp.cur) return false;
+  return pvpAlly(pvpPid(pvp.cur), o.pvPid);
 }, 50);
 // 화살: 쏜 사람 과녁은 지나가요 (bow.js 에서 불러요)
 function pvpSkipShot(m, s) { return !!(m && m.type === "pvp_av" && s && s.owner && pvpAlly(pvpPid(s.owner), m.pvPid)); }
