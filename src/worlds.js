@@ -77,11 +77,10 @@ function worldUnlockText(w) {
   const who = b ? b.name : m ? m.name : W.unlockAfter;
   return `${josa(who, "을/를")}${m && b ? `(${m.name})` : ""} 물리치면 열려요`;
 }
-// 다른 월드가 둘 이상 열렸으면 고르기 창, 하나면 바로
+// 늘 고르기 창: 잠긴 월드도 "누구를 물리치면 열려요" 와 함께 보여요 (갈 곳이 하나여도 다음 월드가 어디서 열리는지 알 수 있게)
 function portalUse() {
   const others = WORLD_ORDER.filter((w) => w !== curWorld()), open = others.filter(worldUnlocked);
   if (!open.length) { const to = portalTarget(); sfx.denied(); showMessage(`${worldUnlockText(to)} · ${WORLDS[to].name} 포탈`, 3, false, "#9fd8ff"); return; }
-  if (open.length === 1) { travelToWorld(open[0]); return; } // 갈 수 있는 곳이 하나면 바로 (월드가 3개 이상 열려야 고르기 창)
   game.overlay = "portal"; sfx.equip();
 }
 hookOn("lobbyInteractables", (list) => {

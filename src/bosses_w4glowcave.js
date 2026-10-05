@@ -208,7 +208,9 @@ hookOn("dungeonTick", (dt) => {
     for (const q of ps) { const d = Math.hypot(q.x - b.mkMX, q.y - b.mkMY); if (d < best) { best = d; t = q; } }
     if (t && best > 0.05) {
       const mv = { x: b.mkMX, y: b.mkMY, r: 0.5 }, k = Math.min(best, MK.digSpeed * dt);
-      moveEntity(mv, (t.x - mv.x) / best * k, (t.y - mv.y) / best * k);
+      // 땅속 흙더미는 벽에만 막혀요 (수정·소품·장식 돌 밑으로는 지나가요)
+      const sol = world.solids; world.solids = [];
+      try { moveEntity(mv, (t.x - mv.x) / best * k, (t.y - mv.y) / best * k); } finally { world.solids = sol; }
       b.mkMX = mv.x; b.mkMY = mv.y;
     }
     if (Math.random() < dt * 10) spawnDust(b.mkMX, b.mkMY);

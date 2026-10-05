@@ -319,21 +319,29 @@ function drawFloor() {
   if (hg && typeof drawTerrain === "function") { drawStairApproaches("low"); drawTerrain(); drawStairApproaches("high"); } // 계단 앞뒤 화살표 (terrain.js)
 }
 
+// 벽 칸이 이 자리보다 "앞"(화면 아래쪽, 보는 눈과 주인공 사이)에 있나: 두 축 모두 주인공보다 뒤로 넘지 않아야 앞이에요
+//   (예전엔 깊이 숫자 tx+ty+1 만 봐서, 주인공 뒤 위쪽 벽 옆 칸도 "앞"으로 보고 반투명하게 그리거나 주인공 위에 덮어 그렸어요:
+//    위쪽 벽에 붙으면 벽 속으로 들어가는 것처럼 보였어요)
+function wallInFront(tx, ty, e) { return tx + 1 > e.x && ty + 1 > e.y; }
 // 화면에 보이는 벽을 그리기 목록에 넣어요
 function collectWalls(things, p) {
+  const ps = allPlayers().filter((q) => q && q.hp > 0);
   for (let ty = 0; ty < world.H; ty++) {
     for (let tx = 0; tx < world.W; tx++) {
       const h = world.tiles[ty][tx];
       if (h === 0 || h === VOID) continue;
       if (!onScreen(tx + 0.5, ty + 0.5)) continue;
-      things.push({ depth: tx + ty + 1, draw: () => drawWall(tx, ty, h, p) });
+      // 주인공 바로 뒤(위쪽)에 붙은 벽은 깊이 숫자가 커도 주인공보다 먼저 그려요 (주인공을 덮지 않게)
+      let depth = tx + ty + 1;
+      for (const q of ps) if (Math.abs(tx + 0.5 - q.x) < 1.8 && Math.abs(ty + 0.5 - q.y) < 1.8 && !wallInFront(tx, ty, q)) depth = Math.min(depth, q.x + q.y - 0.02);
+      things.push({ depth, tx, ty, draw: () => drawWall(tx, ty, h, p) });
     }
   }
 }
 
 function drawWall(tx, ty, h, p) {
-  // 주인공을 가리는 벽은 반투명하게
-  const inFront = tx + ty + 1 > p.x + p.y && Math.abs((tx + 0.5 - p.x) - (ty + 0.5 - p.y)) < 2.5 && tx + ty + 1 - (p.x + p.y) < 3;
+  // 주인공을 가리는 벽(진짜 앞에 있는 벽)만 반투명하게
+  const inFront = wallInFront(tx, ty, p) && tx + ty + 1 > p.x + p.y && Math.abs((tx + 0.5 - p.x) - (ty + 0.5 - p.y)) < 2.5 && tx + ty + 1 - (p.x + p.y) < 3;
   const base = world.hgt ? wallBase(tx, ty) : 0; // 위층 방의 벽은 위층 바닥부터 (terrain.js)
   ctx.save();
   if (h === LOW_WALL) {
