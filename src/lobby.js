@@ -429,6 +429,10 @@ function drawNpcLabels() {
     const s = toScreen(n.x, n.y, n.promptZ || (n.dog ? 0.9 : 1.9)); // promptZ: 이름표가 있는 것(친구)은 그 위로
     const bob = Math.sin(game.time * 5) * 3;
     const how = touch.show ? `"${n.short}" 버튼` : "E 키";
-    text(`${how}: ${n.prompt}`, s.x, s.y - 22 + bob, 17 * ZOOM * 0.8, "#7dffb0", "center");
+    const msg = `${how}: ${n.prompt}`, size = 17 * ZOOM * 0.8;
+    // 왼쪽 위 하트·기술 칸(약 260x280)과 겹치면 그 아래로 (집 문이 화면 왼쪽 위에 올 때)
+    let ty = s.y - 22 + bob, tx = s.x; const half = msg.length * size * 0.45;
+    if (tx - half < 260 && ty < 290) { ty = 300; tx = Math.max(tx, half + 12); }
+    text(msg, tx, ty, size, "#7dffb0", "center");
   }
 }
