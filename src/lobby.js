@@ -69,11 +69,14 @@ function buildLobby() {
   ];
 }
 
+// only: 이 사람만 쓸 수 있어요 (같이 하기에서 "내 기기의 나"만, 예: 친구와 교환) · weak: 다른 것(상자·가게)이 가까이 있으면 그쪽이 먼저
 function nearestNpc(p) {
   let best = null, bestD = Infinity;
   for (const n of interactables()) {
+    if (n.only && n.only !== p) continue;
     const d = Math.hypot(p.x - n.x, p.y - n.y);
-    if (d < n.range && d < bestD) { best = n; bestD = d; }
+    const score = d + (n.weak ? 2 : 0);
+    if (d < n.range && score < bestD) { best = n; bestD = score; }
   }
   return best;
 }

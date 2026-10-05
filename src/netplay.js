@@ -1139,6 +1139,8 @@ function netGuestUpdate(dt) {
   // 상자·문·말 걸기: 캠프는 내 기기에서(가게·대장장이), 던전은 방장에게 부탁 (E 를 보내요)
   game.nearNpc = p && p.hp > 0 ? nearestNpc(p) : null;
   game.nearWho = p;
+  // 던전에서도 내 기기 것(친구와 교환)은 여기서 해요 (방장에게 간 E 는 방장 쪽에서 "나만의 것"이라 안 잡혀요)
+  if (game.scene !== "lobby" && game.nearNpc && game.nearNpc.local && !game.overlay && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
   if (game.scene === "lobby") {
     if (game.nearNpc && !game.overlay && wasPressed("KeyE", "TouchUse")) game.nearNpc.action();
     updateLobby(p, dt);

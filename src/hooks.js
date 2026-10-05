@@ -35,7 +35,8 @@
 //   drawPlaceIcon(m, x, y, s, locked) -> true   모험 지도 장소 그림 대신 (바다 맵: ocean.js)
 //   hudSkip() -> true               화면 정보(하트·화폐...)를 그리지 않기 (캐릭터 창: hero.js)
 //   overlayUpdate(name, dt) -> true / overlayDraw(name) -> true   새 창 (game.overlay = "이름")
-//   lobbyInteractables(list) -> list   캠프에서 E/터치로 쓸 것 더하기 ({ x, y, range, short, prompt, action })
+//   lobbyInteractables(list) -> list   캠프에서 E/터치로 쓸 것 더하기 ({ x, y, range, short, prompt, action, only?, weak?, local? })
+//                                      only: 그 사람만 · weak: 다른 것이 가까우면 양보 · local: 같이 하기 친구 기기에서도 던전에서 자기 기기로 실행
 //   playerInput(inp, p) -> inp      주인공 조작 (둘이 하기에서 사람마다 나눠요)
 //   playerLook(look, p) -> look / playerPlaced(p1) / playerDown(p) -> true=결과창 대신 (친구가 살아있음)
 //   playersUpdated(dt)              주인공들 움직인 뒤 매 프레임 (캠프·던전)

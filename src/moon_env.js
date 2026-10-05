@@ -64,13 +64,16 @@ hookOn("monstersSpawned", (def, level, rand) => {
   // ② 달먼지: 방 안 빈 자리
   for (let i = 0; i < (f.dust || 0); i++) w3Tries(() => { const s = w3EnvSpot(rand, rooms, 1.8, 0.6); if (!(s && w3Far(E.dust, s.x, s.y, 2.6))) return false; w3AddDust(s.x, s.y, 1.6 + rand() * 0.8); return true; });
   // ⑤ 지구빛 탑: 큰 방 가운데
-  for (let i = 0; i < (f.towers || 0); i++) {
-    const big = rooms.filter((r) => r.w >= 8 && r.h >= 8);
-    const r = big[Math.floor(rand() * big.length)];
-    if (!r || E.towers.some((t) => Math.hypot(t.x - r.cx, t.y - r.cy) < 5)) continue;
-    const s = findFreeSpot(r.cx, r.cy, 0.5, 2);
-    if (s && w3Far(all(), s.x, s.y, 2)) w3AddTower(s.x, s.y);
-  }
+  //   큰 방이 모자라거나 가운데가 막혔으면 다음으로 큰 방에서 다시 (탑이 하나도 없는 어두운 맵이 없게)
+  const bigRooms = rooms.filter((r) => r.w >= 8 && r.h >= 8);
+  const roomPool = bigRooms.length >= 2 ? bigRooms : [...rooms].sort((a, b) => b.w * b.h - a.w * a.h).slice(0, 4);
+  for (let i = 0; i < (f.towers || 0); i++) w3Tries(() => {
+    const r = roomPool[Math.floor(rand() * roomPool.length)];
+    if (!r || E.towers.some((t) => Math.hypot(t.x - r.cx, t.y - r.cy) < 5)) return false;
+    const s = findFreeSpot(r.cx + (rand() - 0.5) * 2, r.cy + (rand() - 0.5) * 2, 0.5, 3);
+    if (!(s && w3Far(all(), s.x, s.y, 2))) return false;
+    w3AddTower(s.x, s.y); return true;
+  });
   // ⑤ 지구빛 수정
   for (let i = 0; i < (f.earthlight || 0); i++) w3Tries(() => { const s = w3EnvSpot(rand, rooms, 1.0, 0.4); if (!(s && w3Far(E.lights, s.x, s.y, 1.6))) return false; E.lights.push({ x: s.x, y: s.y, c: ["#9fe8ff", "#7fb8ff", "#c8a8ff"][Math.floor(rand() * 3)], h: 0.4 + rand() * 0.4 }); return true; });
   // ④ 점프대: 날아갈 길이 다 바닥(같은 높이)인 방향만 (월드 2 해면 규칙)

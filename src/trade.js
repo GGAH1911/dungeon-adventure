@@ -177,7 +177,19 @@ function tradeTryCommit() {
 }
 
 // ----- 메뉴·창 -----
-hookOn("menuItems", (items) => { if (netOn() && tradeOthers().length) items.push({ label: "교환하기 (장비·화살·물약)", act: () => { closeOverlay(); tradeStart(); } }); }, 35);
+// 친구 옆에 가면 "교환" 버튼 (E 키 / 터치 버튼). 내 기기의 나만 보여요 (only), 상자·가게·계단이 가까우면 그쪽이 먼저 (weak)
+function tradeNearList(list) {
+  const me = game.player;
+  if (!netOn() || !me || me.hp <= 0 || game.mode === "pvp" || trade.phase) return list;
+  for (const q of tradeOthers()) {
+    if (!(q.hp > 0)) continue;
+    const pid = q.pid || 1, nm = playerLabel(q);
+    list.push({ x: q.x, y: q.y, range: 1.6, only: me, weak: true, local: true, short: "교환", prompt: `${josa(nm, "과/와")} 교환하기`, action: () => tradeStart(pid) });
+  }
+  return list;
+}
+hookOn("lobbyInteractables", tradeNearList, 90);
+hookOn("dungeonInteractables", tradeNearList, 90);
 hookOn("netTick", () => {
   if (!trade.phase) return;
   if (!netOn() || (trade.with && !tradePartner())) { const had = trade.phase === "open" || trade.phase === "wait"; tradeClose(); if (had) showMessage("교환하던 친구가 나갔어요", 2.5); return; }
