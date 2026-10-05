@@ -139,16 +139,42 @@ function netWrapPeerConn(c) {
   return conn;
 }
 
+// 중계(TURN) 접속 정보: Cloudflare Worker(server/turn-worker.js)가 2시간짜리를 만들어 줘요.
+//   기기끼리 바로 못 붙을 때(휴대폰 데이터·회사/학교 Wi-Fi 등)만 중계를 거쳐요. 받기 실패하면 예전처럼 STUN 만 (같이 하기는 그대로 돼요)
+//   진단: 주소에 ?relay=1 을 붙이면 중계로만 연결해요 (중계가 되는지 시험)
+const NET_ICE_URL = "https://da-turn.hwangi0404.workers.dev/ice";
+const NET_STUN = [{ urls: "stun:stun.cloudflare.com:3478" }, { urls: "stun:stun.l.google.com:19302" }];
+const netIce = { list: null, at: 0, ttl: 0, pending: null };
+function netRelayOnly() { try { return typeof location !== "undefined" && /[?&]relay=1\b/.test(location.search); } catch (e) { return false; } }
+async function netIceServers() {
+  const now = Date.now();
+  if (netIce.list && now - netIce.at < Math.max(60000, (netIce.ttl - 600) * 1000)) return netIce.list;
+  if (typeof fetch !== "function" || typeof location === "undefined" || !/^https?:/.test(location.protocol)) return NET_STUN; // 시험 환경
+  if (!netIce.pending) netIce.pending = (async () => {
+    try {
+      const ctl = typeof AbortController === "function" ? new AbortController() : null;
+      const to = setTimeout(() => ctl && ctl.abort(), 3000); // 3초 안에 못 받으면 중계 없이
+      const r = await fetch(NET_ICE_URL, { signal: ctl ? ctl.signal : undefined, cache: "no-store" });
+      clearTimeout(to);
+      const j = r.ok ? await r.json() : null;
+      if (j && Array.isArray(j.iceServers) && j.iceServers.length) { netIce.list = [...NET_STUN, ...j.iceServers.filter((x) => x && x.username)]; netIce.at = Date.now(); netIce.ttl = j.ttl || 3600; }
+    } catch (e) { /* 중계 없이 */ }
+    netIce.pending = null;
+    return netIce.list || NET_STUN;
+  })();
+  return netIce.pending;
+}
+
 class NetPeerTransport {
-  constructor(opts = {}) { this.opts = opts; this.peer = null; }
+  constructor(opts = {}) { this.opts = opts; this.peer = null; this.ice = null; }
   peerOptions() {
-    return {
-      debug: 0,
-      config: { iceServers: this.opts.iceServers || [{ urls: "stun:stun.l.google.com:19302" }, { urls: "stun:stun1.l.google.com:19302" }] },
-    };
+    const config = { iceServers: this.opts.iceServers || this.ice || NET_STUN };
+    if (this.opts.relayOnly || netRelayOnly()) config.iceTransportPolicy = "relay";
+    return { debug: 0, config };
   }
   async start(id) {
     await netLoadPeerLib();
+    if (!this.opts.iceServers) this.ice = await netIceServers();
     if (typeof RTCPeerConnection === "undefined") throw netError("browser");
     return new Promise((resolve, reject) => {
       const peer = id ? new Peer(id, this.peerOptions()) : new Peer(this.peerOptions());
