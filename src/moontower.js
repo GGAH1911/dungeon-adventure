@@ -173,7 +173,9 @@ function moonTowerReward(L) {
 
 // ----- 달 마을: 60층을 깨면 은빛 탑 트로피 (꼭대기 노란 초승달) -----
 const MOON_TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function moonTowerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown3") : MOON_TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
+// 집: 월드 3 트로피 룸 가운데 받침대 (house_trophy.js 가 자리를 정해요. 없으면 빈 받침대로 "어떻게 받는지" 보여줘요)
+hookOn("houseCrowns", (list) => { list.push({ world: 3, id: "moontower", name: "달빛 탑", has: () => typeof towerCrownCount === "function" && towerCrownCount("moontower") > 0 }); return list; });
+function moonTowerTrophySpot() { return (typeof houseCrownSpot === "function" && houseCrownSpot("moontower")) || MOON_TOWER_TROPHY; }
 hookOn("lobbyThings", (things) => {
   if (!towerCrownCount("moontower")) return;
   const s = moonTowerTrophySpot();

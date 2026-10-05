@@ -44,9 +44,13 @@
 //   touchDown(e, x, y) -> true      화면을 누른 맨 처음 (true 면 게임 버튼·조이스틱 대신 처리. 버튼 배치 바꾸기: btnlayout.js)
 //   joyRest(pos) -> pos             조이스틱이 쉬는 자리 {x, y} (hud.js)
 //   lobbyThings(things)             캠프에 그릴 물건 더하기 ({ depth, draw })
+//   recApplied(kind, d)             함께 쌓는 기록이 내 저장에 남은 뒤 (방장·혼자·친구 모두 한 번: 퀘스트 세기 quests.js)
+//   drawPickup(e) -> true           바닥의 줍는 것 그림 대신 (이야기 조각 "qfrag": quests.js)
+//   questDone(q)                    퀘스트 보상을 받은 뒤 (quests.js)
 //   lobbyWorldBuilt()               캠프 땅을 새로 만든 뒤 (집 방 칸 만들기: house.js)
 //   netHostReq(slot, w, d) -> true  방장: 친구의 부탁(req) 처리 (집 들어가기 "house": house.js)
 //   towerFloorBuilt(floor, towerDef) 탑 층을 다 만든 뒤 (tower.js)
+//   w5AllLit(mapId) / w5ColorStun(boss) / w5RiftClosed() / w5HoleClosed()   공허 알림: 맵 색 수정을 모두 켬 · 보스가 색 수정 빛에 비틀 · 틈새 거인 · 블랙홀 쓰러짐 (퀘스트가 들어요)
 //   timeScale(dt) -> dt             매 프레임 시간 바꾸기 (느린 화면). 원래 dt 를 받아 바꾼 dt 를 돌려줘요 (main.js update)
 const HOOKS = {};
 let hookSeq = 0;

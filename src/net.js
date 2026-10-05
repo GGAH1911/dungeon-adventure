@@ -24,7 +24,7 @@
 // PeerJS 는 같이 하기를 누를 때만 불러와요 (혼자 할 때·인터넷 없을 때 게임에 영향 없음).
 
 const NET_PROTOCOL = 1;          // 메시지 규칙 버전 (바꾸면 서로 다른 버전끼리 못 붙어요)
-const NET_BUILD = "2026-10-netsec-1"; // 게임 빌드 (같이 하기 규칙이 바뀌면 올려요. 다르면 못 붙어요)
+const NET_BUILD = "2026-10-house-quest-w5"; // 게임 빌드 (같이 하기 규칙이 바뀌면 올려요. 다르면 못 붙어요)
 const NET_ID_PREFIX = "dadv-";   // PeerJS 아이디 = dadv-471953
 const NET_CODE_LEN = 6;          // 방 번호 자리 수
 const NET_HI_TIMEOUT = 5000;     // 연결하고 이 안에 인사(hi)가 없으면 끊어요

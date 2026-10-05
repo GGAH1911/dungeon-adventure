@@ -110,7 +110,9 @@ function seaTowerReward(L) {
 
 // ----- 바닷속 마을: 50층을 깨면 진주 탑 트로피 -----
 const SEA_TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function seaTowerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown2") : SEA_TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
+// 집: 월드 2 트로피 룸 가운데 받침대 (house_trophy.js 가 자리를 정해요. 없으면 빈 받침대로 "어떻게 받는지" 보여줘요)
+hookOn("houseCrowns", (list) => { list.push({ world: 2, id: "seatower", name: "심해 탑", has: () => !!(game.profile && game.profile.seaTowerCrown) }); return list; });
+function seaTowerTrophySpot() { return (typeof houseCrownSpot === "function" && houseCrownSpot("seatower")) || SEA_TOWER_TROPHY; }
 hookOn("lobbyThings", (things) => {
   const pr = game.profile;
   if (!pr.seaTowerCrown) return;

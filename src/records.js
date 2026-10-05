@@ -104,7 +104,7 @@ function recShared(kind, d = {}, opts = {}) {
   if (!fn || !game.profile) return;
   const host = typeof netHosting === "function" && netHosting();
   const mine = opts.pid === undefined || !game.player || opts.pid === (game.player.pid || 1);
-  if (mine) { fn(d, game.profile); if (REC_SAVE_NOW.has(kind)) saveProfile(); }
+  if (mine) { fn(d, game.profile); hookRun("recApplied", kind, d); if (REC_SAVE_NOW.has(kind)) saveProfile(); }
   if (host && typeof netplay !== "undefined" && netplay.events.length < 200) netplay.events.push(["rec", netEnc([kind, d, opts.pid === undefined ? 0 : opts.pid], 1), 0]);
 }
 // 친구 기기: 방장이 보낸 기록을 내 저장에
@@ -115,6 +115,7 @@ function recFromHost(args) {
   if (typeof kind !== "string" || !Object.hasOwn(REC_APPLY, kind) || !d || typeof d !== "object") return;
   if (pid && pid !== netplay.slot) return; // 다른 친구 한 명의 기록
   REC_APPLY[kind](d, game.profile);
+  hookRun("recApplied", kind, d); // 퀘스트가 세요 (quests.js)
   if (REC_SAVE_NOW.has(kind)) saveProfile(); else if (kind !== "hurtInfo") netplay.saveT = Math.min(netplay.saveT || 9, 2);
 }
 

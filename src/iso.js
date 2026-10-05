@@ -112,7 +112,10 @@ function fillPoly(points, color) {
 }
 
 // 상자(블록) 하나 그리기. (x, y, z)는 상자의 구석, w/d/h는 크기
+// boxTint: 잠깐 모든 상자 색을 바꿔 칠하고 싶을 때 (공허 메아리 보스의 회색: bosses_w5echo.js). 쓰고 나면 꼭 null 로
+let boxTint = null;
 function drawBox(x, y, z, w, d, h, color) {
+  if (boxTint) color = boxTint(color);
   const P = toScreen;
   const top = [P(x, y, z + h), P(x + w, y, z + h), P(x + w, y + d, z + h), P(x, y + d, z + h)];
   const left = [P(x, y + d, z + h), P(x + w, y + d, z + h), P(x + w, y + d, z), P(x, y + d, z)];

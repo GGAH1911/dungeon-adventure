@@ -124,12 +124,13 @@ function generateDungeon(def, seed) {
 // ----- 로비 만들기 -----
 function buildLobbyWorld() {
   // 캠프(LOBBY.width x height) 오른쪽 멀리 빈 곳(VOID)에 집 안 방이 있어요 (house.js: LOBBY.extraW 만큼 넓혀요)
-  const CW = LOBBY.width, W = CW + (LOBBY.extraW || 0), H = LOBBY.height;
+  //   집 방이 많아지면 아래쪽(LOBBY.extraH)으로도 넓혀요
+  const CW = LOBBY.width, CH = LOBBY.height, W = CW + (LOBBY.extraW || 0), H = CH + (LOBBY.extraH || 0);
   resetWorld(W, H, 0, LOBBY.theme);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (x >= CW) world.tiles[y][x] = VOID;
-      else if (x === CW - 1 || y === H - 1) world.tiles[y][x] = LOW_WALL;
+      if (x >= CW || y >= CH) world.tiles[y][x] = VOID;
+      else if (x === CW - 1 || y === CH - 1) world.tiles[y][x] = LOW_WALL;
       else if (x === 0 || y === 0) world.tiles[y][x] = 1;
   world.path = world.tiles.map((row) => row.map(() => false));
   hookRun("lobbyWorldBuilt"); // 집 방 만들기 (house.js)

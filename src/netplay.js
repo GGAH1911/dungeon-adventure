@@ -486,7 +486,7 @@ function netHostTick(dt) {
 const NP_BUSY_WORDS = {
   shop: "가게를 보고", smith: "대장장이와 이야기하고", maps: "지도를 보고", menu: "메뉴를 보고", hero: "영웅 창을 보고",
   wardrobe: "옷장을 보고", records: "기록을 보고", classes: "직업 훈련관과 이야기하고", codex: "도감을 보고", help: "도움말을 보고",
-  btnedit: "버튼 자리를 바꾸고", trade: "교환하고", house: "집을 꾸미고", sleep: "자고", netask: "새 친구를 들여보낼지 고르고", nethost: "방 번호를 보고", qolConfirm: "고르고", other: "다른 창을 보고",
+  btnedit: "버튼 자리를 바꾸고", trade: "교환하고", house: "집을 꾸미고", sleep: "자고", piggy: "저금통을 보고", hscope: "망원경을 보고", fridge: "냉장고를 보고", darts: "다트 놀이를 하고", hnote: "편지를 읽고", netask: "새 친구를 들여보낼지 고르고", nethost: "방 번호를 보고", qolConfirm: "고르고", other: "다른 창을 보고",
 };
 const NP_BUSY_SKIP = new Set(["result", "vote"]); // 결과창은 각자 봐요, 출발 투표 창은 막는 이유가 아니에요 (netvote.js)
 function netMyBusy() {

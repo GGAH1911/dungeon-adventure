@@ -70,7 +70,9 @@ function towerBossReward(mapId, L) {
 
 // ----- 캠프: 30층을 깨면 금빛 탑 트로피 -----
 const TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function towerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown1") : TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
+// 집: 월드 1 트로피 룸 가운데 받침대 (house_trophy.js 가 자리를 정해요. 없으면 빈 받침대로 "어떻게 받는지" 보여줘요)
+hookOn("houseCrowns", (list) => { list.push({ world: 1, id: "towerboss", name: "시련의 탑", has: () => !!(game.profile && game.profile.towerCrown) }); return list; });
+function towerTrophySpot() { return (typeof houseCrownSpot === "function" && houseCrownSpot("towerboss")) || TOWER_TROPHY; }
 hookOn("lobbyThings", (things) => {
   const pr = game.profile;
   if (!pr.towerCrown) return; // 시련의 탑 트로피는 집 안 트로피 홀에 (house.js)

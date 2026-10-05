@@ -183,7 +183,9 @@ function underTowerReward(L) {
 
 // ----- 버섯 등불 마을: 65층을 깨면 용암 왕관 탑 트로피 -----
 const UNDER_TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function underTowerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown4") : UNDER_TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
+// 집: 월드 4 트로피 룸 가운데 받침대 (house_trophy.js 가 자리를 정해요. 없으면 빈 받침대로 "어떻게 받는지" 보여줘요)
+hookOn("houseCrowns", (list) => { list.push({ world: 4, id: "undertower", name: "지하 탑", has: () => underTowerCrowns() > 0 }); return list; });
+function underTowerTrophySpot() { return (typeof houseCrownSpot === "function" && houseCrownSpot("undertower")) || UNDER_TOWER_TROPHY; }
 hookOn("lobbyThings", (things) => {
   if (!underTowerCrowns()) return;
   const s = underTowerTrophySpot();

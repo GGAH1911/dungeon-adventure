@@ -258,17 +258,8 @@ function codexSeenToast(name) {
 }
 // 도감 잡은 수는 몬스터를 잡을 때 records.js "kill" 이 남겨요 (같이 하기: 친구 도감에도)
 
-// ---------------- 집: 트로피 홀, 도감 책 (house.js 의 집 안) ----------------
-// 트로피 전시대: 월드마다 하나씩 2 x 2 로 (전시대마다 2줄 x 7칸, 칸 사이 1.2칸). 뒷줄은 계단 위(높이 0.42)라 앞줄에 안 가려요
-const TROPHY_GALLERIES = [1, 2, 3, 4].map((w, i) => {
-  const row = Math.floor(i / 2), G = { world: w, x0: HOUSE.x0 + 1.0 + (i % 2) * 9.6, dx: 1.2, backY: HOUSE.y0 + 1.0 + row * 4.4, frontY: HOUSE.y0 + 2.4 + row * 4.4, step: 0.42, cols: 7, spots: [] };
-  for (let k = 0; k < G.cols * 2; k++) { const back = k < G.cols; G.spots.push({ x: G.x0 + (k % G.cols) * G.dx, y: back ? G.backY : G.frontY, z: back ? G.step : 0 }); }
-  return G;
-});
-const TROPHY_GALLERY = TROPHY_GALLERIES[0]; // 월드 1 전시대
-const TROPHY_SPOTS = TROPHY_GALLERY.spots;
-const CODEX_STAND = HOUSE_SPOTS.codex;
-
+// ---------------- 집: 트로피 룸 그림, 도감 책 ----------------
+// 트로피 룸·받침대 자리·E 보기는 house_trophy.js (월드마다 방이 저절로 생겨요). 여기는 그림과 기록 글만.
 // 그 월드 보스들 (집에는 모든 월드 트로피가 있어요)
 function trophyMapsOf(w) {
   return (typeof MAPS !== "undefined" ? MAPS : []).filter((m) => m.type !== "tower" && typeof BOSS_DEFS !== "undefined" && BOSS_DEFS[m.id] && (typeof mapWorld !== "function" ? w === 1 : mapWorld(m) === w));
@@ -302,10 +293,10 @@ function drawTrophyStep(x, y, w, d, h) {
   drawBox(x, y, h - 0.04, w, d, 0.04, top);
   drawBox(x, y + d - 0.06, h - 0.02, w, 0.06, 0.03, "#c9a24a");
 }
-// 집 안에서 가까이 가면 깬 보스 이름을 트로피 위에 보여줘요
+// 트로피 룸 안에서 가까이 가면 깬 보스 이름을 트로피 위에 보여줘요
 function trophyGalleryNear() {
   const p = game.player;
-  return !!p && game.scene === "lobby" && houseInside(p);
+  return !!p && game.scene === "lobby" && typeof houseRoomAt === "function" && !!(houseRoomAt(p.x, p.y) || {}).world;
 }
 
 // 미니어처 보스 (맵마다 한 번 만들어 두고 다시 써요)
@@ -374,7 +365,7 @@ function shadeHex(hex, k) {
 }
 
 function drawCodexStand() {
-  const { x, y } = CODEX_STAND;
+  const { x, y } = houseSpot("codex");
   drawBox(x - 0.12, y - 0.12, 0, 0.24, 0.24, 0.6, "#6b4a2a");
   drawBox(x - 0.4, y - 0.32, 0.6, 0.8, 0.64, 0.08, "#8a5a32");
   // 펼친 책
@@ -387,77 +378,11 @@ function drawCodexStand() {
   if (seen < total && Math.sin(game.time * 4) > 0.6) { const s = toScreen(x, y, 1.15); drawStar(s.x, s.y, 6 * ZOOM, "#9fe6ff"); }
 }
 
-hookOn("lobbyThings", (things) => {
-  // 부딪히는 자리 (캠프를 새로 만들 때마다 한 번)
-  if (world.solids && !world.solids.__show) {
-    world.solids.__show = true;
-    world.solids.push({ x: CODEX_STAND.x, y: CODEX_STAND.y, r: 0.4 });
-    for (const G of TROPHY_GALLERIES) {
-      const nT = trophyMapsOf(G.world).length;
-      // 받침대가 있는 칸만 막아요 (빈 앞줄 칸은 걸어 들어가서 뒷줄 트로피를 볼 수 있게)
-      G.spots.forEach((s, i) => { if (i < nT) world.solids.push({ x: s.x, y: s.y, r: 0.32 }); });
-      // 뒷줄 계단 (들어가지 못해요)
-      for (let c = 0; c < Math.min(G.cols, nT); c++) world.solids.push({ x: G.x0 + c * G.dx, y: G.backY, r: 0.58 });
-    }
-  }
-  if (!onScreen((HOUSE.x0 + HOUSE.x1) / 2, (HOUSE.y0 + HOUSE.y1) / 2, 16)) return; // 집 안이 화면에 없으면
-  const tr = game.profile.trophies || {};
-  for (const G of TROPHY_GALLERIES) {
-    const maps = trophyMapsOf(G.world), n = maps.length;
-    if (!n) continue;
-    // 뒷줄 계단: 트로피보다 먼저 (뒤에) 그려요 + 월드 이름 팻말
-    const cols = Math.min(G.cols, n), w = (cols - 1) * G.dx + 1.0;
-    things.push({ depth: G.x0 + G.backY - 1.2, x: G.x0, y: G.backY, draw: () => drawTrophyStep(G.x0 - 0.5, G.backY - 0.5, w, 1.0, G.step) });
-    maps.forEach((m, i) => {
-      const s = G.spots[i];
-      if (!s) return;
-      things.push({ depth: s.x + s.y + (s.z ? 0.05 : 0), x: s.x, y: s.y, draw: () => drawTrophy(s, m.id, !!(tr[m.id] && tr[m.id].wins)) });
-    });
-  }
-  things.push({ depth: CODEX_STAND.x + CODEX_STAND.y, x: CODEX_STAND.x, y: CODEX_STAND.y, draw: drawCodexStand });
-}, 60);
-
-// 전시대마다 월드 이름 팻말 + 모은 수 (집 안에서, house.js 가 맨 위에 그려요)
-function drawTrophyHallLabels() {
-  const tr = game.profile.trophies || {};
-  for (const G of TROPHY_GALLERIES) {
-    const maps = trophyMapsOf(G.world), n = maps.length;
-    if (!n) continue;
-    const wd = typeof WORLDS !== "undefined" && WORLDS[G.world], won = maps.filter((m) => tr[m.id] && tr[m.id].wins).length;
-    const c = toScreen(G.x0 + (Math.min(G.cols, n) - 1) * G.dx / 2, G.backY - 0.3, 1.75);
-    text(`${wd ? wd.name : "월드 " + G.world} 트로피 ${won}/${n}`, c.x, c.y, Math.round(8 * ZOOM), won === n ? "#ffe27a" : "#f2e6c8", "center");
-  }
-}
-// 트로피 보기: 줄마다(세로 한 칸) 하나. 앞줄 받침대 앞에 서서 E: 앞줄 트로피, 한 번 더 누르면 뒷줄(계단 위) 트로피
-//   (예전엔 트로피마다 0.75칸 안에서만 됐는데, 뒷줄은 계단·앞줄에 막혀 그만큼 가까이 갈 수 없어서 못 봤어요)
-const TROPHY_LOOK = { col: "", t: 0 }; // 방금 본 줄 (두 번째 누름 = 뒷줄)
+// 트로피 한 개의 기록 글 (house_trophy.js 가 E 로 보여줘요)
 function trophyInfo(m) {
   const tr = game.profile.trophies || {}, t = tr[m.id], def = BOSS_DEFS[m.id], won = !!(t && t.wins);
   return { won, name: won ? `${def.name} 트로피` : "빈 받침대", sum: won ? `${def.name} 트로피 ${t.wins}번 이김` : "빈 받침대", text: won ? `${def.name} 트로피: ${t.wins}번 이김, 최고 기록 ${fmtTime(t.best)}` : `빈 받침대: ${m.name} 보스를 물리치면 트로피가 생겨요` };
 }
-hookOn("lobbyInteractables", (list) => {
-  for (const G of TROPHY_GALLERIES) {
-    const maps = trophyMapsOf(G.world);
-    for (let c = 0; c < G.cols; c++) {
-      const back = maps[c], front = maps[c + G.cols];
-      if (!back) continue;
-      const bi = trophyInfo(back), fi = front ? trophyInfo(front) : null, x = G.x0 + c * G.dx, key = G.world + ":" + c;
-      const show = (row) => { const inf = row === "front" ? fi : bi; showMessage(`${row === "front" ? "앞줄" : "뒷줄"} ${inf.text}`, 3, inf.won); };
-      list.push({
-        x, y: G.frontY, range: 1.15, label: fi ? `${fi.name} · 뒷줄 ${bi.name}` : `뒷줄 ${bi.name}`, short: "보기",
-        prompt: fi ? `앞줄 ${fi.sum} (E 한 번 더: 뒷줄 ${bi.sum})` : `뒷줄 ${bi.sum}`,
-        action: () => {
-          if (!fi) { show("back"); return; }
-          const again = TROPHY_LOOK.col === key && game.time - TROPHY_LOOK.t < 4 && game.time >= TROPHY_LOOK.t;
-          TROPHY_LOOK.col = again ? "" : key; TROPHY_LOOK.t = game.time;
-          show(again ? "back" : "front");
-        },
-      });
-    }
-  }
-  list.push({ x: CODEX_STAND.x, y: CODEX_STAND.y, range: 1.6, label: "도감", short: "도감", prompt: "몬스터 도감 보기", action: openCodex });
-  return list;
-}, 60);
 
 // ---------------- 도감 창 ----------------
 const codex = { tab: 0, scroll: 0, sel: null, drag: null, dragMoved: false, thumbs: new Map(), maxScroll: 0 };

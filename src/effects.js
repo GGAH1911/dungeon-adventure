@@ -108,7 +108,8 @@ function updatePickups(player, dt, onPickup) {
   pickups = pickups.filter((e) => !e.taken);
 }
 
-function drawPickup(e) {
+function drawPickup(e) { if (hookAny("drawPickup", e)) return; return drawPickupBase(e); } // 다른 파일의 줍는 것 그림 (이야기 조각: quests.js)
+function drawPickupBase(e) {
   const z = (e.z || 0) + 0.22 + Math.sin(e.t * 4) * 0.06;
   if (e.type === "apple") {
     drawBox(e.x - 0.12, e.y - 0.12, z, 0.24, 0.24, 0.22, "#d8342c");

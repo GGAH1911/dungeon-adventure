@@ -149,7 +149,7 @@ Object.assign(EXTRA_SHAPES, {
     if (m.stShield && Array.isArray(m.stSeq) && m.stSeq.length) {
       const t = toScreen(m.x, m.y, 3.4), seq = m.stSeq, gap = 22 * ZOOM * 0.7;
       seq.forEach((s, i) => text(W4R.syms[s] || "?", t.x + (i - (seq.length - 1) / 2) * gap, t.y, Math.round(18 * ZOOM * 0.7), i < (m.stStep || 0) ? "#7dffb0" : (W4R.colors[s] || "#fff"), "center"));
-    } else if (!m.stShield) { const t = toScreen(m.x, m.y, 3.4); text(`지금 때려요! ${Math.ceil(m.stOpenT || 0)}초`, t.x, t.y, Math.round(14 * ZOOM * 0.7), "#ffe27a", "center"); }
+    } else if (!m.stShield && !m.trophy) { const t = toScreen(m.x, m.y, 3.4); text(`지금 때려요! ${Math.ceil(m.stOpenT || 0)}초`, t.x, t.y, Math.round(14 * ZOOM * 0.7), "#ffe27a", "center"); }
   },
   w4_rune(m) {
     const x = m.x, y = m.y, s = m.rnSym || 0, col = W4R.colors[s] || "#fff";
