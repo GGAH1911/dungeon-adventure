@@ -417,7 +417,7 @@ function drawNpcLabels() {
   }
   const n = game.nearNpc;
   if (n && !game.overlay) {
-    const s = toScreen(n.x, n.y, n.dog ? 0.9 : 1.9);
+    const s = toScreen(n.x, n.y, n.promptZ || (n.dog ? 0.9 : 1.9)); // promptZ: 이름표가 있는 것(친구)은 그 위로
     const bob = Math.sin(game.time * 5) * 3;
     const how = touch.show ? `"${n.short}" 버튼` : "E 키";
     text(`${how}: ${n.prompt}`, s.x, s.y - 22 + bob, 17 * ZOOM * 0.8, "#7dffb0", "center");

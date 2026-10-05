@@ -184,7 +184,7 @@ function tradeNearList(list) {
   for (const q of tradeOthers()) {
     if (!(q.hp > 0)) continue;
     const pid = q.pid || 1, nm = playerLabel(q);
-    list.push({ x: q.x, y: q.y, range: 1.6, only: me, weak: true, local: true, short: "교환", prompt: `${josa(nm, "과/와")} 교환하기`, action: () => tradeStart(pid) });
+    list.push({ x: q.x, y: q.y, range: 1.6, promptZ: 2.5, only: me, weak: true, local: true, short: "교환", prompt: `${josa(nm, "과/와")} 교환하기`, action: () => tradeStart(pid) });
   }
   return list;
 }
