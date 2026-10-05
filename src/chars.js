@@ -108,6 +108,35 @@ function deleteChar(id) {
   return true;
 }
 
+// ----- 이름 바꾸기 (처음 화면 카드의 ✎, 캠프 메뉴 "이름 바꾸기") -----
+// 그 캐릭터 저장(이름 칸)과 목록 카드를 같이 바꿔요. 이름 규칙은 만들 때와 같아요 (글자·숫자·띄어쓰기, 8글자)
+function renameChar(id, name) {
+  const c = chars.idx.list.find((x) => x.id === id); if (!c) return false;
+  const nm = cleanName(name); if (!nm) return false;
+  c.name = nm;
+  if (game.profile && SAVE_KEY === charKey(id)) { game.profile.name = nm; saveProfile(); } // 지금 캐릭터: 저장하면 목록도 같이 바뀌어요
+  else { const raw = lsGet(charKey(id)); if (raw && typeof raw === "object") { raw.name = nm; lsSet(charKey(id), raw); } }
+  saveChars();
+  if (game.player && SAVE_KEY === charKey(id)) game.player.netName = typeof netCleanName === "function" ? netCleanName(nm) : nm;
+  return true;
+}
+function askRename(id) {
+  const c = chars.idx.list.find((x) => x.id === id); if (!c) return false;
+  let v = null;
+  try { v = window.prompt("새 이름 (8글자까지)", c.name || ""); } catch (e) { v = null; }
+  if (v === null) return false; // 취소
+  if (!cleanName(v)) { showMessage("이름은 글자나 숫자로 써 주세요", 2); return false; }
+  const old = c.name;
+  if (!renameChar(id, v)) return false;
+  const net = typeof netOn === "function" && netOn();
+  showMessage(`이름을 바꿨어요: ${old} → ${c.name}${net ? " (친구 화면엔 다음에 같이 할 때부터)" : ""}`, net ? 3 : 2.4, false, "#7dffb0");
+  return true;
+}
+hookOn("menuItems", (items) => {
+  if (game.scene !== "lobby" || !activeChar() || SAVE_KEY !== charKey(activeChar().id)) return;
+  items.push({ label: `이름 바꾸기 (지금: ${game.profile.name})`, act: () => { closeOverlay(); askRename(activeChar().id); } });
+}, 4);
+
 // ===== 처음 화면 =====
 function startWithChar(id) {
   if (!selectChar(id)) return;
@@ -196,6 +225,8 @@ hookOn("titleDraw", () => {
       else { ui.del = c.id; ui.delT = 3; }
     }, { size: 13, color: del ? "rgba(220,70,70,0.7)" : "rgba(255,255,255,0.08)" });
     if (del) text("한 번 더 누르면 지워져요", x + cw / 2, y + chh - 10, 13, "#ff8080", "center");
+    // 이름 바꾸기
+    drawButton(x + cw - 68, y + 6, 28, 26, "✎", () => askRename(c.id), { size: 13, color: "rgba(255,255,255,0.08)" });
   });
   const yb = gy + 2 * (chh + 12) + 8;
   if (touch.show) {
