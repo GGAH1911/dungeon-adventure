@@ -11,7 +11,7 @@
 
 const BTN_LAYOUT_KEY = "dungeon-adventure-buttons-v1";
 // 순서가 코드 번호예요. 뒤에만 더하세요 (앞을 바꾸면 예전 코드가 엉뚱한 버튼으로 가요)
-const BTN_CODES = ["TouchAttack", "TouchRoll", "TouchBow", "TouchArrowType", "TouchPotion", "TouchUse", "TouchSkill1", "TouchSkill2", "TouchUlt", "Joy", "TouchSpeedPot", "TouchAtkPot", "TouchFood"];
+const BTN_CODES = ["TouchAttack", "TouchRoll", "TouchBow", "TouchArrowType", "TouchPotion", "TouchUse", "TouchSkill1", "TouchSkill2", "TouchUlt", "Joy", "TouchSpeedPot", "TouchAtkPot", "TouchFood", "TouchTnt", "TouchFirework"];
 // 기본 자리 [dx, dy, 반지름] (classes.js 의 터치 버튼 자리, hud.js 의 이동 동그라미와 같아야 해요. 시험이 확인해요)
 const BTN_DEFAULTS = {
   TouchAttack: [105, 105, 60], TouchRoll: [245, 55, 40], TouchBow: [310, 135, 36], TouchArrowType: [345, 215, 22],
@@ -19,8 +19,9 @@ const BTN_DEFAULTS = {
   Joy: [120, 120, 60],
   TouchSpeedPot: [338, 292, 24], TouchAtkPot: [290, 338, 24], // 강화 물약 (buffpots.js, 가진 게 있을 때만 보여요)
   TouchFood: [200, 318, 24], // 음식 먹기 (hunger.js, 어려움·악몽에서 음식이 있을 때만 보여요)
+  TouchTnt: [385, 252, 24], TouchFirework: [215, 372, 22], // TNT·폭죽 (boom.js, 가진 게 있을 때만 보여요)
 };
-const BTN_NAMES = { TouchAttack: "공격", TouchRoll: "구르기", TouchBow: "활", TouchArrowType: "화살 바꾸기", TouchPotion: "물약", TouchUse: "열기", TouchSkill1: "기술 1", TouchSkill2: "기술 2", TouchUlt: "궁극기", Joy: "이동", TouchSpeedPot: "신속 물약", TouchFood: "음식", TouchAtkPot: "공격력 물약" };
+const BTN_NAMES = { TouchAttack: "공격", TouchRoll: "구르기", TouchBow: "활", TouchArrowType: "화살 바꾸기", TouchPotion: "물약", TouchUse: "열기", TouchSkill1: "기술 1", TouchSkill2: "기술 2", TouchUlt: "궁극기", Joy: "이동", TouchSpeedPot: "신속 물약", TouchFood: "음식", TouchTnt: "TNT", TouchFirework: "폭죽", TouchAtkPot: "공격력 물약" };
 const BTN_K_MIN = 0.6, BTN_K_MAX = 1.8, BTN_D_MAX = 1500, BTN_CODE_MAX = 600;
 
 const btnEdit = { draft: null, sel: null, drag: null, confirmReset: false, code: "", toast: "", toastT: 0, raw: false, bar: null };

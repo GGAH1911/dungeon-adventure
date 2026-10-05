@@ -45,7 +45,8 @@ function drawHelp() {
 
   const cls = help.cls || "warrior", def = CLASS_DEFS[cls];
   const colW = (pw - 60) / 2, top = y0 + 64;
-  const rowH = Math.min(62, (ph - 84) / HELP_COMMON.length);
+  const rowH = Math.min(62, (ph - 104) / HELP_COMMON.length); // 아래 안내 글(버튼 자리는…)과 겹치지 않게
+  const oneLine = rowH < 32; // 화면이 낮으면(가로 휴대폰) 이름·키만 한 줄로
 
   // 왼쪽: 모든 직업
   text("모든 직업", x0 + 22, top + 4, 15, "#aaa");
@@ -53,8 +54,13 @@ function drawHelp() {
     const y = top + 14 + i * rowH;
     const icon = r.icon === "@attack" ? def.icon : r.icon;
     roundRectPath(x0 + 18, y, colW, rowH - 6, 8); ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.fill();
-    drawIcon(icon, x0 + 18 + rowH * 0.5, y + (rowH - 6) / 2, Math.min(40, rowH - 14));
-    const tx = x0 + 18 + rowH + 4;
+    drawIcon(icon, x0 + 18 + Math.max(rowH, 22) * 0.5, y + (rowH - 6) / 2, Math.max(12, Math.min(40, rowH - 10)));
+    const tx = x0 + 18 + Math.max(rowH, 22) + 4;
+    if (oneLine) {
+      text(r.name, tx, y + (rowH - 6) * 0.5 + 5, Math.min(14, rowH - 6), "#fff");
+      text(r.key, x0 + 18 + colW - 10, y + (rowH - 6) * 0.5 + 4, 11, "#7dd3ff", "right");
+      return;
+    }
     text(r.name, tx, y + (rowH - 6) * 0.42, 16, "#fff");
     text(r.touch, tx, y + (rowH - 6) * 0.82, 12, "#bbb");
     text(r.key, x0 + 18 + colW - 10, y + (rowH - 6) * 0.42, 12, "#7dd3ff", "right");
