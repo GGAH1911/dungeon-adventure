@@ -390,10 +390,12 @@ hookOn("lobbyThings", (things) => {
   if (world.solids && !world.solids.__show) {
     world.solids.__show = true;
     world.solids.push({ x: CODEX_STAND.x, y: CODEX_STAND.y, r: 0.4 });
-    for (const s of TROPHY_SPOTS) world.solids.push({ x: s.x, y: s.y, r: 0.32 });
+    // 받침대가 있는 칸만 막아요 (빈 앞줄 칸은 걸어 들어가서 뒷줄 트로피를 볼 수 있게)
+    const nT = trophyMaps().length;
+    TROPHY_SPOTS.forEach((s, i) => { if (i < nT) world.solids.push({ x: s.x, y: s.y, r: 0.32 }); });
     // 뒷줄 계단 (들어가지 못해요)
     const G = TROPHY_GALLERY;
-    for (let c = 0; c < G.cols; c++) world.solids.push({ x: G.x0 + c * G.dx, y: G.backY, r: 0.62 });
+    for (let c = 0; c < Math.min(G.cols, nT); c++) world.solids.push({ x: G.x0 + c * G.dx, y: G.backY, r: 0.62 });
   }
   const tr = game.profile.trophies || {};
   // 뒷줄 계단: 트로피보다 먼저 (뒤에) 그려요
@@ -410,15 +412,31 @@ hookOn("lobbyThings", (things) => {
   things.push({ depth: CODEX_STAND.x + CODEX_STAND.y, x: CODEX_STAND.x, y: CODEX_STAND.y, draw: drawCodexStand });
 }, 60);
 
+// 트로피 보기: 줄마다(세로 한 칸) 하나. 앞줄 받침대 앞에 서서 E: 앞줄 트로피, 한 번 더 누르면 뒷줄(계단 위) 트로피
+//   (예전엔 트로피마다 0.75칸 안에서만 됐는데, 뒷줄은 계단·앞줄에 막혀 그만큼 가까이 갈 수 없어서 못 봤어요)
+const TROPHY_LOOK = { col: -1, t: 0 }; // 방금 본 줄 (두 번째 누름 = 뒷줄)
+function trophyInfo(m) {
+  const tr = game.profile.trophies || {}, t = tr[m.id], def = BOSS_DEFS[m.id], won = !!(t && t.wins);
+  return { won, name: won ? `${def.name} 트로피` : "빈 받침대", sum: won ? `${def.name} 트로피 ${t.wins}번 이김` : "빈 받침대", text: won ? `${def.name} 트로피: ${t.wins}번 이김, 최고 기록 ${fmtTime(t.best)}` : `빈 받침대: ${m.name} 보스를 물리치면 트로피가 생겨요` };
+}
 hookOn("lobbyInteractables", (list) => {
-  const tr = game.profile.trophies || {};
-  trophyMaps().forEach((m, i) => {
-    const s = TROPHY_SPOTS[i];
-    if (!s) return;
-    const t = tr[m.id], def = BOSS_DEFS[m.id];
-    const prompt = t && t.wins ? `${def.name} 트로피: ${t.wins}번 이김, 최고 기록 ${fmtTime(t.best)}` : `빈 받침대: ${m.name} 보스를 물리치면 트로피가 생겨요`;
-    list.push({ x: s.x, y: s.y, range: 0.75, label: t && t.wins ? `${def.name} 트로피` : "빈 받침대", short: "보기", prompt, action: () => showMessage(prompt, 3, !!(t && t.wins)) });
-  });
+  const G = TROPHY_GALLERY, maps = trophyMaps();
+  for (let c = 0; c < G.cols; c++) {
+    const back = maps[c], front = maps[c + G.cols];
+    if (!back) continue;
+    const bi = trophyInfo(back), fi = front ? trophyInfo(front) : null, x = G.x0 + c * G.dx;
+    const show = (row) => { const inf = row === "front" ? fi : bi; showMessage(`${row === "front" ? "앞줄" : "뒷줄"} ${inf.text}`, 3, inf.won); };
+    list.push({
+      x, y: G.frontY, range: 1.15, label: fi ? `${fi.name} · 뒷줄 ${bi.name}` : `뒷줄 ${bi.name}`, short: "보기",
+      prompt: fi ? `앞줄 ${fi.sum} (E 한 번 더: 뒷줄 ${bi.sum})` : `뒷줄 ${bi.sum}`,
+      action: () => {
+        if (!fi) { show("back"); return; }
+        const again = TROPHY_LOOK.col === c && game.time - TROPHY_LOOK.t < 4 && game.time >= TROPHY_LOOK.t;
+        TROPHY_LOOK.col = again ? -1 : c; TROPHY_LOOK.t = game.time;
+        show(again ? "back" : "front");
+      },
+    });
+  }
   list.push({ x: CODEX_STAND.x, y: CODEX_STAND.y, range: 1.6, label: "도감", short: "도감", prompt: "몬스터 도감 보기", action: openCodex });
   return list;
 }, 60);

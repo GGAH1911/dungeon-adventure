@@ -109,7 +109,7 @@ hookOn("monstersSpawned", (def, level, rand) => {
   for (let i = 0; i < (f.clams || 0); i++) { const s = w2EnvSpot(rand, rooms, 1.4, 0.7); if (s && w2FarFromOthers(all(), s.x, s.y, 2.6)) E.clams.push({ x: s.x, y: s.y, shutT: 0 }); }
   // 물 파이프: 서로 먼 방 둘을 이어요
   for (let i = 0; i < (f.pipes || 0); i++) {
-    for (let k = 0; k < 10; k++) {
+    for (let k = 0; k < 40; k++) { // 먼 방 둘을 찾을 때까지 넉넉히 (10번이면 맵에 따라 1개만 생길 때가 있었어요)
       const a = w2EnvSpot(rand, rooms, 1.6, 0.7), b = w2EnvSpot(rand, rooms, 1.6, 0.7);
       if (!a || !b || a.room === b.room || Math.hypot(a.x - b.x, a.y - b.y) < 14) continue;
       if (!w2FarFromOthers(all(), a.x, a.y, 3) || !w2FarFromOthers(all(), b.x, b.y, 3)) continue;
