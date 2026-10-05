@@ -44,6 +44,8 @@
 //   touchDown(e, x, y) -> true      화면을 누른 맨 처음 (true 면 게임 버튼·조이스틱 대신 처리. 버튼 배치 바꾸기: btnlayout.js)
 //   joyRest(pos) -> pos             조이스틱이 쉬는 자리 {x, y} (hud.js)
 //   lobbyThings(things)             캠프에 그릴 물건 더하기 ({ depth, draw })
+//   lobbyWorldBuilt()               캠프 땅을 새로 만든 뒤 (집 방 칸 만들기: house.js)
+//   netHostReq(slot, w, d) -> true  방장: 친구의 부탁(req) 처리 (집 들어가기 "house": house.js)
 //   towerFloorBuilt(floor, towerDef) 탑 층을 다 만든 뒤 (tower.js)
 //   timeScale(dt) -> dt             매 프레임 시간 바꾸기 (느린 화면). 원래 dt 를 받아 바꾼 dt 를 돌려줘요 (main.js update)
 const HOOKS = {};

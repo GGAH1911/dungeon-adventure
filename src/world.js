@@ -25,6 +25,7 @@ function makeRandom(seed) {
 
 function resetWorld(W, H, fill, theme) {
   world.W = W; world.H = H; world.theme = theme; world.path = null;
+  world.floorAt = null; world.wallAt = null; // 칸마다 다른 바닥·벽 색 (집 안: house.js). 없으면 테마 색
   world.hgt = null; world.sdir = null; world.raised = 0; // 높낮이 (terrain.js): 랜덤 던전만
   world.tiles = []; world.pattern = []; world.solids = []; world.rooms = [];
   for (let y = 0; y < H; y++) {
@@ -122,13 +123,16 @@ function generateDungeon(def, seed) {
 
 // ----- 로비 만들기 -----
 function buildLobbyWorld() {
-  const W = LOBBY.width, H = LOBBY.height;
+  // 캠프(LOBBY.width x height) 오른쪽 멀리 빈 곳(VOID)에 집 안 방이 있어요 (house.js: LOBBY.extraW 만큼 넓혀요)
+  const CW = LOBBY.width, W = CW + (LOBBY.extraW || 0), H = LOBBY.height;
   resetWorld(W, H, 0, LOBBY.theme);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++)
-      if (x === W - 1 || y === H - 1) world.tiles[y][x] = LOW_WALL;
+      if (x >= CW) world.tiles[y][x] = VOID;
+      else if (x === CW - 1 || y === H - 1) world.tiles[y][x] = LOW_WALL;
       else if (x === 0 || y === 0) world.tiles[y][x] = 1;
   world.path = world.tiles.map((row) => row.map(() => false));
+  hookRun("lobbyWorldBuilt"); // 집 방 만들기 (house.js)
   world.start = { x: 15, y: 15.5 };
   world.explored = null;
   world.mini = null;
@@ -284,6 +288,7 @@ function nextStepToward(x, y, target) {
 // 바닥 한 칸 색 (높은 단 윗면도 같은 색: terrain.js)
 function floorColorAt(x, y, lavaPulse = 1) {
   const th = world.theme, v = world.pattern[y][x];
+  if (world.floorAt) { const c = world.floorAt(x, y, v); if (c) return c; }
   const isMoss = v < 0.15;
   let color = shade(isMoss ? th.moss : th.floor, 0.85 + (Math.round(v * 6) / 6) * 0.25);
   if (world.path && world.path[y][x]) color = shade(th.path, 0.9 + (Math.round(v * 4) / 4) * 0.15);
@@ -343,14 +348,15 @@ function drawWall(tx, ty, h, p) {
   // 주인공을 가리는 벽(진짜 앞에 있는 벽)만 반투명하게
   const inFront = wallInFront(tx, ty, p) && tx + ty + 1 > p.x + p.y && Math.abs((tx + 0.5 - p.x) - (ty + 0.5 - p.y)) < 2.5 && tx + ty + 1 - (p.x + p.y) < 3;
   const base = world.hgt ? wallBase(tx, ty) : 0; // 위층 방의 벽은 위층 바닥부터 (terrain.js)
+  const wc = (world.wallAt && world.wallAt(tx, ty)) || world.theme.wall;
   ctx.save();
   if (h === LOW_WALL) {
-    drawBox(tx, ty, 0, 1, 1, base + 0.4, shade(world.theme.wall, 0.85));
+    drawBox(tx, ty, 0, 1, 1, base + 0.4, shade(wc, 0.85));
   } else {
     if (inFront) ctx.globalAlpha = 0.35;
-    if (base > 0) drawBox(tx, ty, 0, 1, 1, base, shade(world.theme.wall, 0.82));
+    if (base > 0) drawBox(tx, ty, 0, 1, 1, base, shade(wc, 0.82));
     for (let level = 0; level < h; level++) {
-      drawBox(tx, ty, base + level, 1, 1, 1, shade(world.theme.wall, 0.9 + level * 0.1));
+      drawBox(tx, ty, base + level, 1, 1, 1, shade(wc, 0.9 + level * 0.1));
     }
   }
   ctx.restore();

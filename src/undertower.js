@@ -183,12 +183,9 @@ function underTowerReward(L) {
 
 // ----- 버섯 등불 마을: 65층을 깨면 용암 왕관 탑 트로피 -----
 const UNDER_TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function underTowerTrophySpot() {
-  if (!UNDER_TOWER_TROPHY.placed && game.scene === "lobby" && typeof findFreeSpot === "function") { const s = findFreeSpot(4.2, 11.4, 0.45, 3); if (s) { UNDER_TOWER_TROPHY.x = s.x; UNDER_TOWER_TROPHY.y = s.y; } UNDER_TOWER_TROPHY.placed = true; }
-  return UNDER_TOWER_TROPHY;
-}
+function underTowerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown4") : UNDER_TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
 hookOn("lobbyThings", (things) => {
-  if (!underTowerCrowns() || curWorld() !== 4) return;
+  if (!underTowerCrowns()) return;
   const s = underTowerTrophySpot();
   things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
     drawBox(s.x - 0.32, s.y - 0.32, 0, 0.64, 0.64, 0.18, "#4a3a30");
@@ -198,7 +195,7 @@ hookOn("lobbyThings", (things) => {
   } });
 }, 65);
 hookOn("lobbyInteractables", (list) => {
-  if (!underTowerCrowns() || curWorld() !== 4) return list;
+  if (!underTowerCrowns()) return list;
   const s = underTowerTrophySpot();
   list.push({ x: s.x, y: s.y, range: 1.4, label: "지하 탑 트로피", short: "보기", prompt: "지하 탑 정복 트로피", action: () => showMessage(`지하 탑 정복 ${underTowerCrowns()}번! 최고 ${towerBestOf(UNDER_TOWER)}층`, 3, true) });
   return list;

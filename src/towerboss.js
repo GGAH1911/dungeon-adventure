@@ -70,13 +70,10 @@ function towerBossReward(mapId, L) {
 
 // ----- 캠프: 30층을 깨면 금빛 탑 트로피 -----
 const TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function towerTrophySpot() {
-  if (!TOWER_TROPHY.placed && game.scene === "lobby" && typeof findFreeSpot === "function") { const s = findFreeSpot(4.2, 11.4, 0.45, 3); if (s) { TOWER_TROPHY.x = s.x; TOWER_TROPHY.y = s.y; } TOWER_TROPHY.placed = true; }
-  return TOWER_TROPHY;
-}
+function towerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown1") : TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
 hookOn("lobbyThings", (things) => {
   const pr = game.profile;
-  if (!pr.towerCrown || (typeof curWorld === "function" && curWorld() !== 1)) return; // 시련의 탑 트로피는 월드 1 캠프에
+  if (!pr.towerCrown) return; // 시련의 탑 트로피는 집 안 트로피 홀에 (house.js)
   const s = towerTrophySpot();
   things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
     drawBox(s.x - 0.32, s.y - 0.32, 0, 0.64, 0.64, 0.18, "#5e5470");
@@ -86,7 +83,7 @@ hookOn("lobbyThings", (things) => {
 }, 65);
 hookOn("lobbyInteractables", (list) => {
   const pr = game.profile;
-  if (!pr.towerCrown || (typeof curWorld === "function" && curWorld() !== 1)) return list;
+  if (!pr.towerCrown) return list;
   const s = towerTrophySpot();
   list.push({ x: s.x, y: s.y, range: 1.4, label: "탑 트로피", short: "보기", prompt: "시련의 탑 정복 트로피", action: () => showMessage(`시련의 탑 정복 ${pr.towerCrown}번! 최고 ${pr.towerBest || 0}층`, 3, true) });
   return list;

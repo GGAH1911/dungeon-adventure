@@ -110,13 +110,10 @@ function seaTowerReward(L) {
 
 // ----- 바닷속 마을: 50층을 깨면 진주 탑 트로피 -----
 const SEA_TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function seaTowerTrophySpot() {
-  if (!SEA_TOWER_TROPHY.placed && game.scene === "lobby" && typeof findFreeSpot === "function") { const s = findFreeSpot(4.2, 11.4, 0.45, 3); if (s) { SEA_TOWER_TROPHY.x = s.x; SEA_TOWER_TROPHY.y = s.y; } SEA_TOWER_TROPHY.placed = true; }
-  return SEA_TOWER_TROPHY;
-}
+function seaTowerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown2") : SEA_TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
 hookOn("lobbyThings", (things) => {
   const pr = game.profile;
-  if (!pr.seaTowerCrown || curWorld() !== 2) return;
+  if (!pr.seaTowerCrown) return;
   const s = seaTowerTrophySpot();
   things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
     drawBox(s.x - 0.32, s.y - 0.32, 0, 0.64, 0.64, 0.18, "#2a3550");
@@ -127,7 +124,7 @@ hookOn("lobbyThings", (things) => {
 }, 65);
 hookOn("lobbyInteractables", (list) => {
   const pr = game.profile;
-  if (!pr.seaTowerCrown || curWorld() !== 2) return list;
+  if (!pr.seaTowerCrown) return list;
   const s = seaTowerTrophySpot();
   list.push({ x: s.x, y: s.y, range: 1.4, label: "심해 탑 트로피", short: "보기", prompt: "심해 탑 정복 트로피", action: () => showMessage(`심해 탑 정복 ${pr.seaTowerCrown}번! 최고 ${towerBestOf(SEA_TOWER)}층`, 3, true) });
   return list;

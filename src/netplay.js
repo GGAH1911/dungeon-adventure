@@ -219,6 +219,13 @@ hookOn("playersUpdated", (dt) => {
   netplay.wt += dt || 0;
   for (const q of allPlayers()) if (q.remote) q._pp = { x: q.x, y: q.y };
 }, 95);
+// 방장이 친구 한 명을 옮겼어요 (집 들어가기 등): 그 친구 기기도 방장이 정한 자리로
+function netWarpSlot(slot) {
+  const r = netplay.remotes.get(slot), q = allPlayers().find((x) => x.pid === slot && x.remote);
+  if (!r || !q) return false;
+  r.wv = (r.wv || 0) + 1; r.ext = []; r.extOpen = null; r.lastAcc = null; r.rep = null; q._pp = { x: q.x, y: q.y };
+  return true;
+}
 // 방장이 모두를 다른 곳으로 옮겼어요 (위층 오르내리기 등): 친구 기기도 방장 자리로 (순간이동 번호 올리기)
 hookOn("playersTeleported", () => {
   if (netplay.role !== "host") return;
@@ -479,7 +486,7 @@ function netHostTick(dt) {
 const NP_BUSY_WORDS = {
   shop: "가게를 보고", smith: "대장장이와 이야기하고", maps: "지도를 보고", menu: "메뉴를 보고", hero: "영웅 창을 보고",
   wardrobe: "옷장을 보고", records: "기록을 보고", classes: "직업 훈련관과 이야기하고", codex: "도감을 보고", help: "도움말을 보고",
-  btnedit: "버튼 자리를 바꾸고", trade: "교환하고", netask: "새 친구를 들여보낼지 고르고", nethost: "방 번호를 보고", qolConfirm: "고르고", other: "다른 창을 보고",
+  btnedit: "버튼 자리를 바꾸고", trade: "교환하고", house: "집을 꾸미고", sleep: "자고", netask: "새 친구를 들여보낼지 고르고", nethost: "방 번호를 보고", qolConfirm: "고르고", other: "다른 창을 보고",
 };
 const NP_BUSY_SKIP = new Set(["result", "vote"]); // 결과창은 각자 봐요, 출발 투표 창은 막는 이유가 아니에요 (netvote.js)
 function netMyBusy() {
@@ -1087,7 +1094,10 @@ function netGuestPlayers(list, tm = game.time) {
 // 내 주인공: 순간이동 번호가 바뀌면 방장 자리로, 방장만 아는 밀림은 받은 만큼 (부드럽게 0.05초에 걸쳐)
 function netGuestSelfSync(me, e) {
   if (Number.isInteger(e.wv) && e.wv !== me._wv) {
-    if (typeof me._hx === "number" && typeof me._hy === "number") { me.x = me._hx; me.y = me._hy; }
+    if (typeof me._hx === "number" && typeof me._hy === "number") {
+      if (Math.hypot(me._hx - me.x, me._hy - me.y) > 6) { camera.x = me._hx; camera.y = me._hy; } // 멀리 옮겨지면 화면도 바로 (집 들어가기 등)
+      me.x = me._hx; me.y = me._hy;
+    }
     me._wv = e.wv; me._xa = Number.isInteger(e.xs) ? e.xs : 0; me._xq = null;
     netplay.ns.warps++;
     return;
@@ -1197,6 +1207,7 @@ function netHostReq(slot, w, d) {
     return;
   }
   if (w === "vote") { netVoteCast(slot, !!d.yes, Math.round(netNum(d.id, 0, 1e9, 0))); return; }
+  if (hookAny("netHostReq", slot, w, d)) return; // 다른 파일의 부탁 (집 들어가기·나오기: house.js)
   netplay.reqSlot = slot; // 누가 눌렀나 (그 사람 창은 막는 이유에서 빼요)
   try {
     if (w === "finish") { if (game.result && !game.result.retry) finishResult(); }

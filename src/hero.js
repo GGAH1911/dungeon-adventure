@@ -269,23 +269,5 @@ hookOn("hudDraw", () => {
   } else if (bi) game.betterItem = null;
 }, 30);
 
-// ----- 캠프: 공용 보관함 상자 -----
-const stashSpot = { x: 22.3, y: 15.6, placed: false };
-function stashPos() {
-  if (!stashSpot.placed && game.scene === "lobby" && typeof findFreeSpot === "function") { const s = findFreeSpot(22.3, 15.6, 0.45, 3); if (s) { stashSpot.x = s.x; stashSpot.y = s.y; } stashSpot.placed = true; }
-  return stashSpot;
-}
-hookOn("lobbyThings", (things) => {
-  const s = stashPos();
-  things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
-    drawBox(s.x - 0.35, s.y - 0.25, 0, 0.7, 0.5, 0.42, "#6a4a8a");
-    drawBox(s.x - 0.37, s.y - 0.27, 0.42, 0.74, 0.54, 0.12, "#8a6ac0");
-    drawBox(s.x - 0.05, s.y + 0.22, 0.28, 0.1, 0.05, 0.12, "#ffd23f");
-    if (Math.sin(game.time * 3) > 0.6) { const c = toScreen(s.x, s.y, 0.75); drawStar(c.x, c.y, 7 * ZOOM, "rgba(220,200,255,0.9)"); }
-  } });
-}, 70);
-hookOn("lobbyInteractables", (list) => {
-  const s = stashPos();
-  list.push({ x: s.x, y: s.y, range: 1.6, label: "공용 보관함", short: "보관함", prompt: "공용 보관함 열기", action: () => openHero("stash") });
-  return list;
-}, 60);
+// ----- 공용 보관함 상자: 집 안에 있어요 (house.js 가 그리고 E 로 열어요) -----
+function stashPos() { return houseSpot("stash"); }

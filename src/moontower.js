@@ -173,12 +173,9 @@ function moonTowerReward(L) {
 
 // ----- 달 마을: 60층을 깨면 은빛 탑 트로피 (꼭대기 노란 초승달) -----
 const MOON_TOWER_TROPHY = { x: 4.2, y: 11.4, placed: false };
-function moonTowerTrophySpot() {
-  if (!MOON_TOWER_TROPHY.placed && game.scene === "lobby" && typeof findFreeSpot === "function") { const s = findFreeSpot(4.2, 11.4, 0.45, 3); if (s) { MOON_TOWER_TROPHY.x = s.x; MOON_TOWER_TROPHY.y = s.y; } MOON_TOWER_TROPHY.placed = true; }
-  return MOON_TOWER_TROPHY;
-}
+function moonTowerTrophySpot() { return typeof houseSpot === "function" ? houseSpot("crown3") : MOON_TOWER_TROPHY; } // 집 안 탑 트로피 자리 (house.js)
 hookOn("lobbyThings", (things) => {
-  if (!towerCrownCount("moontower") || curWorld() !== 3) return;
+  if (!towerCrownCount("moontower")) return;
   const s = moonTowerTrophySpot();
   things.push({ depth: s.x + s.y, x: s.x, y: s.y, draw: () => {
     drawBox(s.x - 0.32, s.y - 0.32, 0, 0.64, 0.64, 0.18, "#4a4a64");
@@ -191,7 +188,7 @@ hookOn("lobbyThings", (things) => {
   } });
 }, 65);
 hookOn("lobbyInteractables", (list) => {
-  if (!towerCrownCount("moontower") || curWorld() !== 3) return list;
+  if (!towerCrownCount("moontower")) return list;
   const s = moonTowerTrophySpot();
   list.push({ x: s.x, y: s.y, range: 1.4, label: "달빛 탑 트로피", short: "보기", prompt: "달빛 탑 정복 트로피", action: () => showMessage(`달빛 탑 정복 ${towerCrownCount("moontower")}번! 최고 ${towerBestOf(MOON_TOWER)}층`, 3, true) });
   return list;
