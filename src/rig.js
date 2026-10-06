@@ -196,10 +196,18 @@ function addWeaponItems(items, grip, w) {
   }
   // 자루가 있는 무기: 손 아래로도 자루가 나와요
   const butt = vadd(grip, vmul(dir, -(w.butt || 0.3)));
-  segN(butt, tip, pieces + 1, { color: "#7a5230", width: 4.5, outline: true });
+  segN(butt, tip, pieces + 1, { color: "#7a5230", width: style === "spear" ? 5.5 : 4.5, outline: true });
   if (style === "spear") {
-    const a = vadd(tip, vmul(side, 0.08)), b = vadd(tip, vmul(side, -0.08)), c = vadd(tip, vmul(dir, 0.24));
-    items.push({ type: "poly", pts: [a, c, b], color });
+    // 창: 굵은 자루 + 쇠고리 + 큰 나뭇잎 모양 날(가운데 빛나는 줄) + 빨간 술 (예전엔 가는 막대 끝에 작은 세모만 있었어요)
+    items.push({ type: "seg", a: vadd(butt, vmul(dir, -0.04)), b: vadd(butt, vmul(dir, 0.05)), color: "#8a6a2a", width: 6.5, outline: true }); // 자루 끝 쇠
+    items.push({ type: "seg", a: vadd(tip, vmul(dir, -0.05)), b: vadd(tip, vmul(dir, 0.03)), color: "#c9a24a", width: 6, outline: true }); // 날 아래 쇠고리
+    // 날은 납작한 판 두 장을 십자로 겹쳐요: 어느 쪽에서 봐도 마름모 날이 보여요 (판 한 장이면 옆에서 볼 때 실처럼 얇았어요)
+    let up = vcross(side, dir); if (vlen(up) < 0.2) up = V(0, 0, 1); up = vnorm(up);
+    const base = vadd(tip, vmul(dir, 0.02)), mid = vadd(tip, vmul(dir, 0.2)), point = vadd(tip, vmul(dir, 0.56));
+    for (const ax of [up, side]) items.push({ type: "poly", pts: [base, vadd(mid, vmul(ax, 0.15)), point, vadd(mid, vmul(ax, -0.15))], color, outline: true });
+    items.push({ type: "seg", a: vadd(tip, vmul(dir, 0.08)), b: vadd(tip, vmul(dir, 0.46)), color: "#ffffff", width: 1.6 }); // 가운데 빛 줄
+    const knot = vadd(tip, vmul(dir, -0.08));
+    for (const s of [0.05, -0.05]) items.push({ type: "seg", a: knot, b: vadd(vadd(knot, vmul(dir, -0.14)), vadd(vmul(side, s), V(0, 0, -0.1))), color: "#d84040", width: 3 }); // 빨간 술
   } else if (style === "hammer") {
     items.push({ type: "box", c: tip, w: 0.3, d: 0.3, h: 0.24, color, tag: "weaponhead" });
   } else if (style === "axe") {
