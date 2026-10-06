@@ -186,11 +186,18 @@ function moveEntity(e, dx, dy) {
   }
   // 너무 빠르면 나눠서 움직여요 (벽 뚫기 방지). 높이는 "지금 닿아 있는 가장 높은 칸" 기준 (뛰어내리기는 돼요)
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.2));
+  // 높낮이 맵: 발(중심)이 다른 칸으로 넘어갈 때 0.5 넘게 올라가면 못 가요 (계단으로만).
+  //   (예전엔 "닿아 있는 가장 높은 칸" 기준만 봐서, 계단 귀퉁이를 스치며 대각선으로 가면 계단 옆 높은 단(벽처럼 보이는 첫 칸)에 바로 올라갔어요)
+  const stepOk = (nx, ny) => {
+    if (!world.hgt) return true;
+    const ax = Math.floor(e.x), ay = Math.floor(e.y), bx = Math.floor(nx), by = Math.floor(ny);
+    return (ax === bx && ay === by) || canStep(ax, ay, bx, by);
+  };
   for (let i = 0; i < steps; i++) {
     let h = world.hgt ? touchMaxH(e.x, e.y, e.r) : undefined;
-    if (!hitsWall(e.x + dx / steps, e.y, e.r, h)) e.x += dx / steps;
+    if (!hitsWall(e.x + dx / steps, e.y, e.r, h) && stepOk(e.x + dx / steps, e.y)) e.x += dx / steps;
     if (world.hgt) h = touchMaxH(e.x, e.y, e.r);
-    if (!hitsWall(e.x, e.y + dy / steps, e.r, h)) e.y += dy / steps;
+    if (!hitsWall(e.x, e.y + dy / steps, e.r, h) && stepOk(e.x, e.y + dy / steps)) e.y += dy / steps;
   }
 }
 
