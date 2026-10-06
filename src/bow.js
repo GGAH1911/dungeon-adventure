@@ -115,7 +115,8 @@ function updateShotsBase(dt) {
         break;
       }
       const crit = Math.random() < CONFIG.player.critChance;
-      const eff = s.type === "fire" ? "burn" : s.type === "ice" ? "slow" : s.type === "poison" ? "poison" : null;
+      // 화살 종류 효과가 먼저, 없으면 사냥꾼 칼의 마법부여 (classes.js hunterBladeFx)
+      const eff = s.type === "fire" ? "burn" : s.type === "ice" ? "slow" : s.type === "poison" ? "poison" : s.ench || null;
       damageMonster(m, s.damage * (crit ? CONFIG.player.critDamage : 1), s.x - s.vx * 0.05, s.y - s.vy * 0.05, s.legendary, 0.5, { crit, effect: eff, melee: true, by: s.owner });
       hitStop(0.03, crit);
       if (s.type === "bomb") bombBlast(s.x, s.y, s.damage);

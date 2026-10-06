@@ -13,7 +13,7 @@ const CLASS_DEFS = {
     style: null,
   },
   hunter: {
-    name: "사냥꾼", color: "#4caf50", icon: "bow", hpMul: 0.92, speed: 0.08, dmgMul: 0.7,
+    name: "사냥꾼", color: "#4caf50", icon: "bow", hpMul: 0.92, speed: 0.08, dmgMul: 0.66, // 0.7 -> 0.66: 칼 20% 가 화살에 더해져서 (비슷한 레벨 칼이면 예전보다 +3% 쯤, 처음 칼 그대로면 -5% 쯤)
     desc: "멀리서 피하며 쏘기! 공격 버튼이 활이에요 (보통 화살 무한)",
     res: { name: "집중", color: "#7ddc5a", rule: "저절로 빨리 차요 · 서 있으면 더 빨리" },
     style: "dagger",
@@ -94,9 +94,12 @@ function skillUnlocked(s, p) { return ((p && p.level) || game.profile.level || 1
 let allies = [];     // 늑대 (몬스터 배열에 넣지 않아요)
 let clsFx = [];      // 기술 효과 (투사체, 덫, 화살비, 운석, 회오리, 덩굴, 불꽃 자국)
 
+// 사냥꾼의 칼(단검): 칼 공격력의 20% 가 화살에 더해지고, 칼의 마법부여(불꽃·서리·번개…)가 화살에도 붙어요
+const HUNTER_BLADE = { share: 0.2 };
+function hunterBladeFx(p) { return playerCls(p) === "hunter" && p.weapon && p.weapon.effect ? p.weapon.effect : null; }
 function W(p) {
   const pr = game.profile;
-  const base = playerCls(p) === "hunter" ? p.bow.damage * damageBonus(pr.level) * buffMul(p, "atk") : weaponPower(p); // 공격력 물약은 weaponPower 에도 (buffpots.js)
+  const base = playerCls(p) === "hunter" ? (p.bow.damage + HUNTER_BLADE.share * ((p.weapon && p.weapon.damage) || 0)) * damageBonus(pr.level) * buffMul(p, "atk") : weaponPower(p); // 공격력 물약은 weaponPower 에도 (buffpots.js)
   // 직업 배수: 같은 장비에서 직업끼리 처치 시간이 비슷하게 (봇 시험으로 맞춤, docs/design/classes.md 1-4)
   return base * (CLASS_DEFS[playerCls(p)].dmgMul || 1) * (p.buffT > 0 ? 1.3 : 1);
 }
@@ -211,7 +214,7 @@ function hunterShoot(p) {
   for (let i = 0; i < n; i++) {
     const a = base + (i - (n - 1) / 2) * (n > 1 ? 0.22 : 0);
     shots.push({ x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35, vx: Math.cos(a) * bow.speed, vy: Math.sin(a) * bow.speed,
-      life: 1.4, damage: W(p) * (type === "bomb" ? 1.4 : 1) * (n > 1 ? 0.7 : 1), pierce: type === "bomb" ? 0 : bow.pierce || 0, hit: [], type, hue: 0, owner: p });
+      life: 1.4, damage: W(p) * (type === "bomb" ? 1.4 : 1) * (n > 1 ? 0.7 : 1), pierce: type === "bomb" ? 0 : bow.pierce || 0, hit: [], type, hue: 0, owner: p, ench: hunterBladeFx(p) });
   }
   sfx.bowShot();
 }
@@ -347,7 +350,7 @@ const SKILL_RUN = {
     const type = mod === "A" ? "fire" : "ice";
     for (let i = 0; i < 7; i++) {
       const a = base + (i - 3) * (70 / 6) * Math.PI / 180;
-      shots.push({ x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35, vx: Math.cos(a) * p.bow.speed, vy: Math.sin(a) * p.bow.speed, life: 1.1, damage: W(p) * 0.75, pierce: 1, hit: [], type, hue: 0 , owner: p });
+      shots.push({ x: p.x + Math.cos(a) * 0.35, y: p.y + Math.sin(a) * 0.35, vx: Math.cos(a) * p.bow.speed, vy: Math.sin(a) * p.bow.speed, life: 1.1, damage: W(p) * 0.75, pierce: 1, hit: [], type, ench: hunterBladeFx(p), hue: 0 , owner: p });
     }
     p.bowTimer = 0.45; p.bowAge = 0.3; sfx.bowShot();
   },
@@ -494,7 +497,7 @@ function updateClsFxBase(dt) {
       }
       case "rain": {
         f.life -= dt; f.tick -= dt;
-        if (f.tick <= 0 && f.left > 0) { f.tick = 0.25; f.left--; hitArea(p, f.x, f.y, f.r, f.dmg, { knock: 0.1 }); for (let i = 0; i < 5; i++) { const a = Math.random() * 6.28, r = Math.random() * f.r; spawnDust(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r); } sfx.bowShot(); }
+        if (f.tick <= 0 && f.left > 0) { f.tick = 0.25; f.left--; hitArea(p, f.x, f.y, f.r, f.dmg, { knock: 0.1, effect: hunterBladeFx(p) }); for (let i = 0; i < 5; i++) { const a = Math.random() * 6.28, r = Math.random() * f.r; spawnDust(f.x + Math.cos(a) * r, f.y + Math.sin(a) * r); } sfx.bowShot(); }
         if (f.left <= 0) f.life = 0;
         break;
       }

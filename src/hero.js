@@ -78,6 +78,7 @@ function itemLines(it) {
     out.push([`공격력 ${(w.damage * lvK).toFixed(1)}`, "#fff"]);
     out.push([`${tname || "무기"}${b.cls ? ` · ${b.cls.map((c) => CLASS_DEFS[c].name).join("·")}만` : ""}`, canUseItem(it) ? "#aaa" : "#ff9090"]);
     if (w.effect && ENCHANTS[w.effect] && !(b.legend && b.desc)) out.push([`${ENCHANTS[w.effect].name}: ${ENCHANTS[w.effect].desc}`, ENCHANTS[w.effect].color]);
+    if (pr.cls === "hunter" && typeof HUNTER_BLADE !== "undefined") out.push([`사냥꾼: 화살 +${((w.legendary ? w.damage : w.damage / ((WEAPON_TYPES[w.type] || {}).mul || 1)) * lvK * HUNTER_BLADE.share).toFixed(1)}${w.effect ? ", 효과도 화살에" : ""}`, "#9be35a"]);
   } else if (b.slot === "bow") {
     const w = bowFromItem(it);
     out.push([`화살 공격력 ${(w.damage * lvK).toFixed(1)}`, "#fff"]);
