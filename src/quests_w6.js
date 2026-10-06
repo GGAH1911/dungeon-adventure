@@ -29,7 +29,7 @@ if (typeof questFragment === "function") {
 if (typeof questRegister === "function") {
   const Q = (o) => questRegister({ world: 6, giver: "sareureu", main: true, ...o });
   Q({ id: "w6_q1", order: 1, title: "사막에 떨어진 새 색깔", intro: ["어서 와, 꼬마 모험가! 나는 사막여우 사르르야.", "며칠 전 밤하늘에서 처음 보는 색깔이 사막에 떨어졌어.", "그 뒤로 모래가 이상한 신기루를 만들어. 햇살 모래 언덕부터 봐 줄래?"],
-    goal: { type: "boss", map: "sunsand" }, done: ["신기루가 반짝 색모래로 돌아왔어!", "신기루는 예전 보스 모양을 흉내 낸 모래래. 새 색깔이 모래를 깨운 거야."], reward: { emeralds: 25 } });
+    goal: { type: "boss", map: "sunsand" }, done: ["쨍쨍이가 선글라스를 벗고 웃었어!", "새 색깔이 사막 친구들 마음을 들뜨게 했대. 그래서 다들 장난이 심해졌나 봐."], reward: { emeralds: 25 } });
   Q({ id: "w6_q2", order: 2, title: "모래 늪의 반짝이", requires: ["w6_q1"], intro: ["쑥쑥 모래 늪 깊은 곳에서 뭔가 반짝였대.", "모래 늪에 오래 있으면 쑥쑥 빠지니까 조심해."],
     goal: { type: "fragment", map: "quicksands", frag: "w6_colorSand" }, done: ["와, 무지개처럼 반짝이는 모래야!", "새 색깔이 지나간 자리마다 이런 모래가 남나 봐."], reward: { emeralds: 25 } });
   Q({ id: "w6_q3", order: 3, title: "따끔따끔 선인장 젤리", requires: ["w6_q2"], intro: ["선인장 골짜기에 선인장 젤리가 너무 많아졌어.", "열 마리만 달래 줄래? 선인장은 따끔하니까 피해서!"],
@@ -56,19 +56,19 @@ if (typeof questRegister === "function") {
     goal: { type: "pet" }, done: ["강아지가 꼬리를 살랑살랑! 시원해졌대."], reward: { emeralds: 10 } });
 }
 if (typeof storyBossLines === "function") storyBossLines({
-  sunsand: "원래는 정글 슬라임 임금님 모양을 흉내 낸 햇살 모래였어요",
-  quicksands: "원래는 먼지 두더지 왕 모양을 흉내 낸 늪 모래였어요",
-  cactusvale: "원래는 버섯 늪 거미 여왕 모양을 흉내 낸 선인장 모래였어요",
-  mirageoasis: "원래는 문어 대왕 모양을 흉내 낸 오아시스 모래였어요",
-  dunecastle: "원래는 해골 임금님 모양을 흉내 낸 모래성 모래였어요",
-  starnight: "원래는 달 뒷면 늑대 모양을 흉내 낸 밤 모래였어요",
-  scarabhall: "원래는 광차 갱도 대장 모양을 흉내 낸 굴 모래였어요",
-  windcanyon: "원래는 바람 정령 군주 모양을 흉내 낸 바람 모래였어요",
-  sunken_temple: "원래는 꼬마 파라오 모양을 흉내 낸 신전 모래였어요",
-  glassdune: "원래는 수정 궁전 돌 거인 모양을 흉내 낸 유리 모래였어요",
-  camelroad: "원래는 얼음 바다 바다코끼리 모양을 흉내 낸 낙타 길 모래였어요",
-  rainbowsand: "원래는 해님 달님 모양을 흉내 낸 색모래였어요",
-  sphinxgate: "원래는 돌 문지기 모양을 흉내 낸 수수께끼 모래였어요",
-  sunthrone: "원래는 불의 용 모양을 흉내 낸 태양 모래였어요",
+  sunsand: "원래는 언덕 위에서 일광욕하던 느긋한 도마뱀이었어요",
+  quicksands: "원래는 모래 구멍에서 친구를 기다리던 수줍은 개미귀신이었어요",
+  cactusvale: "원래는 골짜기에 꽃을 피우던 다정한 선인장이었어요",
+  mirageoasis: "원래는 오아시스에서 숨바꼭질을 좋아하던 장난꾸러기 낙타였어요",
+  dunecastle: "원래는 아이들이 쌓은 모래성을 지키던 꼬마 기사였어요",
+  starnight: "원래는 밤길 잃은 낙타를 등불로 안내하던 올빼미였어요",
+  scarabhall: "원래는 사막 길을 동글동글 다져 주던 일꾼 대장이었어요",
+  windcanyon: "원래는 협곡 바람으로 모래 언덕을 예쁘게 빚던 독수리였어요",
+  sunken_temple: "원래는 신전 그늘에서 낮잠 자던 고양이였어요",
+  glassdune: "원래는 햇빛을 모아 언덕을 반짝이게 하던 유리 전갈이었어요",
+  camelroad: "원래는 대상단을 이끌던 착한 대장 낙타였어요",
+  rainbowsand: "원래는 색모래 들판에서 무지개 놀이를 하던 장난꾸러기 뱀이었어요",
+  sphinxgate: "원래는 스핑크스 문을 지키며 수수께끼를 내던 다정한 돌 문지기였어요",
+  sunthrone: "원래는 사막을 따뜻하게 비추던 상냥한 태양 왕이었어요",
   prismpyramid: "원래는 집에 가는 길을 잃은 새 색깔이었어요. 이제 작은 무지개 고양이예요",
 });

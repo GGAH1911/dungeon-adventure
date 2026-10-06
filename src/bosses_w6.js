@@ -123,7 +123,7 @@ for (const E of W6_MIRAGE_LIST) {
   if (typeof EXTRA_SHAPES !== "undefined") EXTRA_SHAPES["w6m_" + E.mapId] = (m) => w6DrawMirage(m, E);
   w6RegisterLegend(E.mapId, E.legend);
 }
-function w6RefreshPhases() { for (const E of W6_MIRAGE_LIST) if (BOSS_DEFS[E.mapId]) BOSS_DEFS[E.mapId].phases = w6Phases(E); }
+function w6RefreshPhases() { for (const E of W6_MIRAGE_LIST) if (BOSS_DEFS[E.mapId] && !BOSS_DEFS[E.mapId].w6New) BOSS_DEFS[E.mapId].phases = w6Phases(E); } // 새로 만든 보스(w6New)는 건드리지 않아요
 hookOn("dungeonStarted", () => w6RefreshPhases(), 10);
 function w6SandK(m) { if (m.trophy || (m.w6WetT || 0) > 0) return 0; const f = m.maxHp ? Math.max(0, Math.min(1, m.hp / m.maxHp)) : 1; return 0.2 + 0.6 * f; }
 function w6DrawMirage(m, E) {

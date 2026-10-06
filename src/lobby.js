@@ -421,6 +421,8 @@ function drawNpcLabels() {
     for (const n of npcs) {
       if (n.dog) continue;
       const s = toScreen(n.x, n.y, 1.9);
+      // 오른쪽 위 마을 이름·버튼·"지금 할 일" 자리와 겹치면 이름표는 안 그려요 (가까이 가면 안내 글자는 그대로 나와요)
+      if (s.x > view.w - 440 && s.y < 165) continue;
       text(n.label, s.x, s.y, 14 * ZOOM * 0.8, "#ffe27a", "center");
     }
   }
