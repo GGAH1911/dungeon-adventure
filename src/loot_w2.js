@@ -2,7 +2,7 @@
 // 강도는 기존 규칙 그대로(장비 레벨로 정해져요), 이름과 모습만 바다 느낌. 바다 맵 레벨(33~52)에 맞춰 설계서 minL 에서 3을 뺐어요.
 // 전사 무기 (무기 종류별)
 defBase("w_coral", { slot: "weapon", cls: WAR, name: "산호 검", type: "sword", minL: 32, color: "#ff8f7a" });
-defBase("w_trident", { slot: "weapon", cls: WAR, name: "삼지창", type: "spear", minL: 34, color: "#7fe0d0", effect: "slow" });
+defBase("w_trident", { slot: "weapon", cls: WAR, name: "삼지창", type: "spear", head: "trident", minL: 34, color: "#7fe0d0", effect: "slow" }); // head: 날이 세 갈래 (rig.js)
 defBase("w_pearlDagger", { slot: "weapon", cls: WAR, name: "진주 쌍단검", type: "dagger", minL: 36, color: "#fffaf0" });
 defBase("w_shellAxe", { slot: "weapon", cls: WAR, name: "소라 도끼", type: "axe", minL: 39, color: "#ffd0b0" });
 defBase("w_anchor", { slot: "weapon", cls: WAR, name: "닻 망치", type: "hammer", minL: 43, color: "#8d99a6", mul: 1.04 });

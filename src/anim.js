@@ -180,7 +180,7 @@ function playerPose(p) {
   const style = weaponStyle(w);
   const glow = EFFECT_GLOW[w.effect];
   const two = twoHandGrip(p, cls);
-  const weaponSpec = (dir) => ({ style, color: w.color, len: w.length, dir, glow, butt: cls === "heavy" ? 0.32 : 0.35 });
+  const weaponSpec = (dir) => ({ style, color: w.color, len: w.length, dir, glow, butt: cls === "heavy" ? 0.32 : 0.35, head: w.head || null });
 
   // --- 활 쏘는 자세 ---
   if (p.bowTimer > 0) {

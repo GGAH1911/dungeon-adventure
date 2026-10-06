@@ -157,6 +157,7 @@ function weaponFromItem(it, cls) {
     damage: weaponBaseDamage(it.l) * t.mul * itemMul(it),
     range: t.range, cooldown: t.cooldown, arc: t.arc, length: t.length,
     color: b.color || "#a0784a", effect: it.e || b.effect || null,
+    head: b.head || null, // 날 모양 (삼지창 등)
     glow: it.r >= 3 ? RARITIES[it.r].color : null,
   };
 }

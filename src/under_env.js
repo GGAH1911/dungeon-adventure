@@ -68,9 +68,13 @@ hookOn("monstersSpawned", (def, level, rand) => {
   const inRoom = (r, x, y) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h;
   // ⑤ 용암 강: 방을 짧은 쪽으로 가로질러요 (벽에서 벽까지) + 다리 1~2개 (길이 막히지 않게 다리는 꼭)
   const lavaRooms = new Set();
-  for (let i = 0; i < (f.lava || 0); i++) w4Tries(() => {
+  // 처음엔 8칸 넘는 방만 25번, 그래도 하나도 못 놓으면 6칸 방·문 가까이(2칸)까지 넓혀서 100번 더 (용암 강이 없는 용암 맵이 없게)
+  for (const relax of [false, true]) {
+  if (relax && (E.lava.length || !f.lava)) break;
+  const minR = relax ? 6 : 8, doorR = relax ? 2 : 4;
+  for (let i = 0; i < (relax ? 1 : (f.lava || 0)); i++) w4Tries(() => {
     const r = rooms[Math.floor(rand() * rooms.length)];
-    if (lavaRooms.has(r) || r.w < 8 || r.h < 8 || nearDoor(r.cx, r.cy, 4)) return false;
+    if (lavaRooms.has(r) || r.w < minR || r.h < minR || nearDoor(r.cx, r.cy, doorR)) return false;
     const vert = r.w >= r.h, wid = 2 + Math.floor(rand() * 2); // vert: 세로 띠 (좌우로 건너요)
     let rect;
     if (vert) { const x0 = r.x + Math.floor(r.w / 3 + rand() * (r.w / 3 - wid)); rect = { x0, y0: r.y, x1: x0 + wid, y1: r.y + r.h }; }
@@ -83,7 +87,8 @@ hookOn("monstersSpawned", (def, level, rand) => {
     lavaRooms.add(r);
     w4AddLava(world, rect, bridges);
     return true;
-  });
+  }, relax ? 100 : 25);
+  }
   const onLavaAny = (x, y, pad = 0) => E.lava.some((l) => x > l.x0 - pad && x < l.x1 + pad && y > l.y0 - pad && y < l.y1 + pad);
   // ③ 광차 레일: 큰 방 안의 네모 고리 (벽에서 1.5칸 안쪽). 정류장은 첫 모서리
   const railRooms = new Set();

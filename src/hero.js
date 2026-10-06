@@ -13,6 +13,7 @@ const ITEM_ICON_DRAW = {
   dagger: (g, c) => { g.line(6, 13, 12, 7, c, 2); g.line(4, 11, 8, 15, "y", 1.6); g.line(2, 17, 5, 14, "b", 2); g.line(11, 15, 17, 9, c, 2); g.line(13, 17, 15, 19, "b", 1.6); },
   axe: (g, c) => { g.line(4, 18, 13, 4, "b", 2); g.tri(11, 3, 18, 5, 14, 11, c); g.disc(14.5, 6.5, 3, c); },
   hammer: (g, c) => { g.line(5, 18, 12, 7, "b", 2); g.rect(8, 2, 17, 8, c); g.rect(9, 3, 16, 4, "w"); },
+  trident: (g, c) => { g.line(2.5, 18.5, 11, 10, "b", 2.2); g.line(8.6, 7.6, 13.4, 12.4, c, 1.8); g.line(8.6, 7.6, 12.4, 3.8, c, 1.6); g.line(11, 10, 15.6, 5.4, c, 1.6); g.line(13.4, 12.4, 17.2, 8.6, c, 1.6); g.tri(13.6, 2.6, 11.6, 3.2, 13, 4.6, c); g.tri(16.8, 4.2, 14.8, 4.8, 16.2, 6.2, c); g.tri(18.4, 7.4, 16.4, 8, 17.8, 9.4, c); g.line(10, 11, 8.6, 13.6, "C", 1.4); }, // 삼지창: 가로대 + 세 갈래 + 뾰족한 끝
   spear: (g, c) => { g.line(2.5, 18.5, 12.5, 8, "b", 2.4); g.line(11.6, 8.9, 13.4, 7.1, "y", 2.6); g.tri(18.6, 1.4, 12.8, 7.2, 13.1, 2.9, c); g.tri(18.6, 1.4, 12.8, 7.2, 17.1, 6.9, c); g.line(14, 6, 17.5, 2.5, "w", 0.9); g.line(11.2, 9.2, 9.6, 12, "r", 1.4); g.line(12.2, 10, 12, 12.8, "r", 1.4); }, // 창: 굵은 자루·쇠고리·마름모 날·빨간 술
   scythe: (g, c) => { g.line(5, 19, 11, 3, "b", 2); g.arc(5, 6, 7, -70, 30, c, 2.4); },
   staff: (g, c) => { g.line(4, 18, 13, 5, "b", 2); g.disc(14, 4, 3, c); g.disc(13, 3, 1.2, "w"); },
@@ -36,6 +37,7 @@ function itemIconKind(it) {
   if (b.cls && (b.cls.includes("mage") || b.cls.includes("druid")) || (f && /지팡이/.test(f.name))) return "staff";
   if (b.cls && b.cls.includes("hunter") || (f && /단검/.test(f.name))) return "dagger";
   const t = itemType(it);
+  if (t === "spear" && b.head === "trident") return "trident";
   return { dagger: "dagger", axe: "axe", hammer: "hammer", spear: "spear", scythe: "scythe" }[t] || "blade";
 }
 function itemIconColor(it) {

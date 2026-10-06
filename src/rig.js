@@ -201,8 +201,22 @@ function addWeaponItems(items, grip, w) {
     // 창: 굵은 자루 + 쇠고리 + 큰 나뭇잎 모양 날(가운데 빛나는 줄) + 빨간 술 (예전엔 가는 막대 끝에 작은 세모만 있었어요)
     items.push({ type: "seg", a: vadd(butt, vmul(dir, -0.04)), b: vadd(butt, vmul(dir, 0.05)), color: "#8a6a2a", width: 6.5, outline: true }); // 자루 끝 쇠
     items.push({ type: "seg", a: vadd(tip, vmul(dir, -0.05)), b: vadd(tip, vmul(dir, 0.03)), color: "#c9a24a", width: 6, outline: true }); // 날 아래 쇠고리
-    // 날은 납작한 판 두 장을 십자로 겹쳐요: 어느 쪽에서 봐도 마름모 날이 보여요 (판 한 장이면 옆에서 볼 때 실처럼 얇았어요)
     let up = vcross(side, dir); if (vlen(up) < 0.2) up = V(0, 0, 1); up = vnorm(up);
+    if (w.head === "trident") {
+      // 삼지창: 가로대 + 날 세 갈래 (가운데가 조금 더 길어요), 갈래 끝마다 작은 갈고리
+      const bar = vadd(tip, vmul(dir, 0.06));
+      items.push({ type: "seg", a: vadd(bar, vmul(side, 0.2)), b: vadd(bar, vmul(side, -0.2)), color, width: 4, outline: true });
+      for (const [k, len] of [[0.2, 0.36], [0, 0.48], [-0.2, 0.36]]) {
+        const a0 = vadd(bar, vmul(side, k)), a1 = vadd(a0, vmul(dir, len));
+        items.push({ type: "seg", a: a0, b: a1, color, width: 3, outline: true });
+        // 갈래 끝: 뾰족한 화살촉 (판 두 장 십자)
+        for (const ax of [up, side]) items.push({ type: "poly", pts: [vadd(a1, vmul(ax, 0.065)), vadd(a1, vmul(dir, 0.13)), vadd(a1, vmul(ax, -0.065))], color, outline: true });
+      }
+      const knot = vadd(tip, vmul(dir, -0.08));
+      for (const s of [0.05, -0.05]) items.push({ type: "seg", a: knot, b: vadd(vadd(knot, vmul(dir, -0.14)), vadd(vmul(side, s), V(0, 0, -0.1))), color: "#3a8ee0", width: 3 }); // 파란 술
+      return;
+    }
+    // 날은 납작한 판 두 장을 십자로 겹쳐요: 어느 쪽에서 봐도 마름모 날이 보여요 (판 한 장이면 옆에서 볼 때 실처럼 얇았어요)
     const base = vadd(tip, vmul(dir, 0.02)), mid = vadd(tip, vmul(dir, 0.2)), point = vadd(tip, vmul(dir, 0.56));
     for (const ax of [up, side]) items.push({ type: "poly", pts: [base, vadd(mid, vmul(ax, 0.15)), point, vadd(mid, vmul(ax, -0.15))], color, outline: true });
     items.push({ type: "seg", a: vadd(tip, vmul(dir, 0.08)), b: vadd(tip, vmul(dir, 0.46)), color: "#ffffff", width: 1.6 }); // 가운데 빛 줄
