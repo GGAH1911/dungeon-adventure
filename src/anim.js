@@ -374,7 +374,7 @@ function monsterPose(m) {
     pose.twist = Math.max(-0.6, Math.min(0.6, g.hy * 0.35));
     pose.lean = g.lean || pose.lean;
     pose.weapon = { style: wpn.type === "pick" ? "pick" : "blade", color: wpn.color || "#9aa3ad", len: wpn.length || 0.8, dir: dirAt(g.wy, g.wp), butt: 0.3 };
-    if (wpn.shield) pose.shield = { color: wpn.shield, dir: V(1, 0, 0) }, pose.lh = handAt(-0.7, 0.3, 0.55);
+    if (wpn.shield && !m.shieldBroken) pose.shield = { color: m.shieldHp > 0 && m.shieldHp <= 2 ? "#6a5232" : wpn.shield, dir: V(1, 0, 0) }, pose.lh = handAt(-0.7, 0.3, 0.55); // 거의 깨지면 어두운 색, 깨지면 없음
     return pose;
   }
   // 무기 없는 몬스터(골렘 등): 두 주먹을 들었다가 쾅!

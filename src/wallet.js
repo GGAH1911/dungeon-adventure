@@ -188,6 +188,8 @@ async function walletSend(op) {
     if (!op.run) op.run = op.localRun;
     r = await walletCall("/run/claim", { run: op.run, summary: op.summary });
     if (r.status === 200 && r.clamped) wallet.st.clamped = (wallet.st.clamped || 0) + 1;
+    // 상한에 걸린 몫은 서버가 버리지 않고 맡아 둬요 (3일 뒤 저절로). 그럴 때만 살짝 알려요
+    if (r.status === 200 && r.held && !r.dup && typeof showMessage === "function") showMessage("보상 일부를 서버가 잠깐 맡아 뒀어요. 며칠 안에 저절로 돌아와요", 3.5, false, "#ffe27a");
   } else if (op.type === "spend") {
     r = await walletCall("/spend", { idem: op.idem, reason: op.reason, cost: op.cost, change: op.change });
     if (r.status === 409) { wallet.st.conflicts = (wallet.st.conflicts || 0) + 1; } // 다른 기기에서 먼저 써서 모자람 (물건은 이미 받았어요)
@@ -299,13 +301,13 @@ function walletRunBegin(def, level) {
   if (!walletOn()) return;
   walletRunEnd();
   const st = wallet.st;
-  const run = wallet.run = { map: def && def.id, level: Math.floor(level) || 1, started: Date.now(), earned: wZero(), boss: false, id: null, localRun: `off-${st.device}-${++st.offSeq}` };
+  const run = wallet.run = { map: def && def.id, level: Math.floor(level) || 1, started: Date.now(), earned: wZero(), boss: false, floors: 0, id: null, localRun: `off-${st.device}-${++st.offSeq}` };
   st.run = run; walletSave();
   if (walletOnline() || !wallet.lastOk) walletCall("/run/start", { map: run.map, level: run.level, players: 1 }).then((r) => { if (r.status === 200 && r.run) { run.id = r.run; walletSave(); } }).catch(() => {});
 }
 function walletEndRunState(run) {
   if (!run || !Object.values(run.earned || {}).some((v) => v > 0)) return;
-  const summary = { map: run.map, level: run.level, duration: Math.round((Date.now() - run.started) / 1000), boss: !!run.boss, earned: wClean(run.earned), started: run.started, players: 1 };
+  const summary = { map: run.map, level: run.level, duration: Math.round((Date.now() - run.started) / 1000), boss: !!run.boss, earned: wClean(run.earned), started: run.started, players: 1, ...(run.floors ? { floors: run.floors } : {}) };
   wallet.st.queue.push({ type: "claim", idem: "c-" + (run.id || run.localRun), run: run.id, localRun: run.localRun, summary });
 }
 function walletRunEnd() {
@@ -313,6 +315,8 @@ function walletRunEnd() {
   walletEndRunState(wallet.run); wallet.run = null; wallet.st.run = null; walletSave(); walletApply(); walletFlush();
 }
 hookOn("dungeonStarted", (def, level) => walletRunBegin(def, level), 90);
+// 탑: 올라간 층 수를 판에 적어요 (서버 상한이 층 수로 커져요)
+hookOn("towerFloorBuilt", (f) => { if (wallet.run && Number.isFinite(f)) { wallet.run.floors = Math.max(wallet.run.floors || 0, Math.floor(f)); } }, 90);
 // 캠프로 돌아오면 청구 (enterLobby 는 장면을 바꾸기 전에 reset 을 불러서, 캠프 화면에서 봐요)
 function walletLobbyCheck() { if (wallet.run && game.scene === "lobby") walletRunEnd(); }
 hookOn("playersUpdated", walletLobbyCheck, 90);

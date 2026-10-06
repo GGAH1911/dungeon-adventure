@@ -179,19 +179,19 @@ hookOn("lobbyWorldBuilt", () => {
 //   x, y: 자리 · r: 부딪히는 크기(0 이면 밟고 지나가요) · use: E 로 하는 것
 const HOUSE_FURN = {
   rug:      { name: "동그라미 러그", price: 4, ...hAt("living", 6.5, 5.8), r: 0, desc: "거실 가운데 폭신한 러그" },
-  plant:    { name: "화분", price: 3, ...hAt("living", 13.2, 9.2), r: 0.3, desc: "하루 한 번 물 주면 자라서 꽃이 펴요", use: "물 주기" },
-  lamp:     { name: "스탠드", price: 5, ...hAt("bed", 11.2, 1.0), r: 0.25, desc: "침실을 밝히는 따뜻한 불빛", use: "켜기·끄기" },
-  teddy:    { name: "곰인형", price: 6, ...hAt("play", 11.2, 1.0), r: 0.3, desc: "꼭 안아 주면 하트가 퐁퐁", use: "안아 주기" },
-  painting: { name: "그림 액자", price: 8, ...hAt("living", 0, 1.3), r: 0, desc: "거실 벽에 거는 산과 해 그림", use: "보기" },
-  fishtank: { name: "어항", price: 12, ...hAt("play", 7.0, 0.55), r: 0.55, desc: "물고기 세 마리. 밥을 주면 신나게 헤엄쳐요", use: "밥 주기" },
-  piano:    { name: "피아노", price: 15, ...hAt("play", 3.0, 0.5), r: 0.6, desc: "E 를 누를 때마다 노래 한 소절", use: "연주하기" },
-  starlamp: { name: "별빛 램프", price: 0, gift: true, ...hAt("bed", 1.0, 9.4), r: 0.25, desc: "출석 도장 7개 선물", use: "켜기" },
+  plant:    { name: "화분", price: 3, ...hAt("living", 13.2, 9.2), r: 0.3, desc: "하루 한 번 물 주면 자라서 꽃이 펴요", use: "물 주기", short: "물주기" },
+  lamp:     { name: "스탠드", price: 5, ...hAt("bed", 11.2, 1.0), r: 0.25, desc: "침실을 밝히는 따뜻한 불빛", use: "켜기·끄기", short: "켜기" },
+  teddy:    { name: "곰인형", price: 6, ...hAt("play", 11.2, 1.0), r: 0.3, desc: "꼭 안아 주면 하트가 퐁퐁", use: "안아 주기", short: "안기" },
+  painting: { name: "그림 액자", price: 8, ...hAt("living", 0, 1.3), r: 0, desc: "거실 벽에 거는 산과 해 그림", use: "보기", short: "보기" },
+  fishtank: { name: "어항", price: 12, ...hAt("play", 7.0, 0.55), r: 0.55, desc: "물고기 세 마리. 밥을 주면 신나게 헤엄쳐요", use: "밥 주기", short: "밥주기" },
+  piano:    { name: "피아노", price: 15, ...hAt("play", 3.0, 0.5), r: 0.6, desc: "E 를 누를 때마다 노래 한 소절", use: "연주하기", short: "연주" },
+  starlamp: { name: "별빛 램프", price: 0, gift: true, ...hAt("bed", 1.0, 9.4), r: 0.25, desc: "출석 도장 7개 선물", use: "켜기", short: "켜기" },
   // 퀘스트 선물 (월드마다 마지막 이야기를 끝내면 이야기꾼이 줘요: quests_w14.js · quests_w5.js 의 reward.furn)
-  q_owlclock:   { name: "부엉이 뻐꾸기시계", price: 0, gift: true, quest: 1, ...hAt("living", 9.2, 9.2), r: 0.3, desc: "부엉 할아버지 선물", use: "시간 보기" },
-  q_lighthouse: { name: "작은 등대 모형", price: 0, gift: true, quest: 2, ...hAt("bed", 4.6, 9.2), r: 0.3, desc: "해마 할머니 선물", use: "불빛 켜기" },
-  q_telescope:  { name: "망원경", price: 0, gift: true, quest: 3, ...hAt("bed", 7.9, 1.3), r: 0.3, desc: "토토 박사 선물", use: "별 보기" },
-  q_lantern:    { name: "도깨비 등불", price: 0, gift: true, quest: 4, ...hAt("kitchen", 10.2, 1.2), r: 0.25, desc: "반짝이 선물", use: "색 바꾸기" },
-  q_starjar:    { name: "별빛 병", price: 0, gift: true, quest: 5, ...hAt("play", 10.2, 7.4), r: 0.3, desc: "블랙홀에서 지켜 낸 색깔들", use: "흔들기" },
+  q_owlclock:   { name: "부엉이 뻐꾸기시계", price: 0, gift: true, quest: 1, ...hAt("living", 9.2, 9.2), r: 0.3, desc: "부엉 할아버지 선물", use: "시간 보기", short: "시간" },
+  q_lighthouse: { name: "작은 등대 모형", price: 0, gift: true, quest: 2, ...hAt("bed", 4.6, 9.2), r: 0.3, desc: "해마 할머니 선물", use: "불빛 켜기", short: "불빛" },
+  q_telescope:  { name: "망원경", price: 0, gift: true, quest: 3, ...hAt("bed", 7.9, 1.3), r: 0.3, desc: "토토 박사 선물", use: "별 보기", short: "별보기" },
+  q_lantern:    { name: "도깨비 등불", price: 0, gift: true, quest: 4, ...hAt("kitchen", 10.2, 1.2), r: 0.25, desc: "반짝이 선물", use: "색 바꾸기", short: "색깔" },
+  q_starjar:    { name: "별빛 병", price: 0, gift: true, quest: 5, ...hAt("play", 10.2, 7.4), r: 0.3, desc: "블랙홀에서 지켜 낸 색깔들", use: "흔들기", short: "흔들기" },
 };
 // 등불 색 (E 로 차례로 바꿔요)
 const HOUSE_LANTERN_C = [{ c: "#ffb050", name: "주황" }, { c: "#7fe0ff", name: "하늘" }, { c: "#ff7ac8", name: "분홍" }, { c: "#a8ff7a", name: "연두" }];
@@ -538,7 +538,11 @@ const HOUSE_FIX = {
   },
   blocks(s) {
     const B = house.blocks, cols = ["#e04a4a", "#4a8ad0", "#ffd23f", "#50b060", "#b060d0"];
-    if (B.fall > 0) { for (let i = 0; i < B.fallN; i++) { const a = i * 2.1, d = (1 - B.fall) * 1.2; hb(s.x + Math.cos(a) * d - 0.15, s.y + Math.sin(a) * d * 0.7 - 0.15, Math.max(0, (B.fall - 0.3) * (i % 3)), 0.3, 0.3, 0.22, cols[i % 5]); } }
+    if (B.fall > 0) {
+      // 무너짐: 쌓았던 블록 수(fallN)만큼 각자 제 높이에서 떨어져 서로 다른 쪽으로 흩어져요 (예전엔 각도·높이가 3가지만 돌아서 늘 3개처럼 보였어요)
+      const t = 1 - B.fall;
+      for (let i = 0; i < B.fallN; i++) { const q = houseBlockFall(i, t); hb(s.x + q.dx - 0.15, s.y + q.dy - 0.15, q.z, 0.3, 0.3, 0.22, cols[i % 5]); }
+    }
     else for (let i = 0; i < B.n; i++) { const wob = Math.sin(game.time * 3 + i) * 0.01 * i; hb(s.x - 0.16 + wob, s.y - 0.16, i * 0.22, 0.32, 0.32, 0.22, cols[i % 5]); }
     if (!B.n && B.fall <= 0) hb(s.x - 0.16, s.y - 0.16, 0, 0.32, 0.32, 0.22, cols[0]);
   },
@@ -667,12 +671,12 @@ hookOn("lobbyInteractables", (list) => {
   houseItem(list, "darts", { range: 1.3, label: "다트판", short: "다트", prompt: `다트 놀이 10초 (최고 ${h.dartsBest}점)`, action: houseDartsStart, at: { x: S.darts.x, y: S.darts.y + 0.7 } });
   houseItem(list, "blocks", { range: 1.2, label: "블록", short: "쌓기", prompt: `블록 쌓기 (지금 ${house.blocks.n}층 · 최고 ${h.blockBest}층)`, action: houseBlockStack });
   if (house.ball) list.push({ x: house.ball.x, y: house.ball.y, range: 0.9, label: "장난감 공", short: "뻥", prompt: "공 차기", action: houseKick, local: true });
-  // 가구
+  // 가구 (터치 버튼 글자는 가구마다 정한 짧은 말 f.short: 예전엔 3글자로 잘라서 "연주하"처럼 나왔어요)
   for (const id of Object.keys(HOUSE_FURN)) {
     const f = HOUSE_FURN[id];
     if (!f.use || !houseOwns(id)) continue;
     const p = id === "painting" ? { x: HR.living.x0 + 0.7, y: f.y } : id === "piano" ? { x: f.x, y: f.y + 1.3 } : id === "fishtank" ? { x: f.x, y: f.y + 0.8 } : f.quest ? { x: f.x, y: f.y + 0.6 } : f;
-    list.push({ x: p.x, y: p.y, range: id === "fishtank" || id === "piano" ? 1.4 : 1.2, label: f.name, short: f.use.split("·")[0].slice(0, 3), prompt: houseUsePrompt(id), action: () => houseUse(id), local: true });
+    list.push({ x: p.x, y: p.y, range: id === "fishtank" || id === "piano" ? 1.4 : 1.2, label: f.name, short: f.short || f.use, prompt: houseUsePrompt(id), action: () => houseUse(id), local: true });
   }
   return list;
 }, 60);
@@ -963,6 +967,11 @@ function houseDartsEnd() {
   D.msg = best ? `새 최고 기록 ${D.score}점!` : `${D.score}점 (최고 ${h.dartsBest}점)`;
   if (best) sfx.levelUp && sfx.levelUp(); else sfx.click();
 }
+// 무너질 때 i 번째 블록 자리 (t: 0 막 무너짐 -> 1 다 흩어짐). 블록마다 다른 쪽·다른 거리로 (황금각)
+function houseBlockFall(i, t) {
+  const a = i * 2.39996 + 0.5, d = Math.min(1, t * 1.5) * (0.3 + 0.09 * i);
+  return { dx: Math.cos(a) * d, dy: Math.sin(a) * d * 0.8, z: Math.max(0, i * 0.22 * (1 - t * 2.2)) };
+}
 function houseBlockStack() {
   const B = house.blocks, h = houseData();
   if (B.fall > 0) return false;
@@ -1012,7 +1021,7 @@ hookOn("netTick", (dt) => {
   if (house.owlT > 0) house.owlT -= dt;
   if (house.jarT > 0) house.jarT -= dt;
   if (house.bowlT > 0) house.bowlT -= dt;
-  if (house.blocks.fall > 0) house.blocks.fall = Math.max(0, house.blocks.fall - dt * 1.2);
+  if (house.blocks.fall > 0) house.blocks.fall = Math.max(0, house.blocks.fall - dt * 0.7); // 흩어진 블록을 조금 더 오래 보여줘요
   if (house.darts && game.overlay !== "darts") house.darts = null;
   houseBallTick(Math.min(dt, 0.05));
   const S = house.sit;

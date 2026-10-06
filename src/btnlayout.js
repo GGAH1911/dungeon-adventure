@@ -180,7 +180,7 @@ function btnEditItems(L = btnEdit.draft || btnLayout) {
   try {
     game.overlay = null; touch.show = true;
     if (game.scene !== "dungeon") game.scene = "dungeon";
-    if (!game.nearNpc) game.nearNpc = { short: "열기" };
+    if (!game.nearNpc) game.nearNpc = { short: "열기", preview: true }; // 버튼 자리 보기용 (화면 위 안내 글자는 안 그려요)
     if (game.player) list = touchButtons();
   } finally {
     btnEdit.raw = false;

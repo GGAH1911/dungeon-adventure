@@ -60,7 +60,7 @@ Object.assign(BEHAVIOR_DOCS, {
   thief: { name: "보물 들고 도망", desc: "공격하지 않고 도망다녀요. 시간이 지나면 연기와 함께 사라져요. 잡으면 보물을 떨어뜨려요.", counter: "얼음 화살로 느리게 한 뒤 쫓아가기" },
   lurker: { name: "숨어 다가오기", desc: "거의 투명하게 숨어서 다가와요. 발밑 먼지가 단서예요. 가까이 오거나 맞으면 모습을 드러내요.", counter: "먼지가 피어오르는 곳에 화살 쏘기" },
   charger: { name: "물러섰다 돌진", desc: "돌진할 준비가 되면 뒤로 물러서 거리를 벌린 뒤 빨간 길을 그리고 달려와요. 돌진 사이에는 칼로 싸워요.", counter: "뒤로 물러서면 곧 돌진! 빨간 길 옆으로 비켜서기" },
-  shieldbearer: { name: "방패 막기", desc: "앞에서 오는 공격을 방패로 막아요. 몸을 천천히 돌려요.", counter: "구르기로 등 뒤로 돌아가거나 불·폭탄 화살 쓰기" },
+  shieldbearer: { name: "방패 막기", desc: "앞에서 오는 공격을 방패로 막아요. 몸을 천천히 돌려요. 방패를 여러 번 치면 깨져요.", counter: "방패를 계속 치면 깨져요 (보통 4번). 구르기로 등 뒤로 돌아가도 돼요" },
 });
 
 Object.assign(EXTRA_BEHAVIORS, {
@@ -585,7 +585,10 @@ hookOn("drawTelegraphsAfter", () => drawHazards(), 30);
 // 기술 장판(독·거미줄)에 주인 표시 -> 정예가 쓰러지면 같이 사라져요
 hookOn("castResolved", (c, p, z0) => { for (let i = z0; i < zones.length; i++) zones[i].owner = c.m; }, 30);
 
-// 몬스터가 맞을 때: 분신은 한 방에, 방패병 정면 막기, 정예 속성(번개·분신)
+// 방패가 버티는 횟수 (난이도마다)
+const SHIELD_HITS = { easy: 3, normal: 4, hard: 5, nightmare: 6 };
+function shieldHits() { return SHIELD_HITS[(game.profile && game.profile.difficulty) || "normal"] || 4; }
+// 몬스터가 맞을 때: 분신은 한 방에, 방패병 정면 막기(여러 번 치면 깨져요), 정예 속성(번개·분신)
 hookOn("monsterDamage", (h) => {
   const m = h.m, opts = h.opts;
   if (m.hp <= 0) return true;
@@ -595,11 +598,22 @@ hookOn("monsterDamage", (h) => {
     addFloatText(m.x, m.y, "가짜!", "#d0d0ff", 18);
     return true;
   }
-  if (m.def.frontShield && !opts.dot && h.dmg > 0) {
+  if (m.def.frontShield && !m.shieldBroken && !opts.dot && h.dmg > 0) {
     const ax = h.fromX - m.x, ay = h.fromY - m.y, al = Math.hypot(ax, ay) || 1;
     if ((ax * m.faceX + ay * m.faceY) / al > 0.35) {
+      // 방패도 계속 치면 깨져요 (쉬움 3번 · 보통 4번 · 어려움 5번 · 악몽 6번). 깨지는 마지막 한 방은 몸까지 들어가요
+      if (!(m.shieldHp > 0)) m.shieldHp = shieldHits();
+      m.shieldHp -= 1;
       m.flash = 0.05;
-      addFloatText(m.x, m.y, "방패!", "#d9c27a", 16);
+      if (m.shieldHp <= 0) {
+        m.shieldBroken = true; m.shieldHp = 0;
+        m.stunTimer = Math.max(m.stunTimer || 0, 1.0);
+        spawnBurst(m.x, m.y, ["#d9c27a", "#8a6a3a", "#ffffff"], 14);
+        addFloatText(m.x, m.y, "방패가 깨졌어요!", "#ffe27a", 18);
+        if (typeof sfx !== "undefined") sfx.bigHit();
+        return false;
+      }
+      addFloatText(m.x, m.y, `방패! ${m.shieldHp}번 더`, "#d9c27a", 16);
       if (typeof sfx !== "undefined") sfx.block();
       return true;
     }
