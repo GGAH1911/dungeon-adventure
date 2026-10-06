@@ -192,6 +192,7 @@ const HOUSE_FURN = {
   q_telescope:  { name: "망원경", price: 0, gift: true, quest: 3, ...hAt("bed", 7.9, 1.3), r: 0.3, desc: "토토 박사 선물", use: "별 보기", short: "별보기" },
   q_lantern:    { name: "도깨비 등불", price: 0, gift: true, quest: 4, ...hAt("kitchen", 10.2, 1.2), r: 0.25, desc: "반짝이 선물", use: "색 바꾸기", short: "색깔" },
   q_starjar:    { name: "별빛 병", price: 0, gift: true, quest: 5, ...hAt("play", 10.2, 7.4), r: 0.3, desc: "블랙홀에서 지켜 낸 색깔들", use: "흔들기", short: "흔들기" },
+  q_sandglass:  { name: "색모래 모래시계", price: 0, gift: true, quest: 6, ...hAt("living", 6.0, 9.2), r: 0.3, desc: "사르르와 무지냥의 선물", use: "뒤집기", short: "뒤집기" },
 };
 // 등불 색 (E 로 차례로 바꿔요)
 const HOUSE_LANTERN_C = [{ c: "#ffb050", name: "주황" }, { c: "#7fe0ff", name: "하늘" }, { c: "#ff7ac8", name: "분홍" }, { c: "#a8ff7a", name: "연두" }];
@@ -430,6 +431,15 @@ const HOUSE_DRAW = {
     hb(f.x - 0.1, f.y + 0.26, 1.02, 0.2, 0.02, 0.05, "#2a1a14"); // 웃는 입
     for (const ox of [-0.24, 0.16]) hb(f.x + ox, f.y - 0.04, 1.53, 0.08, 0.08, 0.14, "#e8dcc0"); // 뿔
   },
+  q_sandglass(f) { // 나무 받침 위 모래시계: 뒤집으면(E) 색모래가 3초 동안 흘러요
+    const t = Math.max(0, house.sandT || 0) / 3, cols = ["#ff8ab0", "#ffd060", "#7adf8a", "#7ac8ff", "#c08aff"];
+    hb(f.x - 0.26, f.y - 0.26, 0, 0.52, 0.52, 0.08, "#8a5a2a"); hb(f.x - 0.26, f.y - 0.26, 0.86, 0.52, 0.52, 0.08, "#8a5a2a");
+    for (const [ox, oy] of [[-0.22, -0.22], [0.16, -0.22], [-0.22, 0.16], [0.16, 0.16]]) hb(f.x + ox, f.y + oy, 0.08, 0.06, 0.06, 0.78, "#6a4a22");
+    ctx.save(); ctx.globalAlpha = 0.35; hb(f.x - 0.16, f.y - 0.16, 0.1, 0.32, 0.32, 0.36, "#e8f8ff"); hb(f.x - 0.16, f.y - 0.16, 0.5, 0.32, 0.32, 0.36, "#e8f8ff"); ctx.restore();
+    const top = 0.3 * t, bot = 0.3 * (1 - t) + 0.04;
+    cols.forEach((c, i) => { const h = bot / cols.length; hb(f.x - 0.12, f.y - 0.12, 0.1 + i * h, 0.24, 0.24, h, c); });
+    if (top > 0.02) { hb(f.x - 0.1, f.y - 0.1, 0.5 + 0.3 - top, 0.2, 0.2, top, cols[Math.floor(game.time * 4) % 5]); hb(f.x - 0.02, f.y - 0.02, 0.14, 0.04, 0.04, 0.36, "#ffd060"); }
+  },
   q_starjar(f) { // 받침 + 유리병 + 안에서 빙글빙글 도는 색깔들
     hb(f.x - 0.3, f.y - 0.3, 0, 0.6, 0.6, 0.35, "#6a5a8a");
     ctx.save(); ctx.globalAlpha = 0.35; hb(f.x - 0.22, f.y - 0.22, 0.35, 0.44, 0.44, 0.6, "#dff4ff"); ctx.restore();
@@ -577,7 +587,7 @@ const HOUSE_FIX_ROOM = { stash: "living", codex: "living", catalog: "living", fi
   bed: "bed", alarm: "bed", window: "bed", mirror: "bed", diary: "bed", piggy: "bed", fridge: "kitchen", stove: "kitchen", sink: "kitchen", table: "kitchen", bowl: "kitchen",
   darts: "play", blocks: "play", toybox: "play" };
 const HOUSE_FURN_ROOM = { rug: "living", plant: "living", painting: "living", lamp: "bed", starlamp: "bed", teddy: "play", fishtank: "play", piano: "play",
-  q_owlclock: "living", q_lighthouse: "bed", q_telescope: "bed", q_lantern: "kitchen", q_starjar: "play" };
+  q_owlclock: "living", q_lighthouse: "bed", q_telescope: "bed", q_lantern: "kitchen", q_starjar: "play", q_sandglass: "living" };
 hookOn("lobbyThings", (things) => {
   houseAddSolids();
   const O = HOUSE_OUT;
@@ -690,6 +700,7 @@ function houseUsePrompt(id) {
   if (id === "q_owlclock") return "부엉이 시계 보기";
   if (id === "q_telescope") return "망원경으로 별 보기";
   if (id === "q_starjar") return "별빛 병 흔들기";
+  if (id === "q_sandglass") return "색모래 모래시계 뒤집기";
   return `${f.name} ${f.use}`;
 }
 const HOUSE_TUNES = [[523, 587, 659, 523], [659, 698, 784, 659], [392, 523, 659, 784], [784, 659, 523, 392], [523, 523, 784, 784, 880, 880, 784]];
@@ -725,6 +736,12 @@ function houseUse(id) {
     return;
   }
   if (id === "q_telescope") { house.scopeT = 4; house.scopeSeed = Math.floor(Math.random() * HOUSE_STARS.length); game.overlay = "hscope"; tone(880, 0.3, "sine", 0.04, 1320); return; }
+  if (id === "q_sandglass") {
+    house.sandT = 3;
+    [784, 659, 523].forEach((fr, i) => tone(fr, 0.15, "triangle", 0.04, null, i * 0.1));
+    showMessage("사르륵사르륵… 무지개 색모래가 흘러내려요", 2.4);
+    return;
+  }
   if (id === "q_starjar") {
     house.jarT = 1.5;
     for (let i = 0; i < 10; i++) addSparkle(f.x + (Math.random() - 0.5) * 0.4, f.y, 0.6 + Math.random() * 0.6, { vz: 0.9, life: 0.9, size: 0.35, hue: Math.random() * 360 });
@@ -792,6 +809,7 @@ const HOUSE_STORY_LETTERS = {
   3: "조각끼리 끌어당긴다는 걸 알아낸 건 다 네 덕분이야! 내 망원경 일지에 네 이름을 적었어.",
   4: "땅속 두드리는 소리가 멈췄어! 너 진짜 대단해. 우리 아빠도 너 칭찬 엄청 했어.",
   5: "고마워. 공허에 색이 돌아왔어. 장막도 이제 조용해. 가끔 놀러 와.",
+  6: "무지냥이 매일 네 이야기를 해! 사막 모래도 무지개처럼 반짝여. 시원한 물 한 잔 마시러 또 와.",
 };
 function houseStoryLetter(q) {
   const pr = game.profile, h = pr && pr.house;
@@ -1020,6 +1038,7 @@ hookOn("netTick", (dt) => {
   if (house.alarmT > 0) house.alarmT -= dt;
   if (house.owlT > 0) house.owlT -= dt;
   if (house.jarT > 0) house.jarT -= dt;
+  if (house.sandT > 0) house.sandT -= dt;
   if (house.bowlT > 0) house.bowlT -= dt;
   if (house.blocks.fall > 0) house.blocks.fall = Math.max(0, house.blocks.fall - dt * 0.7); // 흩어진 블록을 조금 더 오래 보여줘요
   if (house.darts && game.overlay !== "darts") house.darts = null;
