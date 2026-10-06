@@ -90,8 +90,19 @@ defBase("c_thorn", { slot: "charm", name: "가시 팔찌", minL: 15, icon: "brac
 
 // ----- 보스 전설 장비 (보스방 보스가 줘요. 처음 잡으면 꼭!) -----
 // forms: 무기는 받는 직업에 맞는 모양으로 나와요
+// 전사 무기 모양: "staff"(정하지 않음)로 오면 이름으로 골라요 (예전엔 월드 5·6 전설이 다 지팡이 자리 -> 칼 모양으로 나왔어요: "꿈 바다 삼지창"이 칼)
+function legendWarriorType(name, t) {
+  if (t && t !== "staff") return t;
+  const n = String(name || "");
+  if (/창/.test(n)) return "spear";
+  if (/망치|방망이|떡메/.test(n)) return "hammer";
+  if (/도끼|곡괭이/.test(n)) return "axe";
+  if (/낫/.test(n)) return "scythe";
+  if (/단검/.test(n)) return "dagger";
+  return "sword";
+}
 const LEGEND_FORMS = (name, warriorType, extra = {}) => ({
-  warrior: { name: name.w, type: warriorType }, mage: { name: name.m, type: "sword" }, druid: { name: name.d, type: "sword" }, hunter: { name: name.h, type: "sword" }, ...extra,
+  warrior: { name: name.w, type: legendWarriorType(name.w, warriorType), head: /삼지창/.test(name.w || "") ? "trident" : null }, mage: { name: name.m, type: "sword" }, druid: { name: name.d, type: "sword" }, hunter: { name: name.h, type: "sword" }, ...extra,
 });
 const BOSS_LEGENDS = {
   cave: "L_cave", crypt: "L_crypt", jungle: "L_jungle", desert: "L_desert", ice: "L_ice", swamp: "L_swamp",
@@ -157,7 +168,7 @@ function weaponFromItem(it, cls) {
     damage: weaponBaseDamage(it.l) * t.mul * itemMul(it),
     range: t.range, cooldown: t.cooldown, arc: t.arc, length: t.length,
     color: b.color || "#a0784a", effect: it.e || b.effect || null,
-    head: b.head || null, // 날 모양 (삼지창 등)
+    head: (itemForm(it) && itemForm(it).head) || b.head || null, // 날 모양 (삼지창 등)
     glow: it.r >= 3 ? RARITIES[it.r].color : null,
   };
 }

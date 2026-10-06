@@ -37,7 +37,7 @@ function itemIconKind(it) {
   if (b.cls && (b.cls.includes("mage") || b.cls.includes("druid")) || (f && /지팡이/.test(f.name))) return "staff";
   if (b.cls && b.cls.includes("hunter") || (f && /단검/.test(f.name))) return "dagger";
   const t = itemType(it);
-  if (t === "spear" && b.head === "trident") return "trident";
+  if (t === "spear" && (b.head === "trident" || (f && f.head === "trident"))) return "trident";
   return { dagger: "dagger", axe: "axe", hammer: "hammer", spear: "spear", scythe: "scythe" }[t] || "blade";
 }
 function itemIconColor(it) {
