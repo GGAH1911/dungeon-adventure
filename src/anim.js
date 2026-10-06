@@ -203,6 +203,18 @@ function playerPose(p) {
     return pose;
   }
 
+  // --- 사냥꾼: 서 있거나 걸을 땐 활을 왼손에 들고 다녀요 (단검은 등에). 사냥꾼 무기는 활이니까요 ---
+  if (typeof playerCls === "function" && playerCls(p) === "hunter" && !(p.move && p.swingTimer > 0) && !p.leap) {
+    const bow = p.bow;
+    const sw = walking ? Math.sin(p.walkTime * 11) : 0; // 걸을 때 앞뒤로 살짝 흔들어요
+    pose.lh = V(0.16 + sw * 0.07, 0.25, 0.5);
+    pose.lhHint = V(-0.2, 0.6, -1);
+    pose.bow = { draw: 0, aim: V(1, 0, 0), arrow: false, half: 0.3, color: bow.legendary ? "#ffffff" : bow.color, legend: bow.legendary };
+    pose.back.push({ kind: "weapon", at: V(-0.22, 0.05, 0.44), dir: dirAt(Math.PI - 0.3, 1.2), weapon: { ...weaponSpec(V(0, 0, 1)), len: Math.min(0.7, w.length * 0.8), glow: null } });
+    if (p.hurtLean > 0) { pose.lean -= 0.12 * (p.hurtLean / 0.2); pose.crouch = Math.max(pose.crouch || 0, 0.1); }
+    return pose;
+  }
+
   // --- 칼 자세 (가만히 / 공격) ---
   let g;
   let bodyYaw = 0;
