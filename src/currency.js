@@ -26,6 +26,7 @@ function exchangeCur(i, times = 1, pr = game.profile) {
   if (!x || !(times > 0)) return { ok: false, why: "바꿀 수 없어요" };
   const need = x.n * times;
   if (curHave(x.from, pr) < need) return { ok: false, why: `${josa(CUR[x.from].name, "이/가")} ${need - curHave(x.from, pr)}개 모자라요` };
+  if (pr === game.profile) { const why = hookFilter("exchangeGate", null, i, times); if (why) return { ok: false, why }; } // 지갑: 서버에서 바꿔요 (wallet.js)
   curSet(x.from, curHave(x.from, pr) - need, pr);
   curSet(x.to, curHave(x.to, pr) + times, pr);
   return { ok: true, paid: need, got: times };
@@ -43,9 +44,11 @@ function moneyFields(pr) {
 function curHave(id, pr = game.profile) { return id === "emerald" ? pr.emeralds : (pr.money && pr.money[id]) || 0; }
 function curSet(id, n, pr = game.profile) { n = Math.max(0, Math.floor(n)); if (id === "emerald") pr.emeralds = n; else pr.money[id] = n; }
 // 화폐 더하기 (던전에서 얻으면 결과창에도)
-function curAdd(id, n, pr = game.profile) {
+//   reason/key: 던전 밖에서 받는 선물의 이유 (지갑 서버가 하루 한 번·한 번만을 판단해요: wallet.js). 던전 안은 그 판의 보상
+function curAdd(id, n, pr = game.profile, reason, key) {
   if (!CUR[id] || !(n > 0)) return;
   curSet(id, curHave(id, pr) + n, pr);
+  if (pr === game.profile) hookRun("curGained", id, n, reason, key); // 지갑이 장부에 올려요 (wallet.js)
   if (pr === game.profile && game.run && game.scene === "dungeon" && id !== "emerald") { game.run.money = game.run.money || {}; game.run.money[id] = (game.run.money[id] || 0) + n; }
   if (id !== "emerald") game.coinBumpAt = { id, t: game.time };
 }
@@ -69,12 +72,18 @@ function payPlan(price, pr = game.profile) {
   return { take, change, cur: req.id };
 }
 function canPay(price, pr) { return !!payPlan(price, pr); }
-function pay(price, pr = game.profile) {
+// reason: 무엇에 썼나 (장부에 남아요). 지갑이 못 쓴다고 하면(오프라인에 오프라인 지갑이 모자람 등) false
+function pay(price, pr = game.profile, reason = "shop") {
   const plan = payPlan(price, pr); if (!plan) return false;
+  if (pr === game.profile && hookAny("payGate", plan, reason)) return false;
   for (const [id, n] of Object.entries(plan.take)) curSet(id, curHave(id, pr) - n, pr);
   if (plan.change) curSet(plan.cur, curHave(plan.cur, pr) + plan.change, pr);
   return true;
 }
+// 던전 밖 선물 받기 (이유와 열쇠를 지갑에 알려줘요): curEarn("emerald", 5, "dream")
+function curEarn(id, n, reason = "misc", key) { curAdd(id, n, game.profile, reason, key); }
+// 에메랄드로 바로 치르기 (거스름돈 없음)
+function curSpend(n, reason = "shop") { return pay({ cur: "emerald", n }, game.profile, reason); }
 // 모자란 만큼 알려주기: "자수정 3개 모자라요"
 function lackText(price, pr = game.profile) {
   const c = CUR[price.cur];

@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com https://da-turn.hwangi0404.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src 'self' wss://0.peerjs.com https://0.peerjs.com https://da-turn.hwangi0404.workers.dev https://da-wallet.hwangi0404.workers.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:">
   <title>던전 모험</title>
   <!-- 태블릿/폰: 확대 막기, 화면 꽉 채우기 -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
@@ -24,13 +24,13 @@
   <canvas id="game"></canvas>
   <!-- 순서가 중요해요: 위에 있는 파일을 아래 파일들이 사용해요 -->
   <!-- 처음 불러오기 화면: data-total = 아래 스크립트 개수 (smoke.mjs 가 검사해요) -->
-  <script src="src/loader.js?h=4bfb598b3f" data-total="121"></script>
+  <script src="src/loader.js?h=4bfb598b3f" data-total="122"></script>
   <script src="src/hooks.js?h=1f44f8fc4b"></script>
   <script src="src/app.js?h=33f2c7b576"></script>
   <script src="src/errlog.js?h=85ab9eb802"></script>
   <script src="src/config.js?h=5dcedc95a6"></script>
   <script src="src/items.js?h=6438052294"></script>
-  <script src="src/currency.js?h=c04c66e111"></script>
+  <script src="src/currency.js?h=7b1a0f35e7"></script>
   <script src="src/loot.js?h=1289922f94"></script>
   <script src="src/loot_w2.js?h=c485869712"></script>
   <script src="src/loot_w3.js?h=4ba90ced9d"></script>
@@ -62,20 +62,20 @@
   <script src="src/effects.js?h=b6458989ef"></script>
   <script src="src/legendary.js?h=e0f274bb5e"></script>
   <script src="src/chest.js?h=d99b3136d6"></script>
-  <script src="src/tower.js?h=ddb052eb70"></script>
+  <script src="src/tower.js?h=7c3a595b45"></script>
   <script src="src/towerboss.js?h=eb1e52c69b"></script>
-  <script src="src/lobby.js?h=aa8649d47f"></script>
+  <script src="src/lobby.js?h=8f6efd9068"></script>
   <script src="src/lobbyui.js?h=d6964d839a"></script>
-  <script src="src/shop.js?h=55bac73205"></script>
+  <script src="src/shop.js?h=b117d1aa95"></script>
   <script src="src/mapselect.js?h=a7d6a18b90"></script>
   <script src="src/menus.js?h=ce0382c9b3"></script>
   <script src="src/hud.js?h=d6564ad2da"></script>
-  <script src="src/main.js?h=c512433cfb"></script>
+  <script src="src/main.js?h=ea3053f1c4"></script>
   <script src="src/keyhunt.js?h=5d33110e9b"></script>
   <script src="src/bossroom.js?h=c40211421a"></script>
   <script src="src/guide.js?h=5143545a2f"></script>
   <script src="src/qol.js?h=741e6c082b"></script>
-  <script src="src/house.js?h=682939af49"></script>
+  <script src="src/house.js?h=c8c90a4876"></script>
   <script src="src/house_trophy.js?h=ba48c7dc7c"></script>
   <script src="src/showcase.js?h=68cb47e659"></script>
   <script src="src/classes.js?h=8928a4833f"></script>
@@ -133,7 +133,7 @@
   <script src="src/coop.js?h=ffedb8ac40"></script>
   <script src="src/party.js?h=1d48c4e053"></script>
   <script src="src/net.js?h=6e35d65038"></script>
-  <script src="src/netplay.js?h=6511adb7a7"></script>
+  <script src="src/netplay.js?h=bc2ec5afb9"></script>
   <script src="src/netvote.js?h=57ac568d70"></script>
   <script src="src/records.js?h=e9a9fbe230"></script>
   <script src="src/buffpots.js?h=7262f8ae3b"></script>
@@ -143,8 +143,9 @@
   <script src="src/pvp.js?h=77eba117b6"></script>
   <script src="src/trade.js?h=37062756b0"></script>
   <script src="src/upper.js?h=a75e920194"></script>
-  <script src="src/quests.js?h=0d8abeb9c6"></script>
+  <script src="src/quests.js?h=a62a404393"></script>
   <script src="src/quests_w14.js?h=4d3977fe82"></script>
   <script src="src/quests_w5.js?h=64430ac00c"></script>
+  <script src="src/wallet.js?h=3d31062858"></script>
 </body>
 </html>

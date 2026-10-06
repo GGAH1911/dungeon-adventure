@@ -201,7 +201,7 @@ function houseBuy(id) {
   const f = HOUSE_FURN[id], pr = game.profile;
   if (!f || f.gift || houseOwns(id)) return false;
   if (pr.emeralds < f.price) { house.note = `에메랄드가 ${f.price - pr.emeralds}개 모자라요`; house.noteC = "#ff9090"; sfx.denied(); return false; }
-  pr.emeralds -= f.price;
+  if (!curSpend(f.price, "furn")) { house.note = (typeof walletLackText === "function" && walletLackText()) || "지금은 살 수 없어요"; house.noteC = "#ff9090"; return false; }
   houseGiveFurn(id);
   const nm = f.name; house.note = `${josa(nm, "을/를")} 집에 놓았어요!`; house.noteC = "#7dffb0";
   sfx.buy();
@@ -768,7 +768,7 @@ function houseCleanGift(g) { const n = typeof g === "number" ? g : g && typeof g
 function houseMailOpen() {
   const h = houseData(), pr = game.profile;
   let letter = null;
-  if (h.mail.length) letter = h.mail.shift();
+  if (h.mail.length) { letter = h.mail.shift(); let hh = 0; for (const ch of (letter.from || "") + letter.text) hh = (hh * 31 + ch.charCodeAt(0)) >>> 0; letter.key = "L" + hh.toString(36); } // 이야기 편지: 편지마다 한 번 (지갑 서버가 판단)
   else if (h.mailDay !== houseToday()) {
     h.mailDay = houseToday();
     const L = HOUSE_LETTERS[Math.floor(Math.random() * HOUSE_LETTERS.length)];
@@ -776,7 +776,7 @@ function houseMailOpen() {
   }
   if (!letter) { showMessage("오늘 편지는 다 읽었어요. 내일 또 와요!", 2.2); return null; }
   const lines = [letter.text];
-  if (letter.gift && letter.gift.emeralds) { pr.emeralds += letter.gift.emeralds; lines.push(`선물: 에메랄드 ${letter.gift.emeralds}개!`); sfx.emerald(); } else sfx.click();
+  if (letter.gift && letter.gift.emeralds) { curEarn("emerald", letter.gift.emeralds, letter.key ? "letter" : "mail", letter.key); lines.push(`선물: 에메랄드 ${letter.gift.emeralds}개!`); sfx.emerald(); } else sfx.click();
   saveProfile();
   houseNoteOpen(letter.from ? `${letter.from}의 편지` : "편지", lines);
   return letter;
@@ -829,9 +829,9 @@ function houseSleep() {
   if (h.slept === houseToday()) { house.sleepMsg = "푹 쉬었어요! (꿈 선물은 하루에 한 번, 내일 또 와요)"; return; }
   h.slept = houseToday();
   const r = Math.random();
-  if (r < 0.5 || (pr.potions >= CONFIG.player.maxPotions && pr.arrows >= CONFIG.player.maxArrows)) { const n = 4 + Math.floor(Math.random() * 6); pr.emeralds += n; house.sleepMsg = `꿈 선물: 에메랄드 ${n}개!`; }
+  if (r < 0.5 || (pr.potions >= CONFIG.player.maxPotions && pr.arrows >= CONFIG.player.maxArrows)) { const n = 4 + Math.floor(Math.random() * 6); curEarn("emerald", n, "dream"); house.sleepMsg = `꿈 선물: 에메랄드 ${n}개!`; }
   else if (r < 0.75 && pr.potions < CONFIG.player.maxPotions) { pr.potions += 1; house.sleepMsg = "꿈 선물: 물약 1개!"; }
-  else { const n = Math.min(15, CONFIG.player.maxArrows - pr.arrows); if (n > 0) { pr.arrows += n; house.sleepMsg = `꿈 선물: 화살 ${n}개!`; } else { pr.emeralds += 5; house.sleepMsg = "꿈 선물: 에메랄드 5개!"; } }
+  else { const n = Math.min(15, CONFIG.player.maxArrows - pr.arrows); if (n > 0) { pr.arrows += n; house.sleepMsg = `꿈 선물: 화살 ${n}개!`; } else { curEarn("emerald", 5, "dream"); house.sleepMsg = "꿈 선물: 에메랄드 5개!"; } }
   saveProfile();
 }
 function houseCurtain() { const h = houseData(); h.curtain = !h.curtain; saveProfile(); noise(0.25, 0.08, 2000); showMessage(h.curtain ? "커튼을 열었어요. 햇빛!" : "커튼을 쳤어요. 쉿, 밤이에요", 1.8); }
@@ -849,18 +849,20 @@ function piggyAccrue() {
 }
 function piggyDeposit(n) {
   const h = houseData(), pr = game.profile;
+  if (typeof walletOn === "function" && walletOn()) return walletPiggy("in", n); // 지갑 서버가 저금통도 맡아요 (이자도 서버 날짜로)
   piggyAccrue();
   n = Math.max(0, Math.min(Math.floor(n), pr.emeralds, PIGGY.cap - h.piggy));
   if (!n) { house.note = h.piggy >= PIGGY.cap ? "저금통이 꽉 찼어요 (200개)" : "넣을 에메랄드가 없어요"; house.noteC = "#ff9090"; return 0; }
-  pr.emeralds -= n; h.piggy += n; saveProfile();
+  curSet("emerald", pr.emeralds - n); h.piggy += n; saveProfile(); // 지갑이 없을 때만 (예전처럼 기기 안에서)
   house.note = `${n}개 넣었어요!`; house.noteC = "#7dffb0"; sfx.coin();
   return n;
 }
 function piggyWithdraw() {
   const h = houseData(), pr = game.profile;
+  if (typeof walletOn === "function" && walletOn()) return walletPiggy("out");
   piggyAccrue();
   const n = h.piggy; if (!n) return 0;
-  pr.emeralds += n; h.piggy = 0; saveProfile();
+  curSet("emerald", pr.emeralds + n); h.piggy = 0; saveProfile(); // 지갑이 없을 때만
   house.note = `${n}개 꺼냈어요!`; house.noteC = "#7dffb0"; sfx.emerald();
   return n;
 }

@@ -217,7 +217,7 @@ function floorCleared() {
   }
   // 층 보상
   const bonus = 3 + T.floor;
-  pr.emeralds += bonus;
+  curAdd("emerald", bonus);
   game.run.emeralds += bonus;
   // 층마다 화폐 조금 (탑 층이 높을수록 좋은 화폐)
   const tl = towerLevel(T.floor);

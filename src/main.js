@@ -231,7 +231,7 @@ function endRunBase(win) {
   let mats = null;
   if (win) {
     bonus = Math.round(clearBonus(game.mapDef, game.mapLevel) * rewardFactor());
-    pr.emeralds += bonus;
+    curAdd("emerald", bonus);
     const key = `${game.mapDef.id}:${pr.difficulty}`;
     const first = !pr.firstClears[key];
     // 맵을 깨면 받는 화폐 (currency.js)
@@ -289,7 +289,7 @@ function onPickupBase(item, picker) {
   const pr = game.profile;
   const max = CONFIG.player.maxArrows;
   if (item.type === "emerald") {
-    pr.emeralds++;
+    curAdd("emerald", 1);
     if (game.run) game.run.emeralds++;
     sfx.emerald();
   } else if (item.type === "arrows") {

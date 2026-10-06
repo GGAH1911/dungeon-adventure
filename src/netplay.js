@@ -1045,7 +1045,7 @@ function netCleanReward(d) {
 function netGuestReward(d) {
   d = netCleanReward(d); if (!d) return;
   const pr = game.profile, max = CONFIG.player.maxArrows;
-  if (d.emeralds) { pr.emeralds += d.emeralds; if (game.run) game.run.emeralds = (game.run.emeralds || 0) + d.emeralds; }
+  if (d.emeralds) { curAdd("emerald", d.emeralds); if (game.run) game.run.emeralds = (game.run.emeralds || 0) + d.emeralds; }
   if (d.arrows) pr.arrows = Math.min(max, pr.arrows + d.arrows);
   if (d.potions) pr.potions = Math.min(CONFIG.player.maxPotions, pr.potions + d.potions);
   for (const [id, n] of Object.entries(d.materials || {})) { addMaterial(id, n); if (game.run && game.scene !== "lobby") { game.run.mats = game.run.mats || {}; game.run.mats[id] = (game.run.mats[id] || 0) + n; } }

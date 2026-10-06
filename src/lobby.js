@@ -178,7 +178,7 @@ function wishWell() {
   const pr = game.profile;
   if (lobby.well_timer > 0) return;
   if (pr.emeralds < 3) { sfx.denied(); showMessage("에메랄드가 3개 있어야 해요", 1.5); return; }
-  pr.emeralds -= 3;
+  if (!curSpend(3, "well")) { sfx.denied(); showMessage((typeof walletLackText === "function" && walletLackText()) || "에메랄드가 3개 있어야 해요", 1.8); return; }
   saveProfile();
   lobby.well_timer = 0.7;
   const p = game.player;
@@ -198,9 +198,9 @@ function wishResult() {
   if (r < 38) showMessage("퐁당... 아무 일도 없었어요", 1.8, false, "#bbb");
   else if (r < 63) { pr.arrows = Math.min(CONFIG.player.maxArrows, pr.arrows + 6); showMessage("화살 6개가 떠올랐어요!", 2, false, "#e8d0a0"); sfx.emerald(); }
   else if (r < 78) { pr.potions = Math.min(CONFIG.player.maxPotions, pr.potions + 1); showMessage("물약이 떠올랐어요!", 2, false, "#ff9ad8"); sfx.potion(); }
-  else if (r < 88) { pr.emeralds += 8; showMessage("에메랄드 8개! 이득!", 2, false, "#7dffb0"); sfx.buy(); }
+  else if (r < 88) { curEarn("emerald", 8, "well"); showMessage("에메랄드 8개! 이득!", 2, false, "#7dffb0"); sfx.buy(); }
   else if (r < 97) { const t = randomSpecialArrow(); pr.special[t] = Math.min(CONFIG.player.maxArrows, (pr.special[t] || 0) + 3); showMessage(`${arrowTypeById(t).name} 3개!`, 2, false, arrowTypeById(t).color); sfx.emerald(); }
-  else { pr.emeralds += 30; showMessage("대박!! 에메랄드 30개!", 2.5, true); sfx.cheat(); }
+  else { curEarn("emerald", 30, "well"); showMessage("대박!! 에메랄드 30개!", 2.5, true); sfx.cheat(); }
   saveProfile();
 }
 

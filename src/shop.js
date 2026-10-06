@@ -215,7 +215,7 @@ function sellItem(e, all) {
     if (e.kind === "arrows") { if (e.id === "normal") pr.arrows -= qty; else pr.special[e.id] -= qty; }
     else if (e.kind === "potion") pr.potions -= qty;
     else if (e.kind === "buffpot") { if (!buffPotTake(e.id, qty)) return; }
-    pr.emeralds += gain;
+    curEarn("emerald", gain, "sell");
     saveProfile();
     sfx.buy();
     shopNote(`${josa(e.name + (qty > 1 ? ` ${qty}개` : ""), "을/를")} 팔았어요! 에메랄드 +${gain}`, "#7dffb0");

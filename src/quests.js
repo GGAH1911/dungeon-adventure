@@ -372,7 +372,7 @@ function questClaim(q) {
   S.done[q.id] = true; delete S.active[q.id];
   saveProfile(); // 먼저 "다 했어요"를 남겨요 (보상을 두 번 받지 않게)
   const r = q.reward || {}, got = [];
-  if (r.emeralds > 0) { pr.emeralds += Math.floor(r.emeralds); got.push(`에메랄드 ${Math.floor(r.emeralds)}개`); }
+  if (r.emeralds > 0) { curEarn("emerald", Math.floor(r.emeralds), "quest", q.id); got.push(`에메랄드 ${Math.floor(r.emeralds)}개`); }
   if (typeof r.title === "string" && !S.titles.includes(r.title)) { S.titles.push(r.title); got.push(`칭호 "${r.title}"`); }
   if (typeof r.furn === "string") {
     // 퀘스트 저장에도 남겨요: 집이 그 가구를 아직 모르면(또는 집 파일이 없으면) 나중에 집이 읽을 때 놓아요 (house.js profileLoaded)
