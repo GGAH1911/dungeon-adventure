@@ -175,7 +175,7 @@ function playerPose(p) {
     walk: { phase: p.walkTime * 11, amp: walking ? 1 : 0 },
     bob: walking ? Math.abs(Math.sin(p.walkTime * 11)) * 0.045 : Math.sin(game.time * 2.6 + p.x * 3) * 0.012,
     lean: walking ? 0.05 : 0,
-    back: [],
+    back: typeof starsBack === "function" ? starsBack(p) : [], // 반짝별 망토 (stars.js)
   };
   const style = weaponStyle(w);
   const glow = EFFECT_GLOW[w.effect];
@@ -303,7 +303,9 @@ function drawTrail(p) {
     const inner = (q) => ({ x: q.hand.x + (q.tip.x - q.hand.x) * 0.45, y: q.hand.y + (q.tip.y - q.hand.y) * 0.45, z: q.hand.z + (q.tip.z - q.hand.z) * 0.45 });
     const pts = [toScreen(a.tip.x, a.tip.y, a.tip.z), toScreen(b.tip.x, b.tip.y, b.tip.z), (() => { const q = inner(b); return toScreen(q.x, q.y, q.z); })(), (() => { const q = inner(a); return toScreen(q.x, q.y, q.z); })()];
     let color;
-    if (w.legendary) color = rainbow(game.time * 300 + i * 25, 60, 0.55 * k);
+    const glow = typeof starsGlowColor === "function" ? starsGlowColor(p, 0.55 * k, i) : null; // 반짝별 무기 빛깔 (그림만)
+    if (glow) color = glow;
+    else if (w.legendary) color = rainbow(game.time * 300 + i * 25, 60, 0.55 * k);
     else if (w.effect === "burn") color = `rgba(255,140,50,${0.5 * k})`;
     else if (w.effect === "slow") color = `rgba(150,225,255,${0.5 * k})`;
     else if (w.effect === "chain") color = `rgba(255,235,90,${0.5 * k})`;

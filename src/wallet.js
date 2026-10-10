@@ -51,6 +51,7 @@ async function walletCall(path, body, opts = {}) {
   if (!f) throw new Error("offline");
   const headers = { "content-type": "application/json" };
   if (!opts.noKey && wallet.st && wallet.st.code) headers["x-wallet-key"] = wallet.st.code;
+  if (opts.headers) Object.assign(headers, opts.headers); // 반짝별 시험 결제 열쇠 (stars.js)
   let r;
   try {
     const ctl = typeof AbortController === "function" ? new AbortController() : null;

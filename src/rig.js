@@ -152,6 +152,11 @@ function buildRigItems(e, look, pose, opts = {}) {
   for (const b of pose.back || []) {
     if (b.kind === "weapon") addWeaponItems(items, upper(b.at), { ...b.weapon, dir: rotZ(b.dir, twist) });
     if (b.kind === "bow") addBowItems(items, upper(b.at), null, { ...b.bow, aim: rotZ(b.aim, twist), back: true });
+    if (b.kind === "cape") { // 반짝별 망토: 등 뒤 얇은 판 + 금색 테 (stars.js)
+      const sway = Math.sin((pose.walk ? pose.walk.phase : 0)) * 0.02 * (pose.walk ? pose.walk.amp : 0);
+      box(upper(V(-RIG.torsoW / 2 - 0.035 - sway, 0, RIG.hipZ + RIG.torsoH * 0.18)), 0.04, RIG.torsoW * 1.05, RIG.torsoH * 1.6, b.color, { tag: "cape" });
+      box(upper(V(-RIG.torsoW / 2 - 0.04, 0, RIG.hipZ + RIG.torsoH * 0.98)), 0.05, RIG.torsoW * 1.02, 0.05, b.trim || b.color, { tag: "cape" });
+    }
   }
   return { items, arms, headC };
 }

@@ -128,6 +128,7 @@ function updateShotsBase(dt) {
     else if (s.type === "fire" && Math.random() < 0.6) addSparkle(s.x, s.y, 0.6, { life: 0.3, size: 0.5, gold: true });
     else if (s.type === "ice" && Math.random() < 0.5) addSparkle(s.x, s.y, 0.6, { life: 0.3, size: 0.5, hue: 195 });
     else if (s.type === "poison" && Math.random() < 0.5) addSparkle(s.x, s.y, 0.6, { life: 0.35, size: 0.5, hue: 100 });
+    else if (typeof starsArrowGlow === "function") starsArrowGlow(s); // 반짝별 무기 빛깔 (그림만)
   }
   shots = shots.filter((s) => s.life > 0);
 }

@@ -193,6 +193,8 @@ const HOUSE_FURN = {
   q_lantern:    { name: "도깨비 등불", price: 0, gift: true, quest: 4, ...hAt("kitchen", 10.2, 1.2), r: 0.25, desc: "반짝이 선물", use: "색 바꾸기", short: "색깔" },
   q_starjar:    { name: "별빛 병", price: 0, gift: true, quest: 5, ...hAt("play", 10.2, 7.4), r: 0.3, desc: "블랙홀에서 지켜 낸 색깔들", use: "흔들기", short: "흔들기" },
   q_sandglass:  { name: "색모래 모래시계", price: 0, gift: true, quest: 6, ...hAt("living", 6.0, 9.2), r: 0.3, desc: "사르르와 무지냥의 선물", use: "뒤집기", short: "뒤집기" },
+  // 반짝별 가게 "처음 모험 꾸러미" (stars.js): 서버가 가졌다고 하면 저절로 놓여요
+  flag_adventurer: { name: "모험가 깃발", price: 0, gift: true, ...hAt("living", 2.2, 9.2), r: 0.25, desc: "처음 모험 꾸러미", use: "흔들기", short: "흔들기" },
 };
 // 등불 색 (E 로 차례로 바꿔요)
 const HOUSE_LANTERN_C = [{ c: "#ffb050", name: "주황" }, { c: "#7fe0ff", name: "하늘" }, { c: "#ff7ac8", name: "분홍" }, { c: "#a8ff7a", name: "연두" }];
@@ -357,6 +359,13 @@ const HOUSE_DRAW = {
     hb(f.x - 0.15, f.y - 0.15, 0, 0.3, 0.3, 0.05, "#5a4632");
     hb(f.x - 0.03, f.y - 0.03, 0.05, 0.06, 0.06, 1.0, "#5a4632");
     hb(f.x - 0.2, f.y - 0.2, 1.0, 0.4, 0.4, 0.3, houseData().lamp ? "#ffe6a0" : "#c8b890");
+  },
+  flag_adventurer(f) { // 나무 깃대 + 빨간 깃발(금색 별), 흔들면 펄럭
+    hb(f.x - 0.05, f.y - 0.05, 0, 0.1, 0.1, 1.15, "#8a5a2a");
+    hb(f.x - 0.09, f.y - 0.09, 1.12, 0.18, 0.18, 0.08, "#ffd84a");
+    const wv = (house.flagT > 0 ? 0.08 : 0.025) * Math.sin(game.time * (house.flagT > 0 ? 14 : 3));
+    hb(f.x + 0.05, f.y - 0.02 + wv, 0.72, 0.42, 0.04, 0.32, "#c0392b");
+    const s = toScreen(f.x + 0.26, f.y + wv, 0.88); drawStar(s.x, s.y, 5 * ZOOM, "#ffd84a");
   },
   starlamp(f) {
     hb(f.x - 0.18, f.y - 0.18, 0, 0.36, 0.36, 0.2, "#4a4a7a");
@@ -587,7 +596,7 @@ const HOUSE_FIX_ROOM = { stash: "living", codex: "living", catalog: "living", fi
   bed: "bed", alarm: "bed", window: "bed", mirror: "bed", diary: "bed", piggy: "bed", fridge: "kitchen", stove: "kitchen", sink: "kitchen", table: "kitchen", bowl: "kitchen",
   darts: "play", blocks: "play", toybox: "play" };
 const HOUSE_FURN_ROOM = { rug: "living", plant: "living", painting: "living", lamp: "bed", starlamp: "bed", teddy: "play", fishtank: "play", piano: "play",
-  q_owlclock: "living", q_lighthouse: "bed", q_telescope: "bed", q_lantern: "kitchen", q_starjar: "play", q_sandglass: "living" };
+  q_owlclock: "living", q_lighthouse: "bed", q_telescope: "bed", q_lantern: "kitchen", q_starjar: "play", q_sandglass: "living", flag_adventurer: "living" };
 hookOn("lobbyThings", (things) => {
   houseAddSolids();
   const O = HOUSE_OUT;
@@ -701,6 +710,7 @@ function houseUsePrompt(id) {
   if (id === "q_telescope") return "망원경으로 별 보기";
   if (id === "q_starjar") return "별빛 병 흔들기";
   if (id === "q_sandglass") return "색모래 모래시계 뒤집기";
+  if (id === "flag_adventurer") return "모험가 깃발 흔들기";
   return `${f.name} ${f.use}`;
 }
 const HOUSE_TUNES = [[523, 587, 659, 523], [659, 698, 784, 659], [392, 523, 659, 784], [784, 659, 523, 392], [523, 523, 784, 784, 880, 880, 784]];
@@ -736,6 +746,7 @@ function houseUse(id) {
     return;
   }
   if (id === "q_telescope") { house.scopeT = 4; house.scopeSeed = Math.floor(Math.random() * HOUSE_STARS.length); game.overlay = "hscope"; tone(880, 0.3, "sine", 0.04, 1320); return; }
+  if (id === "flag_adventurer") { house.flagT = 1.5; [523, 659, 784].forEach((fr, i) => tone(fr, 0.12, "square", 0.04, null, i * 0.08)); showMessage("펄럭펄럭! 오늘도 모험 출발!", 2); return; }
   if (id === "q_sandglass") {
     house.sandT = 3;
     [784, 659, 523].forEach((fr, i) => tone(fr, 0.15, "triangle", 0.04, null, i * 0.1));
@@ -834,8 +845,10 @@ function houseStamp() {
   tone(880, 0.08, "square", 0.05); tone(1175, 0.1, "square", 0.05, null, 0.09);
   if (h.stamps >= HOUSE_CAL_DAYS && !h.calGift) {
     h.calGift = true; houseGiveFurn("starlamp");
+    if (typeof starsFree === "function") starsFree("stamp"); // 반짝별 5개 (서버가 주마다 한 번)
     showMessage("도장 7개! 선물로 별빛 램프가 침실에 생겼어요!", 3.5, true);
   } else showMessage(`쾅! 출석 도장 (${houseStampText()})`, 2);
+  if (h.stamps > HOUSE_CAL_DAYS && h.stamps % HOUSE_CAL_DAYS === 0 && typeof starsFree === "function") starsFree("stamp"); // 그 뒤로도 7개마다 반짝별 5개
   saveProfile();
   return true;
 }
@@ -1039,6 +1052,7 @@ hookOn("netTick", (dt) => {
   if (house.owlT > 0) house.owlT -= dt;
   if (house.jarT > 0) house.jarT -= dt;
   if (house.sandT > 0) house.sandT -= dt;
+  if (house.flagT > 0) house.flagT -= dt;
   if (house.bowlT > 0) house.bowlT -= dt;
   if (house.blocks.fall > 0) house.blocks.fall = Math.max(0, house.blocks.fall - dt * 0.7); // 흩어진 블록을 조금 더 오래 보여줘요
   if (house.darts && game.overlay !== "darts") house.darts = null;
